@@ -139,3 +139,14 @@ button[aria-pressed=true] { outline: 2px solid #315b48; outline-offset: 2px; }
 .draft-preview summary { cursor: pointer; padding: .5rem 0; }
 .check-flags ul { max-height: 18rem; overflow-y: auto; }
 .source-page-image { display: block; width: 100%; height: auto; margin: 1rem 0; }
+.chapter-review { margin: 2rem 0; min-width: 0; }
+.review-actions, .review-editor, .chapter-confirm, .confirm-panel { margin: 1.5rem 0; padding: clamp(.8rem, 3vw, 1.5rem); background: #f2f5ef; border: 1px solid #d8ded9; border-radius: .6rem; min-width: 0; }
+.chapter-review label { display: block; margin: .8rem 0; }
+.chapter-review textarea, .chapter-review input:not([type=checkbox]) { display: block; width: 100%; min-width: 0; min-height: 44px; padding: .6rem; font: inherit; border: 1px solid #b7c3b7; border-radius: .3rem; background: #fff; }
+.chapter-review textarea { resize: vertical; }
+.chapter-review fieldset { min-width: 0; border: 1px solid #d8ded9; margin: 1rem 0; padding: .7rem; }
+.chapter-review legend { overflow-wrap: anywhere; max-width: 100%; }
+.chapter-review input[type=checkbox] { width: 20px; height: 20px; vertical-align: middle; margin: .6rem; accent-color: #315b48; }
+.source-coordinates { display: grid; grid-template-columns: repeat(auto-fit, minmax(65px, 1fr)); gap: .5rem; }
+.card-identity { overflow-wrap: anywhere; font-size: .85rem; }
+.chapter-review details { margin-block: 1rem; }

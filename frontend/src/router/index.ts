@@ -8,6 +8,7 @@ export const router = createRouter({
     { path: '/login', name: 'login', component: () => import('../views/LoginView.vue') },
     { path: '/sources', name: 'sources', meta: { requiresAuth: true }, component: () => import('../views/SourcesView.vue') },
     { path: '/imports/:id', name: 'import', meta: { requiresAuth: true }, component: () => import('../views/ImportView.vue') },
+    { path: '/chapters/:id/cards', name: 'chapter-cards', meta: { requiresAuth: true }, component: () => import('../views/ChapterCardsView.vue') },
     { path: '/:pathMatch(.*)*', name: 'not-found', component: () => import('../views/NotFoundView.vue') },
   ],
   scrollBehavior: () => ({ top: 0 }),

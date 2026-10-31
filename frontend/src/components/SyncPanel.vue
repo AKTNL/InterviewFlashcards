@@ -11,9 +11,9 @@ function remoteName(item: Mutation) {
   return details?.current?.originalFilename
 }
 function download(item: Mutation) {
-  if (!item.file) return
-  const url = URL.createObjectURL(item.file)
-  const link = document.createElement('a'); link.href = url; link.download = item.name; link.click()
+  const file = item.file ?? new Blob([JSON.stringify({ local: item.payload, server: item.error?.details }, null, 2)], { type: 'application/json' })
+  const url = URL.createObjectURL(file)
+  const link = document.createElement('a'); link.href = url; link.download = item.file ? item.name : 'chapter-review-copy.json'; link.click()
   setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 async function action(item: Mutation, choice: 'resubmit' | 'discard' | 'security') {
@@ -35,17 +35,19 @@ async function action(item: Mutation, choice: 'resubmit' | 'discard' | 'security
     <p v-if="actionError" role="alert" class="form-error">{{ actionError }}</p>
     <ul class="sync-items">
       <li v-for="item in recent" :key="item.operationId">
-        <div class="sync-item-heading"><strong>{{ item.kind === 'source.upload' ? '上传' : item.kind === 'import.retry' ? '重试解析' : '修改名称' }}：{{ item.name }}</strong>
+        <div class="sync-item-heading"><strong>{{ item.kind === 'chapter.review' ? '章节检查' : item.kind === 'source.upload' ? '上传' : item.kind === 'import.retry' ? '重试解析' : '修改名称' }}：{{ item.name }}</strong>
           <span role="status" :class="['sync-label', item.status]">{{ labels[item.status] }}</span>
         </div>
         <p v-if="item.error">{{ item.error.message }}</p>
         <p v-if="item.error?.requestId" class="request-id">请求编号 {{ item.error.requestId }}</p>
         <p v-if="remoteName(item)">服务端名称：{{ remoteName(item) }}</p>
         <p v-if="item.result?.duplicate">相同 PDF 已存在，已关联原有资料。</p>
+        <details v-if="item.kind === 'chapter.review' && item.error"><summary>核对本地操作与服务端内容</summary><pre class="source-text">{{ JSON.stringify({ local: item.payload, server: item.error.details }, null, 2) }}</pre><button class="secondary-button" @click="download(item)">下载核对副本</button></details>
         <p v-if="item.status === 'pending'">内容已保留在此浏览器，收到服务端确认后才会显示已同步。</p>
         <div v-if="item.status === 'needs-attention' || item.status === 'failed'" class="sync-actions">
           <button v-if="item.file" class="secondary-button" @click="download(item)">保存本地 PDF 副本</button>
           <button v-if="item.kind === 'source.rename' && item.error?.code === 'VERSION_CONFLICT' && item.dataEpoch === sync.state?.dataEpoch" class="secondary-button" :disabled="sync.busy" @click="action(item, 'resubmit')">使用本地名称重新保存</button>
+          <button v-if="item.kind === 'chapter.review' && item.action === 'EDIT' && item.error?.code === 'VERSION_CONFLICT' && item.dataEpoch === sync.state?.dataEpoch" class="secondary-button" :disabled="sync.busy" @click="action(item, 'resubmit')">核对后使用本地编辑重新保存</button>
           <button v-if="item.error?.code === 'CSRF_INVALID' && item.dataEpoch === sync.state?.dataEpoch" class="secondary-button" :disabled="sync.busy" @click="action(item, 'security')">刷新安全凭证并重试</button>
           <button class="secondary-button" :disabled="sync.busy" @click="action(item, 'discard')">放弃此待同步操作</button>
         </div>

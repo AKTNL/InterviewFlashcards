@@ -1,23 +1,22 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { importsApi, stageNames, statusNames, type ImportJob, type Chapter, type DraftPage } from '../api/imports'
+import { importsApi, stageNames, statusNames, type ImportJob, type Chapter } from '../api/imports'
 import { useSyncStore } from '../stores/sync'
-import DraftPreview from '../components/DraftPreview.vue'
+import ChapterReview from '../components/ChapterReview.vue'
 const route = useRoute()
 const sync = useSyncStore()
 const job = ref<ImportJob>()
 const chapters = ref<Chapter[]>([])
 const chapterId = ref('')
-const page = ref<DraftPage>()
-const draftId = ref('')
+const dirty = ref(false)
+const resume = computed(() => [...chapters.value].filter(c => c.checkStatus !== 'PENDING' && !c.abandoned).sort((a, b) => (b.checkedAt ?? '').localeCompare(a.checkedAt ?? ''))[0])
 const error = ref('')
 const notice = ref('')
 const busy = ref(false)
 let timer: ReturnType<typeof setTimeout> | undefined
 let stopped = false
 let generation = 0
-let selection = 0
 async function load() {
   if (busy.value || stopped) return
   const current = generation
@@ -26,7 +25,7 @@ async function load() {
     const result = await importsApi.job(String(route.params.id))
     if (stopped || current !== generation) return
     job.value = result; error.value = ''
-    if (result.status === 'READY' && !chapters.value.length) {
+    if (result.status === 'READY') {
       const rows = await importsApi.chapters(result.id)
       if (!stopped && current === generation) chapters.value = rows
     }
@@ -36,11 +35,9 @@ async function load() {
     if (!stopped && (current !== generation || error.value || (job.value && ['QUEUED', 'PARSING'].includes(job.value.status)))) timer = setTimeout(() => { void load() }, 2500)
   }
 }
-async function chooseChapter(id: string, offset = 0) {
-  const current = ++selection
-  chapterId.value = id; draftId.value = ''; page.value = undefined; error.value = ''
-  try { const value = await importsApi.drafts(id, offset); if (!stopped && current === selection) page.value = value }
-  catch (cause) { if (!stopped && current === selection) error.value = cause instanceof Error ? cause.message : '草稿读取失败' }
+function chooseChapter(id: string) {
+  if (dirty.value) { notice.value = '请先保存或取消当前章节的修改，再切换章节。'; return }
+  chapterId.value = id; error.value = ''; notice.value = ''
 }
 async function retry() {
   if (!job.value) return
@@ -51,9 +48,9 @@ async function retry() {
   } catch (cause) { error.value = cause instanceof Error ? cause.message : '重试请求保留失败' }
 }
 watch(() => sync.state?.revision, () => { void load() })
-watch(() => route.params.id, () => { generation++; selection++; job.value = undefined; chapters.value = []; page.value = undefined; chapterId.value = ''; draftId.value = ''; void load() })
+watch(() => route.params.id, () => { generation++; job.value = undefined; chapters.value = []; chapterId.value = ''; void load() })
 onMounted(() => { void load(); window.addEventListener('focus', load) })
-onUnmounted(() => { stopped = true; generation++; selection++; clearTimeout(timer); window.removeEventListener('focus', load) })
+onUnmounted(() => { stopped = true; generation++; clearTimeout(timer); window.removeEventListener('focus', load) })
 </script>
 <template>
   <RouterLink to="/sources">← 我的资料 / 重新选择 PDF</RouterLink>
@@ -81,17 +78,15 @@ onUnmounted(() => { stopped = true; generation++; selection++; clearTimeout(time
       </table></div>
     </section>
     <section class="chapter-list" aria-label="章节草稿">
-      <h2>选择章节查看草稿</h2>
+      <h2>选择章节逐章检查</h2>
+      <p>已导入 {{ chapters.filter(c => c.checkStatus === 'IMPORTED').length }} 章 · 其余 {{ chapters.filter(c => c.checkStatus !== 'IMPORTED' && !c.abandoned).length }} 章仍为草稿。</p>
+      <button v-if="resume" class="primary-button" :disabled="dirty" @click="chooseChapter(resume.id)">继续上次检查：{{ resume.name }}</button>
       <div class="chapter-buttons"><button v-for="chapter in chapters" :key="chapter.id" class="secondary-button" :aria-pressed="chapterId === chapter.id" @click="chooseChapter(chapter.id)">
         {{ chapter.module }} / {{ chapter.name }} · {{ chapter.candidateCount }} 题 · {{ chapter.flaggedCount }} 待检查
+        <span> · {{ chapter.abandoned ? '已放弃剩余草稿' : ({ PENDING: '待检查', IN_PROGRESS: '检查中', IMPORTED: '已导入' }[chapter.checkStatus] ?? chapter.checkStatus) }}</span>
         <small v-if="chapter.originalName !== chapter.name">（原名 {{ chapter.originalName }}）</small>
       </button></div>
     </section>
-    <section v-if="page" class="draft-list" aria-label="候选问题">
-      <h2>候选问题（{{ page.total }}）</h2>
-      <ol :start="page.offset + 1"><li v-for="draft in page.items" :key="draft.id"><button class="draft-link" :aria-pressed="draftId === draft.id" @click="draftId = draft.id">{{ draft.question }}</button><small> · {{ draft.flags.length }} 处待检查</small></li></ol>
-      <div class="sync-actions"><button class="secondary-button" :disabled="page.offset === 0" @click="chooseChapter(chapterId, page.offset - 20)">上一页</button><button class="secondary-button" :disabled="page.offset + page.limit >= page.total" @click="chooseChapter(chapterId, page.offset + 20)">下一页</button></div>
-    </section>
-    <DraftPreview v-if="draftId" :id="draftId" />
+    <ChapterReview v-if="chapterId" :key="chapterId" :id="chapterId" @dirty="dirty = $event" @changed="load" />
   </template>
 </template>

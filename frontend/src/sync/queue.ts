@@ -9,6 +9,10 @@ export const syncApi = {
   },
   source: async (id: string) => (await request<Source>(`/api/sources/${id}`)).data,
   send: async (item: Mutation): Promise<WriteResult> => {
+    if (item.kind === 'chapter.review') return (await request<WriteResult>(`/api/chapters/${item.chapterId}/review`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ operationId: item.operationId,
+        dataEpoch: item.dataEpoch, expectedVersion: item.expectedVersion, action: item.action, payload: item.payload }),
+    })).data
     if (item.kind === 'import.retry') return (await request<WriteResult>(`/api/import-jobs/${item.jobId}/retry`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ operationId: item.operationId,
         dataEpoch: item.dataEpoch, expectedVersion: item.expectedVersion }),
@@ -32,9 +36,12 @@ export class MutationQueue {
   async entries(userId: string) {
     return (await this.storage.all()).filter(item => item.userId === userId).sort((a, b) => a.createdAt - b.createdAt)
   }
-  async enqueue(userId: string, dataEpoch: string, change: Pick<Mutation, 'kind' | 'name' | 'sourceId' | 'jobId' | 'expectedVersion' | 'file'>) {
+  async enqueue(userId: string, dataEpoch: string, change: Pick<Mutation, 'kind' | 'name' | 'sourceId' | 'jobId' | 'chapterId' | 'action' | 'payload' | 'expectedVersion' | 'file'>) {
     const item: Mutation = { ...change, operationId: crypto.randomUUID(), userId, dataEpoch, createdAt: this.now(),
       status: 'pending', attempts: 0, nextAttemptAt: 0 }
+    // Vue forms contain nested reactive proxies, which IndexedDB cannot structured-clone.
+    // The chapter payload is JSON; detach it here while keeping upload Blobs intact.
+    if (change.payload) item.payload = JSON.parse(JSON.stringify(change.payload)) as Record<string, unknown>
     await this.storage.put(item)
     return item
   }
@@ -71,7 +78,8 @@ export class MutationQueue {
             result = await this.api.send(item)
           }
           if (result.mutation?.operationId !== item.operationId || result.mutation.dataEpoch !== item.dataEpoch
-              || result.mutation.entityVersion !== (item.kind === 'import.retry' ? result.job?.version : result.source?.version)
+              || result.mutation.entityVersion !== (item.kind === 'chapter.review' ? result.chapter?.version : item.kind === 'import.retry' ? result.job?.version : result.source?.version)
+              || (item.kind === 'chapter.review' && result.chapter?.id !== item.chapterId)
               || (item.kind === 'import.retry' && result.job?.id !== item.jobId) || !Number.isSafeInteger(result.mutation.revision))
             throw new ApiError('INVALID_RESPONSE', '未收到有效确认，将保留操作供重试。', 0)
           item.status = 'synced'; item.result = result; item.file = undefined; item.error = undefined

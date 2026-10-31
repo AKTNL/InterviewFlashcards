@@ -6,9 +6,9 @@ import { useSyncStore } from '../stores/sync'
 import ImportView from './ImportView.vue'
 import DraftPreview from '../components/DraftPreview.vue'
 
-vi.mock('vue-router', () => ({ useRoute: () => ({ params: { id: 'job' } }) }))
+vi.mock('vue-router', () => ({ useRoute: () => ({ params: { id: 'job' } }), onBeforeRouteLeave: vi.fn() }))
 vi.mock('../api/imports', async importOriginal => ({ ...await importOriginal<typeof import('../api/imports')>(),
-  importsApi: { job: vi.fn(), chapters: vi.fn(), drafts: vi.fn(), draft: vi.fn() } }))
+  importsApi: { job: vi.fn(), chapters: vi.fn(), drafts: vi.fn(), draft: vi.fn(), review: vi.fn() } }))
 const job: ImportJob = { id: 'job', sourceId: 'source', status: 'READY', stage: 'COMPLETE', progress: 100,
   errorCode: null, errorMessage: null, version: 7, parserVersion: 'v1',
   report: { pageCount: 222, tocCount: 158, candidateCount: 158, expectedCount: 158, recognitionDifference: 0, baselineDifference: 0,
@@ -19,6 +19,8 @@ beforeEach(() => {
   vi.mocked(importsApi.job).mockResolvedValue(job)
   vi.mocked(importsApi.chapters).mockResolvedValue([{ id: 'chapter', name: 'Redis', originalName: 'Reids篇', module: 'Java 后端基础', checkStatus: 'PENDING', candidateCount: 17, flaggedCount: 17 }])
   vi.mocked(importsApi.drafts).mockResolvedValue({ offset: 0, limit: 20, total: 1, items: [{ id: 'draft', question: '完整问题', sourceEntry: 'q001', flags: [], excluded: false, version: 0 }] })
+  vi.mocked(importsApi.review).mockResolvedValue({ id: 'chapter', name: 'Redis', version: 0, checkStatus: 'PENDING', abandoned: false, currentDraftId: null,
+    items: [{ id: 'draft', question: '完整问题', sourceEntry: 'q001', flags: [], excluded: false, version: 0 }], cards: [], activeCount: 1, flaggedCount: 0, userCountDelta: 0, history: [] })
 })
 afterEach(() => { wrappers.splice(0).forEach(w => w.unmount()) })
 function view() { const wrapper = mount(ImportView, { global: { plugins: [createPinia()], stubs: { RouterLink: true } } }); wrappers.push(wrapper); return wrapper }
@@ -28,7 +30,7 @@ it('shows chapter counts and original name, and loads selected candidates on dem
   expect(wrapper.text()).toContain('Reids篇'); expect(wrapper.text()).toContain('Redis')
   expect(importsApi.drafts).not.toHaveBeenCalled()
   await wrapper.get('.chapter-buttons button').trigger('click'); await flushPromises()
-  expect(importsApi.drafts).toHaveBeenCalledWith('chapter', 0)
+  expect(importsApi.review).toHaveBeenCalledWith('chapter')
   expect(wrapper.text()).toContain('完整问题')
   expect(wrapper.find('.draft-list').text()).toContain('候选问题')
 })

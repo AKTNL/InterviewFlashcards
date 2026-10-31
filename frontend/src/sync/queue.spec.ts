@@ -1,4 +1,5 @@
 import { beforeEach, expect, it, vi } from 'vitest'
+import { reactive } from 'vue'
 import { ApiError } from '../api/client'
 import { MutationQueue, syncApi } from './queue'
 import type { Mutation, QueueStorage, Snapshot, Source, WriteResult } from './types'
@@ -125,4 +126,30 @@ it('stops before sending if the signed-in user changed during preflight', async 
   await enqueue()
   await queue.run('user', () => false, changed, show)
   expect(api.receipt).not.toHaveBeenCalled(); expect(api.send).not.toHaveBeenCalled()
+})
+it('retains complete chapter edits through response loss and accepts only the matching chapter receipt', async () => {
+  const payload = { draftId: 'draft', reason: '核对原文', value: { question: '本地修正', sources: [{ page: 10, bbox: [0, 0, 600, 800] }] } }
+  const item = await queue.enqueue('user', 'epoch', { kind: 'chapter.review', name: 'Java 编辑', chapterId: 'chapter', action: 'EDIT', expectedVersion: 3, payload })
+  const result = { chapter: { id: 'chapter', version: 4 }, mutation: { operationId: item.operationId, dataEpoch: 'epoch', entityVersion: 4, revision: 8, serverTime: '2026-10-31T00:00:00Z' } }
+  vi.mocked(api.send).mockRejectedValueOnce(new ApiError('REQUEST_TIMEOUT', '超时', 0))
+  await queue.run('user', active, changed, show)
+  expect(rows.get(item.operationId)?.payload).toEqual(payload); expect(rows.get(item.operationId)?.status).toBe('pending')
+  vi.mocked(api.receipt).mockResolvedValue(result)
+  await new MutationQueue(storage, api, () => 5000).run('user', active, changed, show)
+  expect(api.send).toHaveBeenCalledTimes(1); expect(rows.get(item.operationId)?.status).toBe('synced')
+})
+it('preserves chapter conflict payloads and current server content without automatic replay', async () => {
+  const payload = { draftId: 'draft', value: { question: '本地' } }
+  const item = await queue.enqueue('user', 'epoch', { kind: 'chapter.review', name: '章节', chapterId: 'chapter', action: 'EDIT', expectedVersion: 3, payload })
+  vi.mocked(api.send).mockRejectedValue(new ApiError('VERSION_CONFLICT', '版本冲突', 409, undefined, [], { current: { version: 4, items: [{ question: '服务端' }] } }))
+  await queue.run('user', active, changed, show)
+  expect(rows.get(item.operationId)?.status).toBe('needs-attention'); expect(rows.get(item.operationId)?.payload).toEqual(payload)
+  expect(rows.get(item.operationId)?.error?.details).toEqual({ current: { version: 4, items: [{ question: '服务端' }] } })
+  await queue.run('user', active, changed, show, true); expect(api.send).toHaveBeenCalledTimes(1)
+})
+it('detaches nested Vue form proxies before durable storage and preserves the submitted content', async () => {
+  const form = reactive({ question: '已提交的修正', sources: [{ page: 10, bbox: [0, 65.348709, 612, 792] }] })
+  const item = await queue.enqueue('user', 'epoch', { kind: 'chapter.review', name: '编辑', chapterId: 'chapter', action: 'EDIT', payload: { value: form } })
+  form.question = '提交后继续输入'; form.sources[0]!.bbox[0] = 20
+  expect(rows.get(item.operationId)?.payload).toEqual({ value: { question: '已提交的修正', sources: [{ page: 10, bbox: [0, 65.348709, 612, 792] }] } })
 })

@@ -58,9 +58,11 @@ public class ImportService {
     public List<Map<String,Object>> chapters(UUID user,UUID id) {
         row(user,id);
         return jdbc.queryForList("""
-            select c.id,c.name,c.original_name as "originalName",c.check_status as "checkStatus",c.version,
+            select c.id,c.name,c.original_name as "originalName",c.check_status as "checkStatus",c.version,c.abandoned,
+            (select p.updated_at from chapter_check_progress p where p.user_id=c.user_id and p.chapter_id=c.id) as "checkedAt",
             m.name as "module",c.sort_order as "sortOrder", count(d.id) as "candidateCount",
-            count(d.id) filter(where d.check_flags <> '[]'::jsonb) as "flaggedCount"
+            count(d.id) filter(where not d.excluded and d.check_flags <> '[]'::jsonb) as "flaggedCount",
+            count(d.id) filter(where not d.excluded) as "activeCount"
             from chapter c join module m on m.user_id=c.user_id and m.id=c.module_id
             join import_job j on j.user_id=m.user_id and j.deck_id=m.deck_id
             left join draft_card d on d.user_id=c.user_id and d.chapter_id=c.id and d.import_job_id=j.id
@@ -83,7 +85,7 @@ public class ImportService {
         var followups=jdbc.queryForList("select content from follow_up where user_id=? and draft_id=? order by sort_order",user,id).stream().map(f -> json(f.get("content"))).toList();
         return obj("id",id,"chapterId",r.get("chapter_id"),"sourceId",r.get("source_id"),"question",r.get("question"),"sourceEntry",r.get("source_entry"),
             "contentBlocks",json(r.get("content_blocks")),"originalContent",json(r.get("original_content")),"metadata",json(r.get("source_metadata")),
-            "flags",json(r.get("check_flags")),"sources",spans,"followups",followups,"version",r.get("version"),"excluded",r.get("excluded"));
+            "flags",json(r.get("check_flags")),"sources",spans,"followups",followups,"version",r.get("version"),"excluded",r.get("excluded"),"parentDraftId",r.get("parent_draft_id"));
     }
     private JsonNode json(Object value) {
         try { return mapper.readTree(value.toString()); } catch (IOException e) { throw new IllegalStateException("Invalid stored import JSON",e); }

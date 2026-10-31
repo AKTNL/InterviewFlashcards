@@ -1,7 +1,7 @@
 import { ref, shallowRef } from 'vue'
 import { defineStore } from 'pinia'
 import type { Profile } from '../api/auth'
-import { ApiError } from '../api/client'
+import { ApiError, request } from '../api/client'
 import { queueStorage } from '../sync/database'
 import { MutationQueue, syncApi } from '../sync/queue'
 import type { Mutation, Snapshot } from '../sync/types'
@@ -48,7 +48,7 @@ export const useSyncStore = defineStore('sync', () => {
       } else if (user) { void refresh() }
     }
   }
-  async function enqueue(change: Pick<Mutation, 'kind' | 'name' | 'sourceId' | 'jobId' | 'expectedVersion' | 'file'>) {
+  async function enqueue(change: Pick<Mutation, 'kind' | 'name' | 'sourceId' | 'jobId' | 'chapterId' | 'action' | 'payload' | 'expectedVersion' | 'file'>) {
     if (!user) throw new Error('请先登录')
     if (!state.value) throw new Error('请先连接服务，取得当前数据后再保存。')
     try {
@@ -63,8 +63,15 @@ export const useSyncStore = defineStore('sync', () => {
     await reload(); await refresh(true)
   }
   async function resubmit(item: Mutation) {
-    if (!user || item.userId !== user.id || item.dataEpoch !== state.value?.dataEpoch || item.kind !== 'source.rename') return
+    if (!user || item.userId !== user.id || item.dataEpoch !== state.value?.dataEpoch) return
     const current = generation
+    if (item.kind === 'chapter.review' && item.action === 'EDIT') {
+      const value = (await request<{ version: number }>(`/api/chapters/${item.chapterId}/review`)).data
+      if (current !== generation || item.userId !== user?.id || item.dataEpoch !== state.value?.dataEpoch) return
+      await enqueue({ kind: item.kind, name: item.name, chapterId: item.chapterId, action: item.action, payload: item.payload, expectedVersion: value.version })
+      await discard(item); return
+    }
+    if (item.kind !== 'source.rename') return
     const source = await syncApi.source(item.sourceId!)
     if (current !== generation || item.userId !== user?.id || item.dataEpoch !== state.value?.dataEpoch) return
     await enqueue({ kind: item.kind, name: item.name, sourceId: source.id, expectedVersion: source.version })
