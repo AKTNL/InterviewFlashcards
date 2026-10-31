@@ -1,0 +1,3518 @@
+{
+  "parserVersion": "pdfbox-3.0.5/probe-v1",
+  "sha256": "f19b0c9343479eef39298c24f8fee07dc6f2578e8615ffb69e8de45e28171055",
+  "pageCount": 222,
+  "questionCount": 158,
+  "chapters": {
+    "Java 基础": 17,
+    "JVM": 6,
+    "JUC / 并发编程": 20,
+    "MySQL": 17,
+    "Redis": 17,
+    "Spring": 5,
+    "MyBatis": 3,
+    "消息队列": 8,
+    "计算机网络": 15,
+    "操作系统": 8,
+    "Agent": 18,
+    "RAG": 16,
+    "LLM": 8
+  },
+  "modules": {
+    "Java 后端基础": 116,
+    "AI 扩展": 42
+  },
+  "tocLinkCounts": [
+    25,
+    31,
+    29,
+    29,
+    30,
+    14
+  ],
+  "destinationTypes": {
+    "PDPageXYZDestination": 158
+  },
+  "samePageStarts": {},
+  "blankPages": [
+    123,
+    125,
+    145,
+    161,
+    177,
+    193,
+    219
+  ],
+  "imagePages": [
+    44
+  ],
+  "flagCounts": {
+    "LAYOUT_REQUIRES_SOURCE": 158,
+    "SPECIAL_CHARACTER": 505,
+    "GLYPH_MAPPING": 5,
+    "TOC_GLYPH_MAPPING": 4,
+    "IMAGE_REQUIRES_SOURCE": 1,
+    "EMPTY_PAGE": 7
+  },
+  "cards": [
+    {
+      "id": "q001",
+      "title": "说一下什么是面向对象？",
+      "chapter": "Java 基础",
+      "start": {
+        "page": 7,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 8,
+        "y": 65.25
+      },
+      "sourcePages": [
+        7
+      ],
+      "contentSha256": "f687a017fa9b29350f86de9b537aebb7a08440ec8a0a8d6022b436771a2bda02",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q002",
+      "title": "说一下 ArrayList 和 LinkedList 的区别？",
+      "chapter": "Java 基础",
+      "start": {
+        "page": 8,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 10,
+        "y": 65.25
+      },
+      "sourcePages": [
+        8,
+        9
+      ],
+      "contentSha256": "0a8ae3408d3c74c7bed817b2d622f50123383eb8a4411f9400da4f79f5ed8b43",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q003",
+      "title": "说一下 HashMap 底层原理和扩容机制",
+      "chapter": "Java 基础",
+      "start": {
+        "page": 10,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 13,
+        "y": 65.25
+      },
+      "sourcePages": [
+        10,
+        11,
+        12
+      ],
+      "contentSha256": "3b7887b075e3416a129dd4551dc1d76ea221b38773caa9a6b4abca0ff9465fdb",
+      "followupCount": 4,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE",
+        "SPECIAL_CHARACTER"
+      ]
+    },
+    {
+      "id": "q004",
+      "title": "说一下 Java 中重载和重写的区别",
+      "chapter": "Java 基础",
+      "start": {
+        "page": 13,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 14,
+        "y": 65.25
+      },
+      "sourcePages": [
+        13
+      ],
+      "contentSha256": "529cb2399102c7b02c8331162e91e7b7fe48348ec35184a24ae6e1a2b9c55e38",
+      "followupCount": 1,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q005",
+      "title": "说一下 Java 中的深拷贝、浅拷贝、引用拷贝",
+      "chapter": "Java 基础",
+      "start": {
+        "page": 14,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 15,
+        "y": 65.25
+      },
+      "sourcePages": [
+        14
+      ],
+      "contentSha256": "8446dcf8816e0f7d960b00653bae7958c736efde09047e6ebfad7997373b53be",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q006",
+      "title": "你知道有哪些线程安全的集合？",
+      "chapter": "Java 基础",
+      "start": {
+        "page": 15,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 16,
+        "y": 65.25
+      },
+      "sourcePages": [
+        15
+      ],
+      "contentSha256": "a1ae9138264b0a8dfc0931029ef29d979786684b168e3425841f32409dbc7e03",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE",
+        "SPECIAL_CHARACTER"
+      ]
+    },
+    {
+      "id": "q007",
+      "title": "说一下 Java 中 == 与 equals() 的区别",
+      "chapter": "Java 基础",
+      "start": {
+        "page": 16,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 17,
+        "y": 65.25
+      },
+      "sourcePages": [
+        16
+      ],
+      "contentSha256": "2b886426ab60be7e69c95f0d665a43de9df78e4f23cdf98bb7679965c486d441",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE",
+        "SPECIAL_CHARACTER"
+      ]
+    },
+    {
+      "id": "q008",
+      "title": "说一下 hashCode() 和 equals() 的区别,为什么重写 equals() 就要重写 hashCode()？",
+      "chapter": "Java 基础",
+      "start": {
+        "page": 17,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 18,
+        "y": 65.25
+      },
+      "sourcePages": [
+        17
+      ],
+      "contentSha256": "13762c229838d51c00ca362f7eddf4950e8a33af772494aa4eacf3ba41782feb",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE",
+        "SPECIAL_CHARACTER"
+      ]
+    },
+    {
+      "id": "q009",
+      "title": "说一下 Java 基本数据类型和引用类型",
+      "chapter": "Java 基础",
+      "start": {
+        "page": 18,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 19,
+        "y": 65.25
+      },
+      "sourcePages": [
+        18
+      ],
+      "contentSha256": "4de0c500b92983487e5f293a6f24e5d417613c383dabe53acb61d53c3429c597",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE",
+        "SPECIAL_CHARACTER"
+      ]
+    },
+    {
+      "id": "q010",
+      "title": "说一下 final 关键字",
+      "chapter": "Java 基础",
+      "start": {
+        "page": 19,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 20,
+        "y": 65.25
+      },
+      "sourcePages": [
+        19
+      ],
+      "contentSha256": "14912acc8325cae95d7de4054291e9c5dc6afe42f77049c02ac229cc02e09a8c",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE",
+        "SPECIAL_CHARACTER"
+      ]
+    },
+    {
+      "id": "q011",
+      "title": "说一下 Java 自动装箱与拆箱是什么？",
+      "chapter": "Java 基础",
+      "start": {
+        "page": 20,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 21,
+        "y": 65.25
+      },
+      "sourcePages": [
+        20
+      ],
+      "contentSha256": "f6d1376ce813bd4a4a13a6f6901ff5e0b8cc33d09c54c7e137776cdc1e9feb5f",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE",
+        "SPECIAL_CHARACTER"
+      ]
+    },
+    {
+      "id": "q012",
+      "title": "说一下 String，StringBuilder，StringBuffer 的区别及使用场景",
+      "chapter": "Java 基础",
+      "start": {
+        "page": 21,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 23,
+        "y": 65.25
+      },
+      "sourcePages": [
+        21,
+        22
+      ],
+      "contentSha256": "c4594cd24cdce90dd504f377935d728568a29792df4f7bb88f855c402f0944e3",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE",
+        "SPECIAL_CHARACTER"
+      ]
+    },
+    {
+      "id": "q013",
+      "title": "说一下什么是泛型及应用",
+      "chapter": "Java 基础",
+      "start": {
+        "page": 23,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 24,
+        "y": 65.25
+      },
+      "sourcePages": [
+        23
+      ],
+      "contentSha256": "a74d57ca15f0553ab426ff92bb66c55b8e6949be1f5ad5b29d103de428cb43eb",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE",
+        "SPECIAL_CHARACTER"
+      ]
+    },
+    {
+      "id": "q014",
+      "title": "说一下 Java 的 String 的底层实现",
+      "chapter": "Java 基础",
+      "start": {
+        "page": 24,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 25,
+        "y": 65.25
+      },
+      "sourcePages": [
+        24
+      ],
+      "contentSha256": "364b9664b2c043dca09fb1e6e36cc2bf5608ec275f83ff24ae296076ccc3edcf",
+      "followupCount": 1,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE",
+        "SPECIAL_CHARACTER"
+      ]
+    },
+    {
+      "id": "q015",
+      "title": "说一下 Java 里面有哪些锁？",
+      "chapter": "Java 基础",
+      "start": {
+        "page": 25,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 28,
+        "y": 65.25
+      },
+      "sourcePages": [
+        25,
+        26,
+        27
+      ],
+      "contentSha256": "cb2caef7fdc22f5d0f403eabe1321b847c6028fbe6fd18b7a91d53e1ec2e183f",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE",
+        "SPECIAL_CHARACTER"
+      ]
+    },
+    {
+      "id": "q016",
+      "title": "说一下 Java 中的反射机制",
+      "chapter": "Java 基础",
+      "start": {
+        "page": 28,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 29,
+        "y": 65.25
+      },
+      "sourcePages": [
+        28
+      ],
+      "contentSha256": "42643bd70decd97729eed58aaf0db9e8ce6bc7f9cbc80cda8b0be37d6d4d0a0c",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE",
+        "SPECIAL_CHARACTER"
+      ]
+    },
+    {
+      "id": "q017",
+      "title": "uncheckedException 和 checkedException 区别？",
+      "chapter": "Java 基础",
+      "start": {
+        "page": 29,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 31,
+        "y": 65.25
+      },
+      "sourcePages": [
+        29,
+        30
+      ],
+      "contentSha256": "9116f65a5b9850285f24980c5ae67012f283f555db869115cae887fb711baa0c",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE",
+        "SPECIAL_CHARACTER"
+      ]
+    },
+    {
+      "id": "q018",
+      "title": "说一下双亲委派模型",
+      "chapter": "JVM",
+      "start": {
+        "page": 31,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 32,
+        "y": 65.25
+      },
+      "sourcePages": [
+        31
+      ],
+      "contentSha256": "5d182489f5f0912a65dd375956ff755716aac1cf5269bd2bf182a5f85793653d",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE",
+        "SPECIAL_CHARACTER"
+      ]
+    },
+    {
+      "id": "q019",
+      "title": "说一下 JVM 的垃圾回收算法",
+      "chapter": "JVM",
+      "start": {
+        "page": 32,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 34,
+        "y": 65.25
+      },
+      "sourcePages": [
+        32,
+        33
+      ],
+      "contentSha256": "3e7179f6558952c7bc0598f945145df8cca23fa5269ddc742f4e419fcea337d7",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE",
+        "SPECIAL_CHARACTER"
+      ]
+    },
+    {
+      "id": "q020",
+      "title": "说一下 JVM 内存模型",
+      "chapter": "JVM",
+      "start": {
+        "page": 34,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 35,
+        "y": 65.25
+      },
+      "sourcePages": [
+        34
+      ],
+      "contentSha256": "850b9e31420937bce223525203aeec6d5a1e60412662cf89120313d75439c0b9",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE",
+        "SPECIAL_CHARACTER"
+      ]
+    },
+    {
+      "id": "q021",
+      "title": "说一下 CMS 收集器的工作流程及缺点",
+      "chapter": "JVM",
+      "start": {
+        "page": 35,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 37,
+        "y": 65.25
+      },
+      "sourcePages": [
+        35,
+        36
+      ],
+      "contentSha256": "75ab88492cb4500d28aaa786ee29ffd0b6d2da1d058bec20efaf4401c1d1e278",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q022",
+      "title": "说一下 G1 收集器的工作流程与缺点",
+      "chapter": "JVM",
+      "start": {
+        "page": 37,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 39,
+        "y": 65.25
+      },
+      "sourcePages": [
+        37,
+        38
+      ],
+      "contentSha256": "5272852e084badcc2b52fa9a930dcf3f98f656e0bddddf5607bac089800e42e3",
+      "followupCount": 0,
+      "flagKinds": [
+        "GLYPH_MAPPING",
+        "LAYOUT_REQUIRES_SOURCE",
+        "TOC_GLYPH_MAPPING"
+      ]
+    },
+    {
+      "id": "q023",
+      "title": "说一下垃圾回收器 CMS 和 G1的区别",
+      "chapter": "JVM",
+      "start": {
+        "page": 39,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 41,
+        "y": 65.25
+      },
+      "sourcePages": [
+        39,
+        40
+      ],
+      "contentSha256": "57e875c831c7dfe564ccca67c1f874734fafa24ca795ad203090b804b7544bf3",
+      "followupCount": 0,
+      "flagKinds": [
+        "GLYPH_MAPPING",
+        "LAYOUT_REQUIRES_SOURCE",
+        "TOC_GLYPH_MAPPING"
+      ]
+    },
+    {
+      "id": "q024",
+      "title": "说一下 JUC 里有哪些类？",
+      "chapter": "JUC / 并发编程",
+      "start": {
+        "page": 41,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 42,
+        "y": 65.25
+      },
+      "sourcePages": [
+        41
+      ],
+      "contentSha256": "7d52fdbf0352edeb9a0ca9fdeccd67cc51fefa1de39f1e4f4ed35adbbb7633ac",
+      "followupCount": 2,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE",
+        "SPECIAL_CHARACTER"
+      ]
+    },
+    {
+      "id": "q025",
+      "title": "说一下进程与线程的区别",
+      "chapter": "JUC / 并发编程",
+      "start": {
+        "page": 42,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 43,
+        "y": 65.25
+      },
+      "sourcePages": [
+        42
+      ],
+      "contentSha256": "a415deb74990135dd08e20ab51cf971887718036b18e817f62f8c2c27bdb5677",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q026",
+      "title": "说一下线程的创建方式",
+      "chapter": "JUC / 并发编程",
+      "start": {
+        "page": 43,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 44,
+        "y": 65.25
+      },
+      "sourcePages": [
+        43
+      ],
+      "contentSha256": "e0b981601a11cf3a15175a19c666967b624e13d5ee1b385b585b145788d82f0c",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE",
+        "SPECIAL_CHARACTER"
+      ]
+    },
+    {
+      "id": "q027",
+      "title": "如何创建线程池？线程池常见参数有哪些？",
+      "chapter": "JUC / 并发编程",
+      "start": {
+        "page": 44,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 46,
+        "y": 65.25
+      },
+      "sourcePages": [
+        44,
+        45
+      ],
+      "contentSha256": "d0fca8f86843bd4312b2331432a3cd1d3f028a7f7626d0b1692f5fdf97ba23fb",
+      "followupCount": 1,
+      "flagKinds": [
+        "IMAGE_REQUIRES_SOURCE",
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q028",
+      "title": "阻塞队列有哪些？拒绝策略有哪些？",
+      "chapter": "JUC / 并发编程",
+      "start": {
+        "page": 46,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 47,
+        "y": 65.25
+      },
+      "sourcePages": [
+        46
+      ],
+      "contentSha256": "9818e7beac66721691e14992ecc21261b383c7aeec442f14628abc6e3ec7b6df",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE",
+        "SPECIAL_CHARACTER"
+      ]
+    },
+    {
+      "id": "q029",
+      "title": "说一下 Lock 接口及实现类的使用",
+      "chapter": "JUC / 并发编程",
+      "start": {
+        "page": 47,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 48,
+        "y": 65.25
+      },
+      "sourcePages": [
+        47
+      ],
+      "contentSha256": "8fcec3c7d022f0c7fa7619098d01bcbc1a333901ae1f0b7bbd7430dfbb89b249",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q030",
+      "title": "ConcurrentHashMap 线程安全的具体实现方式",
+      "chapter": "JUC / 并发编程",
+      "start": {
+        "page": 48,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 50,
+        "y": 65.25
+      },
+      "sourcePages": [
+        48,
+        49
+      ],
+      "contentSha256": "a3f194a89a7d59208f2c4f736ef883cb5f9ac5ec2e531351edb0253c08953944",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE",
+        "SPECIAL_CHARACTER"
+      ]
+    },
+    {
+      "id": "q031",
+      "title": "synchronized 和 Lock 有什么区别？",
+      "chapter": "JUC / 并发编程",
+      "start": {
+        "page": 50,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 51,
+        "y": 65.25
+      },
+      "sourcePages": [
+        50
+      ],
+      "contentSha256": "fa96220d7dc2aad19df5834a1f99667a73177184c98fb021eec3eb0600d96e82",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE",
+        "SPECIAL_CHARACTER"
+      ]
+    },
+    {
+      "id": "q032",
+      "title": "说一下 ReentranLock 的底层原理",
+      "chapter": "JUC / 并发编程",
+      "start": {
+        "page": 51,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 52,
+        "y": 65.25
+      },
+      "sourcePages": [
+        51
+      ],
+      "contentSha256": "3d3bd232db4df60fca7c65ab44601eb3fb00a01243449531406d30e859bd650a",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q033",
+      "title": "synchronized 与 ReentrantLock 的区别？",
+      "chapter": "JUC / 并发编程",
+      "start": {
+        "page": 52,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 54,
+        "y": 65.25
+      },
+      "sourcePages": [
+        52,
+        53
+      ],
+      "contentSha256": "3602e0f3c77a5aa55bcd87e956744a3619e6d9d45a2f67c097cb31df753fcd43",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE",
+        "SPECIAL_CHARACTER"
+      ]
+    },
+    {
+      "id": "q034",
+      "title": "说说 volatile 的用法及原理",
+      "chapter": "JUC / 并发编程",
+      "start": {
+        "page": 54,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 55,
+        "y": 65.25
+      },
+      "sourcePages": [
+        54
+      ],
+      "contentSha256": "0f4a19af6bd6aaf88c42e1d51affe7aebe26c102f5ee7a3c837414a1b44c096e",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE",
+        "SPECIAL_CHARACTER"
+      ]
+    },
+    {
+      "id": "q035",
+      "title": "说说 synchronized 的用法及原理",
+      "chapter": "JUC / 并发编程",
+      "start": {
+        "page": 55,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 56,
+        "y": 65.25
+      },
+      "sourcePages": [
+        55
+      ],
+      "contentSha256": "d24bc7b2a25fba4960151b9906ad2bbe85bbcdb11467c960e7342fd64a27b9c5",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE",
+        "SPECIAL_CHARACTER"
+      ]
+    },
+    {
+      "id": "q036",
+      "title": "讲一下 Java 里的 CAS",
+      "chapter": "JUC / 并发编程",
+      "start": {
+        "page": 56,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 57,
+        "y": 65.25
+      },
+      "sourcePages": [
+        56
+      ],
+      "contentSha256": "d3fc20ec50b40d6b61a67a9fba650f4713ddee70bce119a5f2e9bbfa609cafc1",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE",
+        "SPECIAL_CHARACTER"
+      ]
+    },
+    {
+      "id": "q037",
+      "title": "说说你对 AQS 的理解",
+      "chapter": "JUC / 并发编程",
+      "start": {
+        "page": 57,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 58,
+        "y": 65.25
+      },
+      "sourcePages": [
+        57
+      ],
+      "contentSha256": "5e25ecb1f1ace70fe282854ab2b6ded53d9717703e21d5630702c190ca4061f8",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE",
+        "SPECIAL_CHARACTER"
+      ]
+    },
+    {
+      "id": "q038",
+      "title": "说说 wait() 和 sleep() 的区别",
+      "chapter": "JUC / 并发编程",
+      "start": {
+        "page": 58,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 59,
+        "y": 65.25
+      },
+      "sourcePages": [
+        58
+      ],
+      "contentSha256": "59ad75ce9d341d0f08e115919afe87e2583213fecda42703789c8b8959d2c27f",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE",
+        "SPECIAL_CHARACTER"
+      ]
+    },
+    {
+      "id": "q039",
+      "title": "如何合理配置线程池参数？",
+      "chapter": "JUC / 并发编程",
+      "start": {
+        "page": 59,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 61,
+        "y": 65.25
+      },
+      "sourcePages": [
+        59,
+        60
+      ],
+      "contentSha256": "4f6de6ac3a06fb83bfbab766758d27e9d81b68f1c6bb3a1e6e55e56e44697f4b",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE",
+        "SPECIAL_CHARACTER"
+      ]
+    },
+    {
+      "id": "q040",
+      "title": "说一下 ThreadLocal 的原理，使用场景及内存泄漏问题",
+      "chapter": "JUC / 并发编程",
+      "start": {
+        "page": 61,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 63,
+        "y": 65.25
+      },
+      "sourcePages": [
+        61,
+        62
+      ],
+      "contentSha256": "1932f3ae587ae0d81ab7cb9763afd7e14c7da42d102a45c0353640e921a14205",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE",
+        "SPECIAL_CHARACTER"
+      ]
+    },
+    {
+      "id": "q041",
+      "title": "说一下 CountDownLatch、CyclicBarrer、Semaphore 的原理与使用场景",
+      "chapter": "JUC / 并发编程",
+      "start": {
+        "page": 63,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 65,
+        "y": 65.25
+      },
+      "sourcePages": [
+        63,
+        64
+      ],
+      "contentSha256": "611b680f1888ca3eef1067c7b8ccf0e29882323edc65277fa339bb994539c7b5",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE",
+        "SPECIAL_CHARACTER"
+      ]
+    },
+    {
+      "id": "q042",
+      "title": "说一下常见的线程池类型及问题",
+      "chapter": "JUC / 并发编程",
+      "start": {
+        "page": 65,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 67,
+        "y": 65.25
+      },
+      "sourcePages": [
+        65,
+        66
+      ],
+      "contentSha256": "806fc447f9d7023a1954128196f04ccacb42978ac06b5b52eccc09c2e6f7ff3e",
+      "followupCount": 2,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q043",
+      "title": "说一下线程池的工作原理",
+      "chapter": "JUC / 并发编程",
+      "start": {
+        "page": 67,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 68,
+        "y": 65.25
+      },
+      "sourcePages": [
+        67
+      ],
+      "contentSha256": "0e57469887b6a7d129d66e490c14d810ee948430d9e1c599f6ad0888d3328f35",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q044",
+      "title": "讲一下 MySQL 的索引实现",
+      "chapter": "MySQL",
+      "start": {
+        "page": 68,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 69,
+        "y": 65.25
+      },
+      "sourcePages": [
+        68
+      ],
+      "contentSha256": "e024eb4356e77f2fb7c138bd123d50b65cc656f573d8899b3c94a2b854480cf1",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q045",
+      "title": "事务的隔离级别有哪些？",
+      "chapter": "MySQL",
+      "start": {
+        "page": 69,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 70,
+        "y": 65.25
+      },
+      "sourcePages": [
+        69
+      ],
+      "contentSha256": "d3137db02f8a759c8e39c8ce96b095904708eeba82e7ace7249617a02ca86561",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q046",
+      "title": "什么是数据库事务？",
+      "chapter": "MySQL",
+      "start": {
+        "page": 70,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 71,
+        "y": 65.25
+      },
+      "sourcePages": [
+        70
+      ],
+      "contentSha256": "4ada665fdeba96a9e9b79d921b45e8a6bf44e2ba7a22768e8a1a84987629f10b",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q047",
+      "title": "讲一讲 MVCC 实现原理",
+      "chapter": "MySQL",
+      "start": {
+        "page": 71,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 73,
+        "y": 65.25
+      },
+      "sourcePages": [
+        71,
+        72
+      ],
+      "contentSha256": "a0fd8aa82f7e7a4daba3bd27391412c5acb6e2af3c1752ced8cc273686cd0dd2",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE",
+        "SPECIAL_CHARACTER"
+      ]
+    },
+    {
+      "id": "q048",
+      "title": "redo log、undo log、binlog 各自作用？",
+      "chapter": "MySQL",
+      "start": {
+        "page": 73,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 74,
+        "y": 65.25
+      },
+      "sourcePages": [
+        73
+      ],
+      "contentSha256": "6db06398a72735d86a1b351f518770eb0cbbe716c2bde5be19e339b5c365fbbb",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q049",
+      "title": "MySQL 的锁类型有哪些？",
+      "chapter": "MySQL",
+      "start": {
+        "page": 74,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 75,
+        "y": 65.25
+      },
+      "sourcePages": [
+        74
+      ],
+      "contentSha256": "bda249da27587a20bf879a3777e59957c24d713079c2f1c678509e9fba9deac3",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q050",
+      "title": "说说悲观锁和乐观锁",
+      "chapter": "MySQL",
+      "start": {
+        "page": 75,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 76,
+        "y": 65.25
+      },
+      "sourcePages": [
+        75
+      ],
+      "contentSha256": "1d4c1d74ee5504c67bd6379d20748b0411ebc0ca063e6556b4c4a6f826746f98",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE",
+        "SPECIAL_CHARACTER"
+      ]
+    },
+    {
+      "id": "q051",
+      "title": "说一下索引的分类",
+      "chapter": "MySQL",
+      "start": {
+        "page": 76,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 78,
+        "y": 65.25
+      },
+      "sourcePages": [
+        76,
+        77
+      ],
+      "contentSha256": "56de0b7ffe14b7dc9982caeff11f48351160fc97f157a42d7e62c8b6595c1852",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE",
+        "SPECIAL_CHARACTER"
+      ]
+    },
+    {
+      "id": "q052",
+      "title": "覆盖索引、回表查询、索引下推的概念及作用",
+      "chapter": "MySQL",
+      "start": {
+        "page": 78,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 80,
+        "y": 65.25
+      },
+      "sourcePages": [
+        78,
+        79
+      ],
+      "contentSha256": "770749772bc5e88aff51d2cd1806ff5eb764867bd78b7ee2d731aa6facb5d42a",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE",
+        "SPECIAL_CHARACTER"
+      ]
+    },
+    {
+      "id": "q053",
+      "title": "说一下联合索引的最左匹配原则，如何合理设计联合索引？",
+      "chapter": "MySQL",
+      "start": {
+        "page": 80,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 82,
+        "y": 65.25
+      },
+      "sourcePages": [
+        80,
+        81
+      ],
+      "contentSha256": "d038d653d4ec86b658812c951cbaa31b388a04007e71bc4e0b0ad7530e33f7c1",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE",
+        "SPECIAL_CHARACTER"
+      ]
+    },
+    {
+      "id": "q054",
+      "title": "什么情况索引会失效？",
+      "chapter": "MySQL",
+      "start": {
+        "page": 82,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 83,
+        "y": 65.25
+      },
+      "sourcePages": [
+        82
+      ],
+      "contentSha256": "b9dbdd37ef8300d3f76c9a8fdd8e4049dcecfb03eac903ae7f40eede65f0771e",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE",
+        "SPECIAL_CHARACTER"
+      ]
+    },
+    {
+      "id": "q055",
+      "title": "什么是回表，什么情况下会回表查询？",
+      "chapter": "MySQL",
+      "start": {
+        "page": 83,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 84,
+        "y": 65.25
+      },
+      "sourcePages": [
+        83
+      ],
+      "contentSha256": "4f9c211e9b20b0c0559e294576ab98a9e820ea0378c5c811c485309d4d5342e0",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE",
+        "SPECIAL_CHARACTER"
+      ]
+    },
+    {
+      "id": "q056",
+      "title": "讲一下 SQL 优化",
+      "chapter": "MySQL",
+      "start": {
+        "page": 84,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 86,
+        "y": 65.25
+      },
+      "sourcePages": [
+        84,
+        85
+      ],
+      "contentSha256": "61be8e7a94bd3934af81d4861a31195882250acf006987c2c756a28d8cc89605",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE",
+        "SPECIAL_CHARACTER"
+      ]
+    },
+    {
+      "id": "q057",
+      "title": "说一下唯一索引的应用场景以及优势和缺点",
+      "chapter": "MySQL",
+      "start": {
+        "page": 86,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 88,
+        "y": 65.25
+      },
+      "sourcePages": [
+        86,
+        87
+      ],
+      "contentSha256": "9259205d0db046a59e568b3c23c372c19ec6795fd195de7ce214a2936d29c592",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE",
+        "SPECIAL_CHARACTER"
+      ]
+    },
+    {
+      "id": "q058",
+      "title": "为什么 MSQL 用 B+ 树 , MongoDB 用 B 树?",
+      "chapter": "MySQL",
+      "start": {
+        "page": 88,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 89,
+        "y": 65.25
+      },
+      "sourcePages": [
+        88
+      ],
+      "contentSha256": "f8a13ca71514f94c2d2c9bc49d5ad5550ab7f36aae9ca6f8607fa1499fdea38f",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE",
+        "SPECIAL_CHARACTER"
+      ]
+    },
+    {
+      "id": "q059",
+      "title": "联合索引 ABC 问题，AB 走索引吗，BC 走索引吗？BAC 走索引吗？A or B 走索引吗？",
+      "chapter": "MySQL",
+      "start": {
+        "page": 89,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 90,
+        "y": 65.25
+      },
+      "sourcePages": [
+        89
+      ],
+      "contentSha256": "af25dbdc294ef114c7b3cdad60cba3791e420f239721d9d26f3616701763dfb6",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE",
+        "SPECIAL_CHARACTER"
+      ]
+    },
+    {
+      "id": "q060",
+      "title": "说一下 b+ 树与 b 树的区别？",
+      "chapter": "MySQL",
+      "start": {
+        "page": 90,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 92,
+        "y": 65.25
+      },
+      "sourcePages": [
+        90,
+        91
+      ],
+      "contentSha256": "c50ee20d86ddde7d430000b5d0e1bfa4010bb2583ee5880ea1481ee5b91af2fc",
+      "followupCount": 1,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q061",
+      "title": "说说什么是 Redis 及应用场景",
+      "chapter": "Redis",
+      "start": {
+        "page": 92,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 93,
+        "y": 65.25
+      },
+      "sourcePages": [
+        92
+      ],
+      "contentSha256": "efd6b2de26117b0456568740003575128b804830cbf1cb9e37d0d4dabe4f9c55",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q062",
+      "title": "说说 Redis 的数据类型",
+      "chapter": "Redis",
+      "start": {
+        "page": 93,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 94,
+        "y": 65.25
+      },
+      "sourcePages": [
+        93
+      ],
+      "contentSha256": "7d5686054b03cd2f4b71a33d5bef0156d06ae3230d2e3871ae285f5071708994",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q063",
+      "title": "说说 Redis 的持久化策略",
+      "chapter": "Redis",
+      "start": {
+        "page": 94,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 95,
+        "y": 65.25
+      },
+      "sourcePages": [
+        94
+      ],
+      "contentSha256": "f6895ff1d7f731c974e5ad3b060c40a479316c4dea108aec1c43d67450f442ba",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q064",
+      "title": "说说 Redis 的过期删除策略",
+      "chapter": "Redis",
+      "start": {
+        "page": 95,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 96,
+        "y": 65.25
+      },
+      "sourcePages": [
+        95
+      ],
+      "contentSha256": "12459d0a4afe4ce698ff8878b54a064b0aafbdef8a3a3155a7a4f14092f465fe",
+      "followupCount": 1,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q065",
+      "title": "说说 Redis 的内存淘汰策略",
+      "chapter": "Redis",
+      "start": {
+        "page": 96,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 97,
+        "y": 65.25
+      },
+      "sourcePages": [
+        96
+      ],
+      "contentSha256": "91c8b927538376d890186967eef105ff256c93adc3af90e1d1c79b69088e4b45",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE",
+        "SPECIAL_CHARACTER"
+      ]
+    },
+    {
+      "id": "q066",
+      "title": "说说 Redis 主从复制的原理及作用",
+      "chapter": "Redis",
+      "start": {
+        "page": 97,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 98,
+        "y": 65.25
+      },
+      "sourcePages": [
+        97
+      ],
+      "contentSha256": "30dfc0617dd7a0fd413bb35485a432c5d51095e7a4860b827cb78f5f6f2d34f1",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE",
+        "SPECIAL_CHARACTER"
+      ]
+    },
+    {
+      "id": "q067",
+      "title": "说说 Redis 的分布式缓存",
+      "chapter": "Redis",
+      "start": {
+        "page": 98,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 100,
+        "y": 65.25
+      },
+      "sourcePages": [
+        98,
+        99
+      ],
+      "contentSha256": "188447467150cdd6723b30e8e80916de0e74c190acb04bb57b635854d8d04d41",
+      "followupCount": 3,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE",
+        "SPECIAL_CHARACTER"
+      ]
+    },
+    {
+      "id": "q068",
+      "title": "说说 Redis 的分布式锁实现",
+      "chapter": "Redis",
+      "start": {
+        "page": 100,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 101,
+        "y": 65.25
+      },
+      "sourcePages": [
+        100
+      ],
+      "contentSha256": "0a0459f147455d48d955d7a719e47711b2764e7a7561c20c0c518fbd18c47bca",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE",
+        "SPECIAL_CHARACTER"
+      ]
+    },
+    {
+      "id": "q069",
+      "title": "如何实现 Redis 高可用？",
+      "chapter": "Redis",
+      "start": {
+        "page": 101,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 102,
+        "y": 65.25
+      },
+      "sourcePages": [
+        101
+      ],
+      "contentSha256": "4297026354c34d8f7563b549159dc1d1f993b36775df984a5ec0c4360a0eb385",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q070",
+      "title": "介绍一下 Redis IO 多路复用模型",
+      "chapter": "Redis",
+      "start": {
+        "page": 102,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 103,
+        "y": 65.25
+      },
+      "sourcePages": [
+        102
+      ],
+      "contentSha256": "e7356e82aeabc0e1c21b721253fa559ac3908b76796cfd8ec2069c5da9001169",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE",
+        "SPECIAL_CHARACTER"
+      ]
+    },
+    {
+      "id": "q071",
+      "title": "什么是缓存击穿、缓存穿透、缓存雪崩？",
+      "chapter": "Redis",
+      "start": {
+        "page": 103,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 105,
+        "y": 65.25
+      },
+      "sourcePages": [
+        103,
+        104
+      ],
+      "contentSha256": "7a545aaaa9f7a10d614dbccf4bb633eee4bcad497b9dd71459abcc2d1227b896",
+      "followupCount": 1,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE",
+        "SPECIAL_CHARACTER"
+      ]
+    },
+    {
+      "id": "q072",
+      "title": "Redis 采用单线程为什么还这么快？",
+      "chapter": "Redis",
+      "start": {
+        "page": 105,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 106,
+        "y": 65.25
+      },
+      "sourcePages": [
+        105
+      ],
+      "contentSha256": "0d9e5484e8f4acb72bd5cd71187a71288fb3111874dcb63482881e2792dc937e",
+      "followupCount": 1,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q073",
+      "title": "MySQL 与 Redis 如何保证双写一致性？",
+      "chapter": "Redis",
+      "start": {
+        "page": 106,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 108,
+        "y": 65.25
+      },
+      "sourcePages": [
+        106,
+        107
+      ],
+      "contentSha256": "d3176541e9aa97ad7c22b101840436ea411f6bac68b946a2f284c15319606739",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q074",
+      "title": "说一下 Redis 的大 key 问题，如果要删除这个大 key 该怎么办？",
+      "chapter": "Redis",
+      "start": {
+        "page": 108,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 109,
+        "y": 65.25
+      },
+      "sourcePages": [
+        108
+      ],
+      "contentSha256": "973e743882ea9b6aef33e235dd19c06a6b7801a920a0a115f13dc320554bbb86",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE",
+        "SPECIAL_CHARACTER"
+      ]
+    },
+    {
+      "id": "q075",
+      "title": "说一下 Redis 中 Zset 的底层实现",
+      "chapter": "Redis",
+      "start": {
+        "page": 109,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 111,
+        "y": 65.25
+      },
+      "sourcePages": [
+        109,
+        110
+      ],
+      "contentSha256": "21d7401ca939b197de845e971a9efd7588aab7ea5eb2595d52aa3fcf3c586376",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE",
+        "SPECIAL_CHARACTER"
+      ]
+    },
+    {
+      "id": "q076",
+      "title": "使用过 Redisson 吗？说说它的原理",
+      "chapter": "Redis",
+      "start": {
+        "page": 111,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 112,
+        "y": 65.25
+      },
+      "sourcePages": [
+        111
+      ],
+      "contentSha256": "e413c5df543f8651249593aa8e2ed5dd66d2d2959538a22f1f49e9a4b0260e81",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE",
+        "SPECIAL_CHARACTER"
+      ]
+    },
+    {
+      "id": "q077",
+      "title": "说一下 Redissson 里面的看门狗机制",
+      "chapter": "Redis",
+      "start": {
+        "page": 112,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 113,
+        "y": 65.25
+      },
+      "sourcePages": [
+        112
+      ],
+      "contentSha256": "0455f031db80882fdb0ab1bc7f90690201e33958ab1d7080cc4ee13d9f0373e1",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE",
+        "SPECIAL_CHARACTER"
+      ]
+    },
+    {
+      "id": "q078",
+      "title": "说说你对 AOP 的理解",
+      "chapter": "Spring",
+      "start": {
+        "page": 113,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 114,
+        "y": 65.25
+      },
+      "sourcePages": [
+        113
+      ],
+      "contentSha256": "c1d12ab6bcefebe49e27f37a87ccea238279551a184efd79d2a47c4e2229fe7c",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q079",
+      "title": "说说你对 IOC 的理解",
+      "chapter": "Spring",
+      "start": {
+        "page": 114,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 115,
+        "y": 65.25
+      },
+      "sourcePages": [
+        114
+      ],
+      "contentSha256": "efb6800985eb6bed14e36852f2af505b39946f5becdf7d4f8b15b4c5c41ef31a",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q080",
+      "title": "讲一下 Spring 中用到的设计模式？",
+      "chapter": "Spring",
+      "start": {
+        "page": 115,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 116,
+        "y": 65.25
+      },
+      "sourcePages": [
+        115
+      ],
+      "contentSha256": "03b0d4394c3e2b07452b838a00c29651737182b0f80057b4bb48524278377adf",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE",
+        "SPECIAL_CHARACTER"
+      ]
+    },
+    {
+      "id": "q081",
+      "title": "说说 Bean 的生命周期",
+      "chapter": "Spring",
+      "start": {
+        "page": 116,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 117,
+        "y": 65.25
+      },
+      "sourcePages": [
+        116
+      ],
+      "contentSha256": "514c29c8dabe463ac95e2142aad290ce9acbae2721883099bfa2c2946a9853b6",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q082",
+      "title": "说一下 Spring 的三级缓存机制",
+      "chapter": "Spring",
+      "start": {
+        "page": 117,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 119,
+        "y": 65.25
+      },
+      "sourcePages": [
+        117,
+        118
+      ],
+      "contentSha256": "e47bb13524a537ab6beaec1d042619b96893cc02209d8c982b92ff8afb015372",
+      "followupCount": 1,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q083",
+      "title": "在 MyBatis 中 $ 和 # 有什么区别？",
+      "chapter": "MyBatis",
+      "start": {
+        "page": 119,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 120,
+        "y": 65.25
+      },
+      "sourcePages": [
+        119
+      ],
+      "contentSha256": "9e3c843967a83bd425790821b2dc436b19d11d672f53b6f06ab831bea6ea5055",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE",
+        "SPECIAL_CHARACTER"
+      ]
+    },
+    {
+      "id": "q084",
+      "title": "介绍一下 MyBatis 的缓存机制",
+      "chapter": "MyBatis",
+      "start": {
+        "page": 120,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 121,
+        "y": 65.25
+      },
+      "sourcePages": [
+        120
+      ],
+      "contentSha256": "07a4e53fe0a5ee7ceed2f9dedd761ca5e0dcf18597f9595b06770abffa61086f",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q085",
+      "title": "说说 MyBatis 和 MyBatis Plus 的区别",
+      "chapter": "MyBatis",
+      "start": {
+        "page": 121,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 122,
+        "y": 65.25
+      },
+      "sourcePages": [
+        121
+      ],
+      "contentSha256": "fc8380c9958883992aff30bc71c59b6e11c028bb317487f5df7e77789cf2ef3a",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q086",
+      "title": "什么是 MQ 及应用场景？",
+      "chapter": "消息队列",
+      "start": {
+        "page": 122,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 124,
+        "y": 65.25
+      },
+      "sourcePages": [
+        122,
+        123
+      ],
+      "contentSha256": "e3e1b83db1abe0d80c1bd8a69eefc647ae2e0078c5a989e3a4f82d731e46d72e",
+      "followupCount": 0,
+      "flagKinds": [
+        "EMPTY_PAGE",
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q087",
+      "title": "说一下常见的 MQ 产品的对比",
+      "chapter": "消息队列",
+      "start": {
+        "page": 124,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 126,
+        "y": 65.25
+      },
+      "sourcePages": [
+        124,
+        125
+      ],
+      "contentSha256": "2f4035ff43e178bb549d6769e590c3240bf1e6df4ef8013c1860982302569ead",
+      "followupCount": 0,
+      "flagKinds": [
+        "EMPTY_PAGE",
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q088",
+      "title": "说一下消息的可靠性投递",
+      "chapter": "消息队列",
+      "start": {
+        "page": 126,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 128,
+        "y": 65.25
+      },
+      "sourcePages": [
+        126,
+        127
+      ],
+      "contentSha256": "54d062f5d00fa96c9273a24dfbfa94f4c6cb00c83554a6f4ad6fae615302416e",
+      "followupCount": 2,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q089",
+      "title": "说一下消息的幂等性问题",
+      "chapter": "消息队列",
+      "start": {
+        "page": 128,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 130,
+        "y": 65.25
+      },
+      "sourcePages": [
+        128,
+        129
+      ],
+      "contentSha256": "e59efd1b455f147d10e44384bfb6fe7e254dec63e4c4ed36c05ef0b32f9165ef",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE",
+        "SPECIAL_CHARACTER"
+      ]
+    },
+    {
+      "id": "q090",
+      "title": "说一下消息的积压问题",
+      "chapter": "消息队列",
+      "start": {
+        "page": 130,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 132,
+        "y": 65.25
+      },
+      "sourcePages": [
+        130,
+        131
+      ],
+      "contentSha256": "12c851668eb271ac965bbefa23eb22ef26aa7952f9710bad91d41c44300da996",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q091",
+      "title": "说一下消息的顺序性问题",
+      "chapter": "消息队列",
+      "start": {
+        "page": 132,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 134,
+        "y": 65.25
+      },
+      "sourcePages": [
+        132,
+        133
+      ],
+      "contentSha256": "2a4c9031b9601ea395f169a4028119aa04d120cd45a5a4badc25a96971ed0f06",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q092",
+      "title": "说一下 MQ 的分布式事务解决方案",
+      "chapter": "消息队列",
+      "start": {
+        "page": 134,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 135,
+        "y": 65.25
+      },
+      "sourcePages": [
+        134
+      ],
+      "contentSha256": "ca65aed7b62381a242beb1baed7f70307c961e7d2b666d87b961a63e75264603",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q093",
+      "title": "说一下 RocketMQ 核心的部件和组件",
+      "chapter": "消息队列",
+      "start": {
+        "page": 135,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 136,
+        "y": 65.25
+      },
+      "sourcePages": [
+        135
+      ],
+      "contentSha256": "d00c52e0c803ac9d8eac424db5cc131e2baa950317f2a257cbebb786adba7d4b",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE",
+        "SPECIAL_CHARACTER"
+      ]
+    },
+    {
+      "id": "q094",
+      "title": "说一下 TUP 与 UDP 的区别",
+      "chapter": "计算机网络",
+      "start": {
+        "page": 136,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 138,
+        "y": 65.25
+      },
+      "sourcePages": [
+        136,
+        137
+      ],
+      "contentSha256": "7fc17915ee6af8e9728cc259e1fe3115a5b0083437635817fb4a44688934ba02",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q095",
+      "title": "说一下 TCP 的三次握手四次挥手过程",
+      "chapter": "计算机网络",
+      "start": {
+        "page": 138,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 140,
+        "y": 65.25
+      },
+      "sourcePages": [
+        138,
+        139
+      ],
+      "contentSha256": "40c118beb8c3d4db2306e2f2a9b83a7f0a56f292b796efebb5863a22b87102a5",
+      "followupCount": 3,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE",
+        "SPECIAL_CHARACTER"
+      ]
+    },
+    {
+      "id": "q096",
+      "title": "说一下 TCP 的可靠性保障机制",
+      "chapter": "计算机网络",
+      "start": {
+        "page": 140,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 141,
+        "y": 65.25
+      },
+      "sourcePages": [
+        140
+      ],
+      "contentSha256": "e47dc0a60683fe581cdba3ac12740319b058695181af96552e4fe25f162764b7",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q097",
+      "title": "说一下 TCP 的滑动窗口协议",
+      "chapter": "计算机网络",
+      "start": {
+        "page": 141,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 142,
+        "y": 65.25
+      },
+      "sourcePages": [
+        141
+      ],
+      "contentSha256": "03954539444789b031c3d691ea8ceff8c42b5056775461429f73536e4b3c2462",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q098",
+      "title": "说一下 TCP 的拥塞控制算法",
+      "chapter": "计算机网络",
+      "start": {
+        "page": 142,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 144,
+        "y": 65.25
+      },
+      "sourcePages": [
+        142,
+        143
+      ],
+      "contentSha256": "46cf6ff1d78245e3408f1d9a6d1c73319b5f26b80525b1d3a9d4f5342564f537",
+      "followupCount": 1,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE",
+        "SPECIAL_CHARACTER"
+      ]
+    },
+    {
+      "id": "q099",
+      "title": "说一下常见的端口号及对应协议",
+      "chapter": "计算机网络",
+      "start": {
+        "page": 144,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 146,
+        "y": 65.25
+      },
+      "sourcePages": [
+        144,
+        145
+      ],
+      "contentSha256": "855f7b20130d8afab725810e3ef90da0c09f6b73ef8a2905761772816a2588a9",
+      "followupCount": 0,
+      "flagKinds": [
+        "EMPTY_PAGE",
+        "LAYOUT_REQUIRES_SOURCE",
+        "SPECIAL_CHARACTER"
+      ]
+    },
+    {
+      "id": "q100",
+      "title": "说一下 HTTP 协议的特点",
+      "chapter": "计算机网络",
+      "start": {
+        "page": 146,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 147,
+        "y": 65.25
+      },
+      "sourcePages": [
+        146
+      ],
+      "contentSha256": "af678e7c0ad7c3263777638074dca6871d1c8077aadf5d9abbc349addc596633",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE",
+        "SPECIAL_CHARACTER"
+      ]
+    },
+    {
+      "id": "q101",
+      "title": "说一下 HTTP 的请求报文与响应报文的结构",
+      "chapter": "计算机网络",
+      "start": {
+        "page": 147,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 148,
+        "y": 65.25
+      },
+      "sourcePages": [
+        147
+      ],
+      "contentSha256": "9e74ff0b64a231b82c08be755590f29a6962a05dab3c31e4513a98e98bcbc177",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE",
+        "SPECIAL_CHARACTER"
+      ]
+    },
+    {
+      "id": "q102",
+      "title": "说一下你常用的 HTTP 协议",
+      "chapter": "计算机网络",
+      "start": {
+        "page": 148,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 150,
+        "y": 65.25
+      },
+      "sourcePages": [
+        148,
+        149
+      ],
+      "contentSha256": "1f8dfdaf6064e27068c878ba8c903c0bceed9cd4b673436c1205cdb0956086cd",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE",
+        "SPECIAL_CHARACTER"
+      ]
+    },
+    {
+      "id": "q103",
+      "title": "说一下 HTTP 1.0、1.1、2.0、3.0 的区别",
+      "chapter": "计算机网络",
+      "start": {
+        "page": 150,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 152,
+        "y": 65.25
+      },
+      "sourcePages": [
+        150,
+        151
+      ],
+      "contentSha256": "d59c37b89cab3a78e50a56dd317496163a3174d90259f8cb8ef4409a34aca71b",
+      "followupCount": 0,
+      "flagKinds": [
+        "GLYPH_MAPPING",
+        "LAYOUT_REQUIRES_SOURCE",
+        "TOC_GLYPH_MAPPING"
+      ]
+    },
+    {
+      "id": "q104",
+      "title": "说一下 HTTPS 的原理",
+      "chapter": "计算机网络",
+      "start": {
+        "page": 152,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 153,
+        "y": 65.25
+      },
+      "sourcePages": [
+        152
+      ],
+      "contentSha256": "66bbb69bbd5c3114e4be59bdaffe33bac2a9afa065ec176fc9d0da9e26b7c7a1",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q105",
+      "title": "说一下 HTTP 与 HTTPS 的区别",
+      "chapter": "计算机网络",
+      "start": {
+        "page": 153,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 154,
+        "y": 65.25
+      },
+      "sourcePages": [
+        153
+      ],
+      "contentSha256": "40c7f777e8f161b35f0d97cd1e5ad36753acbfd8cd6a886cf4cf62c3e221907b",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q106",
+      "title": "说一下 DNS 协议的作用",
+      "chapter": "计算机网络",
+      "start": {
+        "page": 154,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 155,
+        "y": 65.25
+      },
+      "sourcePages": [
+        154
+      ],
+      "contentSha256": "d889b49ec2092cb6c08823e303f31232f8fa26684d445c44a8c398ea1040905f",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE",
+        "SPECIAL_CHARACTER"
+      ]
+    },
+    {
+      "id": "q107",
+      "title": "说一下什么是 Cookie、Session、Token？",
+      "chapter": "计算机网络",
+      "start": {
+        "page": 155,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 157,
+        "y": 65.25
+      },
+      "sourcePages": [
+        155,
+        156
+      ],
+      "contentSha256": "9fa2facc81e6044241e7ce4e6bbab14adae99729f5142870feb9881b14b5c9f8",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q108",
+      "title": "HTTP3 性能更好，为什么内网微服务依然多用 HTTP2？HTTP2 内网优势是什么？",
+      "chapter": "计算机网络",
+      "start": {
+        "page": 157,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 158,
+        "y": 65.25
+      },
+      "sourcePages": [
+        157
+      ],
+      "contentSha256": "34a5029576c5be0b6760470baeac5c4634ff29f9632ae531a8718be3cd1cf0f9",
+      "followupCount": 0,
+      "flagKinds": [
+        "GLYPH_MAPPING",
+        "LAYOUT_REQUIRES_SOURCE",
+        "TOC_GLYPH_MAPPING"
+      ]
+    },
+    {
+      "id": "q109",
+      "title": "说一下进程与线程的区别",
+      "chapter": "操作系统",
+      "start": {
+        "page": 158,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 160,
+        "y": 65.25
+      },
+      "sourcePages": [
+        158,
+        159
+      ],
+      "contentSha256": "19d7a626a3b4e94f34db697affffb97f116745204946f368c31c77d70061b3b3",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q110",
+      "title": "说一下进程的状态及转换",
+      "chapter": "操作系统",
+      "start": {
+        "page": 160,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 162,
+        "y": 65.25
+      },
+      "sourcePages": [
+        160,
+        161
+      ],
+      "contentSha256": "fc82dffe4538af26a8c907d85b1bcb2e7f3f2e11b0868334533dff470dfed427",
+      "followupCount": 0,
+      "flagKinds": [
+        "EMPTY_PAGE",
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q111",
+      "title": "说一下进程调度算法",
+      "chapter": "操作系统",
+      "start": {
+        "page": 162,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 163,
+        "y": 65.25
+      },
+      "sourcePages": [
+        162
+      ],
+      "contentSha256": "ee265a4c567db8aef1323f5250de617a8c4568f92c4396cdce146fabf9620010",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q112",
+      "title": "说一下进程间通信的方式",
+      "chapter": "操作系统",
+      "start": {
+        "page": 163,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 164,
+        "y": 65.25
+      },
+      "sourcePages": [
+        163
+      ],
+      "contentSha256": "e1785595ec22f3d5c9f50ad2508d9810951213ea2bcac895a1cf32d60f0a9ded",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE",
+        "SPECIAL_CHARACTER"
+      ]
+    },
+    {
+      "id": "q113",
+      "title": "说一下死锁的产生条件、预防、避免、检测与解除",
+      "chapter": "操作系统",
+      "start": {
+        "page": 164,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 166,
+        "y": 65.25
+      },
+      "sourcePages": [
+        164,
+        165
+      ],
+      "contentSha256": "4876b46df2f49d033f8b2401bb14a477b4c489b3629d53adcc6e2a3a0a7c1f3c",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q114",
+      "title": "说一下虚拟内存的概念、作用及实现原理",
+      "chapter": "操作系统",
+      "start": {
+        "page": 166,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 168,
+        "y": 65.25
+      },
+      "sourcePages": [
+        166,
+        167
+      ],
+      "contentSha256": "f1e4c2d1cd3d897d1b0ffc664422d5bb3ca2b30fec697990935a334f3ad41113",
+      "followupCount": 1,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE",
+        "SPECIAL_CHARACTER"
+      ]
+    },
+    {
+      "id": "q115",
+      "title": "说一下页面置换算法",
+      "chapter": "操作系统",
+      "start": {
+        "page": 168,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 169,
+        "y": 65.25
+      },
+      "sourcePages": [
+        168
+      ],
+      "contentSha256": "ed2155d9127f90435d5645b7be386090553f906a57d14c1bf4ab73d09b6117a7",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE",
+        "SPECIAL_CHARACTER"
+      ]
+    },
+    {
+      "id": "q116",
+      "title": "说一下分页存储与分段存储的区别，段页式存储的原理",
+      "chapter": "操作系统",
+      "start": {
+        "page": 169,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 171,
+        "y": 65.25
+      },
+      "sourcePages": [
+        169,
+        170
+      ],
+      "contentSha256": "db6740128ce11bdb83499d3c896e375dfb65791ebef2095cb76884fbe790c7f6",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q117",
+      "title": "说说什么是 agent ？",
+      "chapter": "Agent",
+      "start": {
+        "page": 171,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 172,
+        "y": 65.25
+      },
+      "sourcePages": [
+        171
+      ],
+      "contentSha256": "e9ab32580cceeed4b33aff71d0efa120c0dceae2f47b1e242081cace6351cc7e",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q118",
+      "title": "agent 的基础框架是什么？",
+      "chapter": "Agent",
+      "start": {
+        "page": 172,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 173,
+        "y": 65.25
+      },
+      "sourcePages": [
+        172
+      ],
+      "contentSha256": "1dc46045caeba77608dd2dc37c09c9499f6781518f531f170d223b6c7263635f",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q119",
+      "title": "Workflow、agent、Tools 是什么？",
+      "chapter": "Agent",
+      "start": {
+        "page": 173,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 175,
+        "y": 65.25
+      },
+      "sourcePages": [
+        173,
+        174
+      ],
+      "contentSha256": "cac371136ecd6348eba1bbe81c541dd2a977217b4091e6d4d782012e3d719225",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q120",
+      "title": "agent 记忆压缩通常有哪些方法？",
+      "chapter": "Agent",
+      "start": {
+        "page": 175,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 176,
+        "y": 65.25
+      },
+      "sourcePages": [
+        175
+      ],
+      "contentSha256": "a0befd580f93cded7da586f3b173563ea40f8a242a605b2fa8f172f76ee0ad4e",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q121",
+      "title": "LLM、RAG、Agent 三者之间有什么区别与联系？",
+      "chapter": "Agent",
+      "start": {
+        "page": 176,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 178,
+        "y": 65.25
+      },
+      "sourcePages": [
+        176,
+        177
+      ],
+      "contentSha256": "ed67becff7bde488e47fbab4bf9f27a279a704205091555c81f2196bebbeced9",
+      "followupCount": 0,
+      "flagKinds": [
+        "EMPTY_PAGE",
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q122",
+      "title": "agent 的推理模式有哪些？介绍一下 ReAct 模式，它和 CoT、ToT 等模式有什么区别？",
+      "chapter": "Agent",
+      "start": {
+        "page": 178,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 180,
+        "y": 65.25
+      },
+      "sourcePages": [
+        178,
+        179
+      ],
+      "contentSha256": "e50d9d3920e563c6d6b7652a2c49cb43526b729ccb20d4c5a359e7052d830f79",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q123",
+      "title": "如何解决大模型在 Agent 任务中的幻觉和失控问题？",
+      "chapter": "Agent",
+      "start": {
+        "page": 180,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 181,
+        "y": 65.25
+      },
+      "sourcePages": [
+        180
+      ],
+      "contentSha256": "ef48a1790d79fa04a2550ad5b05dde5e26631113197d0cb779070ff0d4274bcb",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q124",
+      "title": "Agent 的记忆是如何设计的？短期记忆和长期记忆有什么区别？",
+      "chapter": "Agent",
+      "start": {
+        "page": 181,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 183,
+        "y": 65.25
+      },
+      "sourcePages": [
+        181,
+        182
+      ],
+      "contentSha256": "c23f9387ad84622e6d349dba006e722eb489d3f3636649a48362a2221e1ac01f",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q125",
+      "title": "Agent 的 Planning 有哪些常见方式？",
+      "chapter": "Agent",
+      "start": {
+        "page": 183,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 185,
+        "y": 65.25
+      },
+      "sourcePages": [
+        183,
+        184
+      ],
+      "contentSha256": "ad0e35ff4383c4a9e0dc6efe08b8369770dd6988d16832c9b93c1d94e90838a9",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q126",
+      "title": "如何避免 Agent 陷入死循环？",
+      "chapter": "Agent",
+      "start": {
+        "page": 185,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 186,
+        "y": 65.25
+      },
+      "sourcePages": [
+        185
+      ],
+      "contentSha256": "67de7a517e14dab9aceb534747962f804578a22c7ac3cc0caa3fc0f2e958c6a8",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q127",
+      "title": "多个工具同时可用时，Agent 如何选择调用哪个？",
+      "chapter": "Agent",
+      "start": {
+        "page": 186,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 187,
+        "y": 65.25
+      },
+      "sourcePages": [
+        186
+      ],
+      "contentSha256": "b77419ea3a7e31a2b3a27d3164c7639e209cda32e69add24e3af58dcd2347c6e",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q128",
+      "title": "工具调用失败时(超时/异常/返回格式错误)，系统如何保证可靠性？",
+      "chapter": "Agent",
+      "start": {
+        "page": 187,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 188,
+        "y": 65.25
+      },
+      "sourcePages": [
+        187
+      ],
+      "contentSha256": "dbf681290c109ca3efffb1aaf8eec0434286d668bf555e26993a96c8b786dfe7",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q129",
+      "title": "长对话场景下，如何管理超长的对话历史？",
+      "chapter": "Agent",
+      "start": {
+        "page": 188,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 189,
+        "y": 65.25
+      },
+      "sourcePages": [
+        188
+      ],
+      "contentSha256": "9d2a977402509748db0a8c0776d8473b41e6c4a032b50f8e8555f93e9f3fb432",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q130",
+      "title": "多个用户同时请求 Agent 服务，如何保证 LLM 调用的稳定性？",
+      "chapter": "Agent",
+      "start": {
+        "page": 189,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 190,
+        "y": 65.25
+      },
+      "sourcePages": [
+        189
+      ],
+      "contentSha256": "01e20410d591e288a39f6e33bb484c960722f702874d1b116378f6f7041a49e2",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q131",
+      "title": "Agent 的推理过程耗时较长，如何设计异步响应架构？",
+      "chapter": "Agent",
+      "start": {
+        "page": 190,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 191,
+        "y": 65.25
+      },
+      "sourcePages": [
+        190
+      ],
+      "contentSha256": "59b858318f279ec9de50dd098a4a7fdab1f791d922889592a740bce3f02eb67a",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q132",
+      "title": "Agent 的行为难以预测，如何做调试和追踪？",
+      "chapter": "Agent",
+      "start": {
+        "page": 191,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 192,
+        "y": 65.25
+      },
+      "sourcePages": [
+        191
+      ],
+      "contentSha256": "5b74e3f2a6edebe7914c744e818ce27309c8182f72279eb8e065811efd244c78",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q133",
+      "title": "如何评估一个 Agent 系统的效果？",
+      "chapter": "Agent",
+      "start": {
+        "page": 192,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 194,
+        "y": 65.25
+      },
+      "sourcePages": [
+        192,
+        193
+      ],
+      "contentSha256": "90fe468512d749a4f3931b2c7c00490569e50f965a8836136e0c1b5ee97e4bc8",
+      "followupCount": 0,
+      "flagKinds": [
+        "EMPTY_PAGE",
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q134",
+      "title": "如何保证 Agent 的可靠性？",
+      "chapter": "Agent",
+      "start": {
+        "page": 194,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 195,
+        "y": 65.25
+      },
+      "sourcePages": [
+        194
+      ],
+      "contentSha256": "fa6fa1308864f794178f7ad495867a7fab09d9be8f9ae20a072b3345e683c364",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q135",
+      "title": "说说什么是 RAG ？",
+      "chapter": "RAG",
+      "start": {
+        "page": 195,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 196,
+        "y": 65.25
+      },
+      "sourcePages": [
+        195
+      ],
+      "contentSha256": "11fa07d7e6c097db80ddd9a8f5f4c8bf472930a0e00cb7bc5720280e72bc9f6f",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q136",
+      "title": "RAG系统完整处理流程是什么？问题如何拆解？大模型负责什么？最终输出什么？",
+      "chapter": "RAG",
+      "start": {
+        "page": 196,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 198,
+        "y": 65.25
+      },
+      "sourcePages": [
+        196,
+        197
+      ],
+      "contentSha256": "f3ab1c53729722571fd4d4d3f98f4a237ebcea8c5ac7eee35f291c0c1c684c4c",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q137",
+      "title": "RAG 是怎么存文档的？说说它的文档切割策略？",
+      "chapter": "RAG",
+      "start": {
+        "page": 198,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 200,
+        "y": 65.25
+      },
+      "sourcePages": [
+        198,
+        199
+      ],
+      "contentSha256": "2a5b60fcf1adab77ad1ed2c9fa158deb2005eeaa5403c134341dfc59a07e65ce",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q138",
+      "title": "说一下常用的向量检索算法",
+      "chapter": "RAG",
+      "start": {
+        "page": 200,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 201,
+        "y": 65.25
+      },
+      "sourcePages": [
+        200
+      ],
+      "contentSha256": "4de41a383eb6cfde6d5afc10226884f688d8d9b7f18d75e6021b22f540adb545",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q139",
+      "title": "向量检索的流程是怎样的？Embedding 和 Rerank 各自的作用？",
+      "chapter": "RAG",
+      "start": {
+        "page": 201,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 202,
+        "y": 65.25
+      },
+      "sourcePages": [
+        201
+      ],
+      "contentSha256": "9d3c6591fbe7b7a603fc16a0a6868ffdadccd7d0e9a64577ae4e568846859b47",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q140",
+      "title": "向量检索引擎算法 IVF、HNSW 核心区别是什么？",
+      "chapter": "RAG",
+      "start": {
+        "page": 202,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 203,
+        "y": 65.25
+      },
+      "sourcePages": [
+        202
+      ],
+      "contentSha256": "13a2b9f491d572ecca4257f9f189d539d2a03c443921703cbdf49b72eccba476",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q141",
+      "title": "说说什么是向量数据库？该如何选择呢？",
+      "chapter": "RAG",
+      "start": {
+        "page": 203,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 204,
+        "y": 65.25
+      },
+      "sourcePages": [
+        203
+      ],
+      "contentSha256": "403c9449edd35a145a17cca20aa7e54aa9efdfbc60b038539a71e43bf1afdcd2",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q142",
+      "title": "意图定向检索和全局向量检索的区别是什么？",
+      "chapter": "RAG",
+      "start": {
+        "page": 204,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 205,
+        "y": 65.25
+      },
+      "sourcePages": [
+        204
+      ],
+      "contentSha256": "4c7017d968ca6b3d0e21aece0fd670ab881402c4a005d3139fd26c8a472f72a2",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q143",
+      "title": "说说向量检索和关键词检索的区别？",
+      "chapter": "RAG",
+      "start": {
+        "page": 205,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 206,
+        "y": 65.25
+      },
+      "sourcePages": [
+        205
+      ],
+      "contentSha256": "6ae003f14f1fb76aaa9984e6eb25f9a50f0e0d0d1292b0016cfc67c29b06e6da",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q144",
+      "title": "说说什么是多路召回？",
+      "chapter": "RAG",
+      "start": {
+        "page": 206,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 207,
+        "y": 65.25
+      },
+      "sourcePages": [
+        206
+      ],
+      "contentSha256": "575d884c7ef26be8a0135ff763d2f471af797c9e89c3891d56986f0e0e9ff573",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q145",
+      "title": "说说 RAG 检索优化策略？",
+      "chapter": "RAG",
+      "start": {
+        "page": 207,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 208,
+        "y": 65.25
+      },
+      "sourcePages": [
+        207
+      ],
+      "contentSha256": "bca0ff8dffd3ec14ba6a6afda1fa7f23dffc8d2c8041c6794417e74c23b149fd",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE",
+        "SPECIAL_CHARACTER"
+      ]
+    },
+    {
+      "id": "q146",
+      "title": "如何避免 RAG 系统中大模型的幻觉？",
+      "chapter": "RAG",
+      "start": {
+        "page": 208,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 210,
+        "y": 65.25
+      },
+      "sourcePages": [
+        208,
+        209
+      ],
+      "contentSha256": "8213dd06c19a9e915a9154b2b597c6999b154dcc6e0c8f12c38f85df31db847e",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q147",
+      "title": "如何量化你的 RAG 效果？",
+      "chapter": "RAG",
+      "start": {
+        "page": 210,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 211,
+        "y": 65.25
+      },
+      "sourcePages": [
+        210
+      ],
+      "contentSha256": "8bb49e2608f4c684b3ae89a95a41ba10482ff5d9e29608c4d19a3a788036ed21",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q148",
+      "title": "RAG 录入资料时，如果两份知识库对同一个模糊问题给出不同答案，系统如何处理冲突？",
+      "chapter": "RAG",
+      "start": {
+        "page": 211,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 212,
+        "y": 65.25
+      },
+      "sourcePages": [
+        211
+      ],
+      "contentSha256": "6d9be357008d1656305d98da01ed63299bc5473683a285c7c49dbd78bb3ceb90",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q149",
+      "title": "RAG 检索召回率过低时，应该如何排查和优化？",
+      "chapter": "RAG",
+      "start": {
+        "page": 212,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 213,
+        "y": 65.25
+      },
+      "sourcePages": [
+        212
+      ],
+      "contentSha256": "64e39a5c77aacb77d1cd0f2cb3653042c3cdf4da8fafa5cf5ffe918c253a4047",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q150",
+      "title": "如何评估 RAG 的输出是来自知识库证据，而不是大模型自己幻觉生成的？",
+      "chapter": "RAG",
+      "start": {
+        "page": 213,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 214,
+        "y": 65.25
+      },
+      "sourcePages": [
+        213
+      ],
+      "contentSha256": "4fe8248a1cbc405c6e8ec89ef6f17cd9cd03ebee34e10e7e56d14c6d52f41ba8",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q151",
+      "title": "说说什么是 Function Caling ?",
+      "chapter": "LLM",
+      "start": {
+        "page": 214,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 215,
+        "y": 65.25
+      },
+      "sourcePages": [
+        214
+      ],
+      "contentSha256": "6116066fb025cd8ce93826b00669c6f79bdf92ccebe809f9ad2f21abf1880a3a",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE",
+        "SPECIAL_CHARACTER"
+      ]
+    },
+    {
+      "id": "q152",
+      "title": "说说什么是 MCP？",
+      "chapter": "LLM",
+      "start": {
+        "page": 215,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 216,
+        "y": 65.25
+      },
+      "sourcePages": [
+        215
+      ],
+      "contentSha256": "7197fd671021a4c09d2c093e74c3d02677b07ff2671a8815b1b7b3b49e8b70a4",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q153",
+      "title": "说说什么是 Skill ？",
+      "chapter": "LLM",
+      "start": {
+        "page": 216,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 217,
+        "y": 65.25
+      },
+      "sourcePages": [
+        216
+      ],
+      "contentSha256": "9a2d665a25788db5d70f34240131204d60b4427b232ea223870453b5a65d2e9c",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q154",
+      "title": "说说 Skills 与 MCP 的区别？",
+      "chapter": "LLM",
+      "start": {
+        "page": 217,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 218,
+        "y": 65.25
+      },
+      "sourcePages": [
+        217
+      ],
+      "contentSha256": "33a7c9473075bfc7e5f0aa56bdd917e20041290acb0bb28bb2a75227d8869236",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q155",
+      "title": "说说 MCP、Skill、CLi 之间的区别",
+      "chapter": "LLM",
+      "start": {
+        "page": 218,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 220,
+        "y": 65.25
+      },
+      "sourcePages": [
+        218,
+        219
+      ],
+      "contentSha256": "4f7398d3c5c51396c7a796ab73ed57b9672c8e1b737aeeea14e7ecf8a415538f",
+      "followupCount": 0,
+      "flagKinds": [
+        "EMPTY_PAGE",
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q156",
+      "title": "说说 MCP 协议和 Function Calling，它们有什么区别？",
+      "chapter": "LLM",
+      "start": {
+        "page": 220,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 221,
+        "y": 65.25
+      },
+      "sourcePages": [
+        220
+      ],
+      "contentSha256": "4f5739e7ddafdba956c1cc669e6965583772fbad813785724d68b0901e1e39a8",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q157",
+      "title": "说说 Function Caling、Skill、MCP 这三个的区别？",
+      "chapter": "LLM",
+      "start": {
+        "page": 221,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 222,
+        "y": 65.25
+      },
+      "sourcePages": [
+        221
+      ],
+      "contentSha256": "17153df406c50950c9388a1f1e99e5fdb3986e9b0fb794f92d533347406849c6",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    },
+    {
+      "id": "q158",
+      "title": "说说 WebSocket 和 SSE 的区别？",
+      "chapter": "LLM",
+      "start": {
+        "page": 222,
+        "y": 65.25
+      },
+      "endExclusive": {
+        "page": 222,
+        "y": 792.0
+      },
+      "sourcePages": [
+        222
+      ],
+      "contentSha256": "ea1b41b9caafd4508415bc4642a32364cdd94c54769d245d67430701562d57c7",
+      "followupCount": 0,
+      "flagKinds": [
+        "LAYOUT_REQUIRES_SOURCE"
+      ]
+    }
+  ]
+}

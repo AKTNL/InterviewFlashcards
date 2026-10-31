@@ -1,0 +1,11 @@
+{
+  "pageCount": 222,
+  "questionCount": 158,
+  "modules": {"Java 后端基础": 116, "AI 扩展": 42},
+  "chapters": {
+    "Java 基础": 17, "JVM": 6, "JUC / 并发编程": 20,
+    "MySQL": 17, "Redis": 17, "Spring": 5, "MyBatis": 3,
+    "消息队列": 8, "计算机网络": 15, "操作系统": 8,
+    "Agent": 18, "RAG": 16, "LLM": 8
+  }
+}
