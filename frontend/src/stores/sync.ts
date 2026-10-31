@@ -48,7 +48,7 @@ export const useSyncStore = defineStore('sync', () => {
       } else if (user) { void refresh() }
     }
   }
-  async function enqueue(change: Pick<Mutation, 'kind' | 'name' | 'sourceId' | 'expectedVersion' | 'file'>) {
+  async function enqueue(change: Pick<Mutation, 'kind' | 'name' | 'sourceId' | 'jobId' | 'expectedVersion' | 'file'>) {
     if (!user) throw new Error('请先登录')
     if (!state.value) throw new Error('请先连接服务，取得当前数据后再保存。')
     try {

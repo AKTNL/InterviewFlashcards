@@ -8,6 +8,7 @@ import static org.springframework.security.test.web.servlet.setup.SecurityMockMv
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.interviewflashcards.files.*;
+import com.interviewflashcards.importing.*;
 import com.interviewflashcards.sync.MutationService;
 import java.io.ByteArrayOutputStream;
 import java.nio.file.*;
@@ -52,7 +53,7 @@ class UsersFilesIT {
     }
     private void start() {
         app = (ServletWebServerApplicationContext) new SpringApplicationBuilder(FlashcardsApplication.class).run(
-                "--server.port=0", "--spring.flyway.schemas=" + schema, "--spring.flyway.default-schema=" + schema,
+                "--server.port=0", "--app.import.poll-ms=3600000", "--spring.flyway.schemas=" + schema, "--spring.flyway.default-schema=" + schema,
                 "--spring.datasource.hikari.schema=" + schema, "--app.account.username=owner", "--app.account.password-hash=" + hash,
                 "--app.storage.root=" + directory.resolve("files"), "--app.storage.temporary-root=" + directory.resolve("tmp"));
         jdbc = app.getBean(JdbcTemplate.class); mapper = app.getBean(ObjectMapper.class);
@@ -161,7 +162,7 @@ class UsersFilesIT {
                 .isInstanceOf(DataIntegrityViolationException.class);
         jdbc.update("insert into module(id,user_id,deck_id,name,original_name) values(?,?,?,'m','m')", module, userId, deck);
         jdbc.update("insert into chapter(id,user_id,module_id,name,original_name) values(?,?,?,'c','c')", chapter, userId, module);
-        jdbc.update("insert into import_job(id,user_id,source_id) values(?,?,?)", job, userId, UUID.fromString(savedId));
+        job = jdbc.queryForObject("select id from import_job where user_id=? and source_id=?", UUID.class, userId, UUID.fromString(savedId));
         jdbc.update("insert into draft_card(id,user_id,chapter_id,import_job_id,source_entry,question) values(?,?,?,?,'1','q')", draft, userId, chapter, job);
         jdbc.update("insert into card(id,user_id,chapter_id,draft_id,question) values(?,?,?,?,'q')", card, userId, chapter, draft);
         assertThatThrownBy(() -> jdbc.update("insert into card(id,user_id,chapter_id,draft_id,question) values(?,?,?,?,'q')", UUID.randomUUID(), userId, chapter, draft))
@@ -188,7 +189,7 @@ class UsersFilesIT {
         var login = login("owner");
         mvc.perform(get("/api/sources/" + savedId + "/content").session(login.session()))
                 .andExpect(status().isOk()).andExpect(content().bytes(pdf));
-        assertThat(jdbc.queryForObject("select count(*) from flyway_schema_history where version is not null", Integer.class)).isEqualTo(3);
+        assertThat(jdbc.queryForObject("select count(*) from flyway_schema_history where version is not null", Integer.class)).isEqualTo(4);
         assertThat(app.getBean(jakarta.servlet.MultipartConfigElement.class).getLocation())
                 .isEqualTo(directory.resolve("tmp").toAbsolutePath().normalize().toString());
     }
@@ -292,5 +293,109 @@ class UsersFilesIT {
         mvc.perform(get("/api/sync/receipts/" + operation).param("dataEpoch", oldEpoch.toString()).session(owner.session()))
                 .andExpect(status().isConflict()).andExpect(jsonPath("$.error.details.dataEpoch").value(newEpoch.toString()));
         assertThat(revision()).isEqualTo(before);
+    }
+
+    private UUID realJob;
+    private UUID realSource;
+    private ImportService.Ticket completedTicket;
+    private MvcResult retryJob(Login login,UUID id,UUID operation,UUID epoch,long version) throws Exception {
+        return mvc.perform(post("/api/import-jobs/"+id+"/retry").session(login.session()).header("X-CSRF-TOKEN",login.token())
+            .contentType("application/json").content(mapper.writeValueAsBytes(Map.of("operationId",operation,"dataEpoch",epoch,"expectedVersion",version)))).andReturn();
+    }
+    @Test @Order(9) void realPdfUploadCreatesOnePersistentTaskAndCompleteOwnedDrafts() throws Exception {
+        var owner=login("owner"); var other=login("other");
+        byte[] real=Files.readAllBytes(Path.of("../docs/Java+agent八股(高频版).pdf"));
+        var result=json(upload(owner,"当前资料.pdf",real));
+        realJob=UUID.fromString(result.at("/data/importJobId").asText()); realSource=UUID.fromString(result.at("/data/source/id").asText());
+        assertThat(json(upload(owner,"重复.pdf",real)).at("/data/importJobId").asText()).isEqualTo(realJob.toString());
+        var imports=app.getBean(ImportService.class);
+        assertThat(imports.job(userId,realJob).get("status")).isEqualTo("QUEUED");
+        completedTicket=imports.claim(realJob,userId);
+        app.getBean(ImportWorker.class).run(completedTicket);
+        var job=imports.job(userId,realJob);
+        assertThat(job.get("status")).isEqualTo("READY");
+        assertThat(((JsonNode)job.get("report")).path("candidateCount").asInt()).isEqualTo(158);
+        assertThat(imports.chapters(userId,realJob)).hasSize(13);
+        assertThat(jdbc.queryForObject("select count(*) from draft_card where import_job_id=?",Integer.class,realJob)).isEqualTo(158);
+        assertThat(jdbc.queryForObject("select count(*) from card where draft_id in (select id from draft_card where import_job_id=?)",Integer.class,realJob)).isZero();
+        var redis=imports.chapters(userId,realJob).stream().filter(c->"Redis".equals(c.get("name"))).findFirst().orElseThrow();
+        assertThat(redis.get("originalName")).isEqualTo("Reids篇");
+        UUID draft=jdbc.queryForObject("select id from draft_card where import_job_id=? and question like '%HashMap%扩容%'",UUID.class,realJob);
+        var detail=imports.draft(userId,draft);
+        assertThat((List<?>)detail.get("followups")).hasSize(4);
+        assertThat((List<?>)detail.get("sources")).hasSize(3);
+        assertThat(detail.get("originalContent")).isEqualTo(detail.get("contentBlocks"));
+        UUID chapter=jdbc.queryForObject("select chapter_id from draft_card where id=?",UUID.class,draft);
+        for(String path:List.of("/api/import-jobs/"+realJob,"/api/import-jobs/"+realJob+"/chapters","/api/chapters/"+chapter+"/drafts","/api/drafts/"+draft,"/api/sources/"+realSource+"/pages/44/image")) {
+            mvc.perform(get(path)).andExpect(status().isUnauthorized());
+            mvc.perform(get(path).session(other.session())).andExpect(status().isNotFound());
+            mvc.perform(get(path).session(owner.session())).andExpect(status().isOk());
+        }
+        mvc.perform(get("/api/chapters/"+chapter+"/drafts").param("limit","1000").session(owner.session())).andExpect(status().isBadRequest());
+        mvc.perform(get("/api/sources/"+realSource+"/pages/0/image").session(owner.session())).andExpect(status().isNotFound());
+        assertThat(json(retryJob(other,realJob,UUID.randomUUID(),epoch(other),0)).at("/error/code").asText()).isEqualTo("NOT_FOUND");
+    }
+    @Test @Order(10) void readyTaskCannotReparseAndExistingEditsAndConfirmedCardsAreProtected() throws Exception {
+        var owner=login("owner"); var imports=app.getBean(ImportService.class);
+        long version=((Number)imports.job(userId,realJob).get("version")).longValue();
+        assertThat(json(retryJob(owner,realJob,UUID.randomUUID(),epoch(owner),version)).at("/error/code").asText()).isEqualTo("IMPORT_NOT_RETRYABLE");
+        UUID draft=jdbc.queryForObject("select id from draft_card where import_job_id=? order by sort_order limit 1",UUID.class,realJob);
+        UUID chapter=jdbc.queryForObject("select chapter_id from draft_card where id=?",UUID.class,draft);
+        jdbc.update("update draft_card set question='manual edit',version=1 where id=?",draft);
+        jdbc.update("update chapter set check_status='IMPORTED',version=1 where id=?",chapter);
+        UUID card=UUID.randomUUID(); jdbc.update("insert into card(id,user_id,chapter_id,draft_id,question) values(?,?,?,?,'confirmed')",card,userId,chapter,draft);
+        jdbc.update("update import_job set status='FAILED' where id=?",realJob);
+        assertThat(json(retryJob(owner,realJob,UUID.randomUUID(),epoch(owner),version-1)).at("/error/code").asText()).isEqualTo("VERSION_CONFLICT");
+        assertThat(json(retryJob(owner,realJob,UUID.randomUUID(),epoch(owner),version)).at("/error/code").asText()).isEqualTo("IMPORT_CONTENT_EXISTS");
+        app.getBean(ImportWorker.class).run(completedTicket);
+        assertThat(imports.draft(userId,draft).get("question")).isEqualTo("manual edit");
+        assertThat(jdbc.queryForObject("select count(*) from card where id=?",Integer.class,card)).isEqualTo(1);
+        jdbc.update("update import_job set status='READY' where id=?",realJob);
+    }
+    @Test @Order(11) void partialPersistenceRollsBackAndRetryResumesEvidenceIdempotently() throws Exception {
+        var other=login("other"); var imports=app.getBean(ImportService.class);
+        var upload=json(upload(other,"retry-real.pdf",Files.readAllBytes(Path.of("../docs/Java+agent八股(高频版).pdf"))));
+        UUID id=UUID.fromString(upload.at("/data/importJobId").asText());
+        var ticket=imports.claim(id,otherId);
+        var raw=mapper.readTree(jdbc.queryForObject("select raw_evidence::text from import_job where id=?",String.class,realJob));
+        imports.checkpoint(ticket,"PERSISTING",90,raw);
+        // Fail after one candidate has been inserted: deck, chapters, spans and drafts must all roll back.
+        jdbc.execute("create function reject_test_draft() returns trigger language plpgsql as $$ begin if NEW.import_job_id='"+id+"'::uuid and NEW.source_entry='q002' then raise exception 'injected persistence failure'; end if; return NEW; end $$");
+        jdbc.execute("create trigger reject_test_draft before insert on draft_card for each row execute function reject_test_draft()");
+        try { app.getBean(ImportWorker.class).run(new ImportService.Ticket(ticket.id(),ticket.user(),ticket.epoch(),ticket.token(),ticket.source(),ticket.storageKey(),ticket.filename(),raw)); }
+        finally { jdbc.execute("drop trigger reject_test_draft on draft_card"); jdbc.execute("drop function reject_test_draft()"); }
+        assertThat(imports.job(otherId,id).get("status")).isEqualTo("FAILED");
+        assertThat(jdbc.queryForObject("select count(*) from draft_card where import_job_id=?",Integer.class,id)).isZero();
+        assertThat(jdbc.queryForObject("select count(*) from deck where user_id=?",Integer.class,otherId)).isZero();
+        long version=((Number)imports.job(otherId,id).get("version")).longValue(); UUID operation=UUID.randomUUID();
+        var first=json(retryJob(other,id,operation,epoch(other),version)).get("data");
+        assertThat(json(retryJob(other,id,UUID.randomUUID(),epoch(other),version)).at("/error/code").asText()).isEqualTo("VERSION_CONFLICT");
+        var retry=imports.claim(id,otherId); assertThat(retry.raw()).isNotNull();
+        Path file=directory.resolve("files").resolve(ticket.storageKey().toString()), hidden=file.resolveSibling(file.getFileName()+".hidden");
+        Files.move(file,hidden);
+        try { app.getBean(ImportWorker.class).run(retry); } finally { Files.move(hidden,file); }
+        assertThat(imports.job(otherId,id).get("status")).isEqualTo("READY");
+        assertThat(json(retryJob(other,id,operation,epoch(other),version)).get("data")).isEqualTo(first);
+        assertThat(jdbc.queryForObject("select count(*) from draft_card where import_job_id=?",Integer.class,id)).isEqualTo(158);
+        assertThat(jdbc.queryForObject("select count(*) from deck where user_id=?",Integer.class,otherId)).isEqualTo(1);
+    }
+    @Test @Order(12) void restartMarksInterruptedTaskAndUnreadableTextFailsWithReason() throws Exception {
+        var owner=login("owner"); var imports=app.getBean(ImportService.class);
+        byte[] blank;
+        try(var doc=new PDDocument(); var output=new ByteArrayOutputStream()) { doc.addPage(new PDPage());doc.addPage(new PDPage());doc.save(output);blank=output.toByteArray(); }
+        var result=json(upload(owner,"scanned.pdf",blank)); UUID id=UUID.fromString(result.at("/data/importJobId").asText());
+        var interrupted=imports.claim(id,userId);
+        imports.checkpoint(interrupted,"EXTRACTING",25,null);
+        app.close();start();imports=app.getBean(ImportService.class);owner=login("owner");
+        var job=imports.job(userId,id); assertThat(job.get("status")).isEqualTo("FAILED");assertThat(job.get("errorCode")).isEqualTo("INTERRUPTED");assertThat(job.get("progress")).isEqualTo(25);
+        long version=((Number)job.get("version")).longValue();
+        assertThat(json(retryJob(owner,id,UUID.randomUUID(),UUID.randomUUID(),version)).at("/error/code").asText()).isEqualTo("EPOCH_EXPIRED");
+        assertThat(retryJob(owner,id,UUID.randomUUID(),epoch(owner),version).getResponse().getStatus()).isEqualTo(200);
+        app.getBean(ImportWorker.class).run(imports.claim(id,userId));
+        job=imports.job(userId,id); assertThat(job.get("status")).isEqualTo("FAILED");assertThat(job.get("errorCode")).isEqualTo("INSUFFICIENT_TEXT");assertThat(job.get("errorMessage").toString()).contains("重新选择");
+        assertThat(jdbc.queryForObject("select count(*) from draft_card where import_job_id=?",Integer.class,realJob)).isEqualTo(158);
+        assertThat(imports.job(userId,realJob).get("status")).isEqualTo("READY");
+        // A worker from before restart cannot publish into a newer attempt.
+        assertThat(imports.checkpoint(interrupted,"PERSISTING",90,null)).isFalse();
     }
 }

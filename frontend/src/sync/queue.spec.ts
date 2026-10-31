@@ -28,6 +28,31 @@ function receipt(item: Mutation): WriteResult {
   return { source: { ...source, originalFilename: item.name, version: 1 },
     mutation: { operationId: item.operationId, dataEpoch: item.dataEpoch, entityVersion: 1, revision: 1, serverTime: '2026-10-31T00:00:00Z' } }
 }
+it('recovers an import retry receipt after reload without sending a second retry', async () => {
+  const item = await queue.enqueue('user', 'epoch', { kind: 'import.retry', name: '解析', jobId: 'job', expectedVersion: 3 })
+  await storage.put({ ...item, status: 'syncing' })
+  const result = { job: { id: 'job', version: 4 }, mutation: { operationId: item.operationId, dataEpoch: 'epoch', entityVersion: 4, revision: 8, serverTime: '2026-10-31T00:00:00Z' } }
+  vi.mocked(api.receipt).mockResolvedValue(result)
+  await new MutationQueue(storage, api).run('user', active, changed, show)
+  expect(api.send).not.toHaveBeenCalled()
+  expect(api.source).not.toHaveBeenCalled()
+  expect(rows.get(item.operationId)?.status).toBe('synced')
+})
+it('keeps import version conflicts for attention instead of replaying the task', async () => {
+  const item = await queue.enqueue('user', 'epoch', { kind: 'import.retry', name: '解析', jobId: 'job', expectedVersion: 3 })
+  vi.mocked(api.send).mockRejectedValue(new ApiError('VERSION_CONFLICT', '任务已更新', 409))
+  await queue.run('user', active, changed, show)
+  await queue.run('user', active, changed, show, true)
+  expect(api.send).toHaveBeenCalledTimes(1)
+  expect(rows.get(item.operationId)?.status).toBe('needs-attention')
+})
+it('rejects an import receipt belonging to a different job', async () => {
+  const item = await queue.enqueue('user', 'epoch', { kind: 'import.retry', name: '解析', jobId: 'job', expectedVersion: 3 })
+  vi.mocked(api.send).mockResolvedValue({ job: { id: 'other-job', version: 4 }, mutation: { operationId: item.operationId, dataEpoch: 'epoch', entityVersion: 4, revision: 8, serverTime: '2026-10-31T00:00:00Z' } })
+  await queue.run('user', active, changed, show)
+  expect(rows.get(item.operationId)?.status).toBe('pending')
+  expect(rows.get(item.operationId)?.error?.code).toBe('INVALID_RESPONSE')
+})
 it('persists before sending, keeps the ID through timeout/backoff and accepts only server confirmation', async () => {
   const item = await enqueue()
   expect(rows.get(item.operationId)?.status).toBe('pending')

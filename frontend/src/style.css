@@ -119,3 +119,23 @@ h2 { font-size: 22px; font-weight: 600; margin: 14px 0 10px; }
   .upload-panel { padding: 20px; }
   .source-row { align-items: flex-start; flex-direction: column; gap: 12px; }
 }
+
+.source-import { flex-basis: 100%; }
+.import-status, .import-report, .chapter-list, .draft-list, .draft-preview { margin-top: 1.5rem; padding: clamp(1rem, 3vw, 1.75rem); border: 1px solid var(--border, #d8ded9); border-radius: 1rem; background: var(--surface, #fff); min-width: 0; }
+.import-status a { display: block; margin-top: 1rem; }
+.import-status progress { display: block; width: min(100%, 30rem); accent-color: #315b48; }
+.report-scroll { overflow-x: auto; }
+.import-report table { border-collapse: collapse; width: 100%; white-space: nowrap; }
+.import-report th, .import-report td { text-align: left; padding: .7rem; border-bottom: 1px solid #d8ded9; }
+.chapter-buttons { display: flex; flex-wrap: wrap; gap: .6rem; }
+.chapter-buttons button { display: block; max-width: 100%; min-width: 0; white-space: normal; text-align: left; overflow-wrap: anywhere; }
+.chapter-buttons small { display: block; }
+button[aria-pressed=true] { outline: 2px solid #315b48; outline-offset: 2px; }
+.draft-list li { margin-bottom: .8rem; overflow-wrap: anywhere; }
+.draft-link { border: 0; background: transparent; padding: .3rem; text-align: left; text-decoration: underline; color: #315b48; cursor: pointer; font: inherit; }
+.source-text { max-width: 100%; overflow-x: auto; padding: 1rem; background: #f3f5f2; line-height: 1.8; font-size: .95rem; tab-size: 4; }
+.source-block { border-top: 1px solid #d8ded9; margin-top: 1rem; }
+.draft-preview details { margin: 1rem 0; }
+.draft-preview summary { cursor: pointer; padding: .5rem 0; }
+.check-flags ul { max-height: 18rem; overflow-y: auto; }
+.source-page-image { display: block; width: 100%; height: auto; margin: 1rem 0; }

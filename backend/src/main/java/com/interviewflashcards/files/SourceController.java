@@ -64,6 +64,17 @@ public record SourceController(SourceService service, SourceDocumentRepository s
         var asset = assets.findByUserIdAndId(user.id(), id).orElseThrow(() -> new ApiFailure(ErrorCode.NOT_FOUND));
         return file(storage.read(asset.getStorageKey()), MediaType.parseMediaType(asset.getMediaType()), "image");
     }
+    @GetMapping(value = "/api/sources/{id}/pages/{page}/image", produces = MediaType.IMAGE_PNG_VALUE)
+    public ResponseEntity<byte[]> pageImage(@AuthenticationPrincipal AccountPrincipal user, @PathVariable UUID id, @PathVariable int page) throws java.io.IOException {
+        var source = service.owned(user.id(), id);
+        if (page < 1 || page > source.getPageCount()) throw new ApiFailure(ErrorCode.NOT_FOUND);
+        try (var doc = org.apache.pdfbox.Loader.loadPDF(storage.read(source.getStorageKey()).getFile());
+             var output = new java.io.ByteArrayOutputStream()) {
+            var image = new org.apache.pdfbox.rendering.PDFRenderer(doc).renderImageWithDPI(page - 1, 110);
+            javax.imageio.ImageIO.write(image, "png", output);
+            return ResponseEntity.ok().contentType(MediaType.IMAGE_PNG).cacheControl(CacheControl.noStore()).body(output.toByteArray());
+        }
+    }
     private static ResponseEntity<Resource> file(Resource resource, MediaType type, String name) {
         // Spring MVC handles Range/HEAD and streams Resource regions without buffering the whole file.
         return ResponseEntity.ok().contentType(type).cacheControl(CacheControl.noStore())
@@ -75,5 +86,5 @@ public record SourceController(SourceService service, SourceDocumentRepository s
             return new SourceView(s.getId(), s.getOriginalFilename(), s.getSha256(), s.getPageCount(), s.getByteSize(), s.getCreatedAt(), s.getVersion());
         }
     }
-    public record UploadView(SourceView source, boolean duplicate) {}
+    public record UploadView(SourceView source, boolean duplicate, UUID importJobId) {}
 }

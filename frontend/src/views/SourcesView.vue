@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { ApiError } from '../api/client'
 import { useSyncStore } from '../stores/sync'
 import type { Source } from '../sync/types'
+import SourceImport from '../components/SourceImport.vue'
 const sync = useSyncStore()
 const sources = computed(() => sync.state?.sources ?? [])
 const loading = computed(() => sync.busy)
@@ -61,7 +62,7 @@ async function upload() {
       {{ uploading ? '正在保留上传内容…' : '选择 PDF' }}
       <input ref="input" type="file" accept=".pdf,application/pdf" :disabled="uploading || !sync.state" aria-label="选择 PDF" @change="upload" />
     </label>
-    <p class="form-note">相同文件保留为同一份资料。上传中断后会保留原操作，重新连接时重试；自动解析将在后续开放。</p>
+    <p class="form-note">相同文件保留为同一份资料和解析任务。上传后自动生成章节草稿；中断后保留原操作，重新连接时重试。</p>
     <button v-if="!sync.state" class="secondary-button" :disabled="loading" @click="load">连接资料服务</button>
   </section>
   <div v-if="error" role="alert" class="form-error">
@@ -85,6 +86,7 @@ async function upload() {
       </form>
       <button v-else class="secondary-button" @click="edit(source)">修改名称</button>
       <a class="secondary-button" :href="`/api/sources/${source.id}/content`" target="_blank" rel="noopener">查看原文 <span class="sr-only">（新窗口）</span></a>
+      <SourceImport :source-id="source.id" />
     </article>
   </section>
 </template>

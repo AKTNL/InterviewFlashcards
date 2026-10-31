@@ -32,7 +32,7 @@ Cookie 仅用于同源请求：`HttpOnly`、`SameSite=Lax`、仅 Cookie 跟踪�
 
 上传限制：单文件 50 MiB，multipart 请求 51 MiB。文件名以 `.pdf` 结尾，MIME 为 `application/pdf` 或浏览器缺省的 `application/octet-stream`；同时检查 `%PDF-` 标识和 PDFBox 可读取性、页树、正页数，拒绝加密文件（包括空密码加密）和空文件。流式计算 SHA-256，文件名只保留清理后的显示名；服务端生成 UUID 作为存储键。
 
-SHA-256 在用户空间内唯一；同用户重复上传即使文件名改变也返回原来源和 `duplicate: true`，不新增文件。并发上传通过用户行锁和唯一约束得到相同来源；不同用户可各自保存同一 PDF。P0-05 再在此来源上建立/返回解析任务，不将 P0-03 的文件保存宣称为解析成功。
+SHA-256 在用户空间内唯一；同用户重复上传即使文件名改变也返回原来源和 `duplicate: true`，不新增文件。并发上传通过用户行锁和唯一约束得到相同来源；不同用户可各自保存同一 PDF。P0-05 起同事务建立/返回 `importJobId`；任务查询、重试和鉴权页面原图见 [解析任务与草稿 API](imports-and-drafts.md)，来源保存成功不等于解析完成。
 
 二进制接口不使用 JSON 信封，返回正确 `Content-Type`、UTF-8 显示文件名的 `Content-Disposition: inline`、`Cache-Control: no-store`，支持 `Range` 的 206 与无效范围的 416，以及 HEAD。范围处理复用 Spring MVC `Resource`，不在 Java 堆内读取完整 PDF。非二进制错误仍使用统一错误信封；无效 Range 由 MVC 返回 416。
 

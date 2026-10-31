@@ -3,14 +3,15 @@ export interface Source {
 }
 export interface Snapshot { dataEpoch: string; revision: number; sources: Source[] }
 export interface WriteResult {
-  source: Source
+  source?: Source
+  job?: { id: string; version: number }
   duplicate?: boolean
   mutation: { operationId: string; dataEpoch: string; revision: number; entityVersion: number; serverTime: string }
 }
 export type SyncStatus = 'pending' | 'syncing' | 'synced' | 'failed' | 'needs-attention'
 export interface Mutation {
   operationId: string; userId: string; dataEpoch: string; createdAt: number
-  kind: 'source.upload' | 'source.rename'; name: string; sourceId?: string; expectedVersion?: number; file?: Blob
+  kind: 'source.upload' | 'source.rename' | 'import.retry'; name: string; sourceId?: string; jobId?: string; expectedVersion?: number; file?: Blob
   status: SyncStatus; attempts: number; nextAttemptAt: number
   error?: { code: string; message: string; details?: unknown; requestId?: string }; result?: WriteResult
 }

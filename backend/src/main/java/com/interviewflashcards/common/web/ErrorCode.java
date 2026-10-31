@@ -5,6 +5,8 @@ import org.springframework.http.HttpStatus;
 public enum ErrorCode {
     VALIDATION_ERROR(HttpStatus.BAD_REQUEST, "请求参数不正确"),
     INVALID_REQUEST(HttpStatus.BAD_REQUEST, "请求格式不正确"),
+    IMPORT_NOT_RETRYABLE(HttpStatus.CONFLICT, "仅失败的解析任务可以重试，请刷新任务状态"),
+    IMPORT_CONTENT_EXISTS(HttpStatus.CONFLICT, "任务已有草稿，禁止重新解析覆盖，请继续检查现有内容"),
     VERSION_CONFLICT(HttpStatus.CONFLICT, "资料已被其他操作修改，请核对后重新保存"),
     EPOCH_EXPIRED(HttpStatus.CONFLICT, "数据已恢复或替换，请核对本地内容"),
     OPERATION_ID_REUSED(HttpStatus.CONFLICT, "操作编号对应的内容不一致，请保留内容并核对"),
