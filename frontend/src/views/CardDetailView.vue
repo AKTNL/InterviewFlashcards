@@ -72,6 +72,7 @@ onUnmounted(() => { generation++; window.removeEventListener('focus', load); win
   <p v-if="loading" role="status">正在读取卡片…</p>
   <article v-if="card" class="card-detail chapter-review">
     <p class="eyebrow">{{ card.deckName }} / {{ card.moduleName }} / {{ card.chapterName }}</p><h1>{{ card.question }}</h1>
+    <RouterLink :to="{ path: '/practice', query: { cards: card.id } }" class="primary-button">主动回忆与评分</RouterLink>
     <p v-if="card.needsCheck" role="note" class="check-reminder">待检查：此卡片仍需对照原文核对。</p>
     <details v-if="card.needsCheck"><summary>待检查原因（{{ card.flags.length }} 处）</summary><ul><li v-for="(flag, i) in card.flags" :key="i">{{ flag.reason }}</li></ul></details>
     <p v-if="card.parentCardId" class="form-note">由关联主问题人工拆分：<RouterLink :to="`/cards/${card.parentCardId}`">查看原卡片</RouterLink></p>

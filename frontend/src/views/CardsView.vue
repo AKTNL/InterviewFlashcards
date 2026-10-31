@@ -45,6 +45,7 @@ onUnmounted(() => { generation++; window.removeEventListener('focus', load) })
   <p v-if="loading" role="status">正在读取题库…</p>
   <section v-if="result" class="library-results" aria-label="题库结果">
     <p>找到 {{ result.total }} 题 <small class="muted">· 学习日 {{ result.learningDate }}（上海时区）</small></p>
+    <RouterLink v-if="result.items.length" class="primary-button" :to="{ path: '/practice', query: { cards: result.items.map(c => c.id).join(',') } }">练习本页 {{ result.items.length }} 题</RouterLink>
     <p v-if="!result.items.length" class="empty-state">没有符合条件的题目。可以清除条件，或先确认导入章节。</p>
     <ol :start="result.offset + 1"><li v-for="card in result.items" :key="card.id">
       <RouterLink :to="`/cards/${card.id}`">{{ card.question }}</RouterLink>

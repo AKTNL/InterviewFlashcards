@@ -3,6 +3,8 @@ package com.interviewflashcards.common.web;
 import org.springframework.http.HttpStatus;
 
 public enum ErrorCode {
+    SESSION_EXPIRED(HttpStatus.CONFLICT, "学习会话已结束或跨天，请重新进入练习"),
+    EARLY_REVIEW_CONFIRMATION(HttpStatus.CONFLICT, "此题尚未到期，请确认提前练习将更新安排"),
     VALIDATION_ERROR(HttpStatus.BAD_REQUEST, "请求参数不正确"),
     INVALID_REQUEST(HttpStatus.BAD_REQUEST, "请求格式不正确"),
     CHAPTER_CLOSED(HttpStatus.CONFLICT, "本章已导入或已放弃；已导入内容请通过编辑修正"),

@@ -9,6 +9,12 @@ export const syncApi = {
   },
   source: async (id: string) => (await request<Source>(`/api/sources/${id}`)).data,
   send: async (item: Mutation): Promise<WriteResult> => {
+    if (item.kind === 'session.start' || item.kind === 'review.write') return (await request<WriteResult>(
+      item.kind === 'session.start' ? '/api/learning-sessions' : `/api/learning-sessions/${item.payload?.sessionId}/review`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(item.kind === 'session.start'
+          ? { operationId: item.operationId, dataEpoch: item.dataEpoch, cardIds: item.payload?.cardIds }
+          : { operationId: item.operationId, dataEpoch: item.dataEpoch, expectedVersion: item.expectedVersion, action: item.action, payload: item.payload }),
+      })).data
     if (item.kind === 'card.update') return (await request<WriteResult>(`/api/cards/${item.cardId}`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ operationId: item.operationId,
         dataEpoch: item.dataEpoch, expectedVersion: item.expectedVersion, action: item.action, payload: item.payload }),
@@ -82,7 +88,8 @@ export class MutationQueue {
             result = await this.api.send(item)
           }
           if (result.mutation?.operationId !== item.operationId || result.mutation.dataEpoch !== item.dataEpoch
-              || result.mutation.entityVersion !== (item.kind === 'card.update' ? result.card?.version : item.kind === 'chapter.review' ? result.chapter?.version : item.kind === 'import.retry' ? result.job?.version : result.source?.version)
+              || result.mutation.entityVersion !== (item.kind === 'session.start' || item.kind === 'review.write' ? result.session?.version : item.kind === 'card.update' ? result.card?.version : item.kind === 'chapter.review' ? result.chapter?.version : item.kind === 'import.retry' ? result.job?.version : result.source?.version)
+              || (item.kind === 'review.write' && result.session?.id !== item.payload?.sessionId)
               || (item.kind === 'card.update' && result.card?.id !== item.cardId)
               || (item.kind === 'chapter.review' && result.chapter?.id !== item.chapterId)
               || (item.kind === 'import.retry' && result.job?.id !== item.jobId) || !Number.isSafeInteger(result.mutation.revision))

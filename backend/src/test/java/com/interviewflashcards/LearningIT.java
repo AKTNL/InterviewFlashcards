@@ -1,0 +1,192 @@
+package com.interviewflashcards;
+
+import static org.assertj.core.api.Assertions.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.*;
+import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
+import com.fasterxml.jackson.databind.*;
+import com.interviewflashcards.auth.AccountPrincipal;
+import com.interviewflashcards.common.web.*;
+import com.interviewflashcards.learning.*;
+import java.nio.file.Path;
+import java.sql.DriverManager;
+import java.time.*;
+import java.util.*;
+import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.io.TempDir;
+import org.springframework.boot.builder.SpringApplicationBuilder;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.boot.web.servlet.context.ServletWebServerApplicationContext;
+import org.springframework.context.annotation.*;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
+class LearningIT {
+    @TempDir static Path directory;
+    static class TestClock extends Clock {
+        Instant value=Instant.parse("2026-10-31T04:00:00Z");
+        public ZoneId getZone(){return ZoneOffset.UTC;} public Clock withZone(ZoneId z){return this;} public Instant instant(){return value;}
+    }
+    @TestConfiguration static class TimeOverride { @Bean @Primary TestClock learningTestClock(){return new TestClock();} }
+    private final String schema="learning_it_"+UUID.randomUUID().toString().replace("-","");
+    private ServletWebServerApplicationContext app;
+    private JdbcTemplate jdbc; private ObjectMapper mapper; private LearningService learning; private MockMvc mvc; private TestClock clock;
+    private UUID user,epoch; private List<UUID> cards;
+    @BeforeAll void start() {
+        app=(ServletWebServerApplicationContext)new SpringApplicationBuilder(FlashcardsApplication.class,TimeOverride.class).run(
+            "--server.port=0","--app.import.poll-ms=3600000","--spring.flyway.schemas="+schema,"--spring.flyway.default-schema="+schema,
+            "--spring.datasource.hikari.schema="+schema,"--app.account.username=learning-test","--app.account.password-hash="+new BCryptPasswordEncoder(10).encode("test-only-password"),
+            "--app.storage.root="+directory.resolve("files"),"--app.storage.temporary-root="+directory.resolve("tmp"));
+        jdbc=app.getBean(JdbcTemplate.class);mapper=app.getBean(ObjectMapper.class);learning=app.getBean(LearningService.class);clock=app.getBean(TestClock.class);
+        mvc=MockMvcBuilders.webAppContextSetup(app).apply(springSecurity()).build();
+    }
+    @AfterAll void stop() throws Exception {
+        if(app!=null)app.close();
+        try(var c=DriverManager.getConnection(System.getenv("DATABASE_URL"),System.getenv("DATABASE_USERNAME"),System.getenv("DATABASE_PASSWORD"));var s=c.createStatement()){s.execute("drop schema if exists "+schema+" cascade");}
+    }
+    @BeforeEach void seed() {
+        clock.value=Instant.parse("2026-10-31T04:00:00Z");user=UUID.randomUUID();epoch=UUID.randomUUID();cards=new ArrayList<>();
+        UUID source=UUID.randomUUID(),job=UUID.randomUUID(),deck=UUID.randomUUID(),module=UUID.randomUUID(),chapter=UUID.randomUUID();
+        jdbc.update("insert into app_user(id,username,password_hash,data_epoch) values(?,?,'unused',?)",user,"u-"+user,epoch);
+        jdbc.update("insert into source_document(id,user_id,original_filename,sha256,page_count,byte_size,storage_key) values(?,?,'test.pdf',?,1,10,?)",source,user,"b".repeat(64),UUID.randomUUID());
+        jdbc.update("insert into deck(id,user_id,name) values(?,?,'面试')",deck,user);
+        jdbc.update("insert into module(id,user_id,deck_id,name,original_name) values(?,?,?,'Java','Java')",module,user,deck);
+        jdbc.update("insert into chapter(id,user_id,module_id,name,original_name,check_status) values(?,?,?,'Java','Java','IMPORTED')",chapter,user,module);
+        jdbc.update("insert into import_job(id,user_id,source_id,status,deck_id) values(?,?,?,'READY',?)",job,user,source,deck);
+        for(int i=0;i<3;i++){
+            UUID draft=UUID.randomUUID(),card=UUID.randomUUID();cards.add(card);
+            jdbc.update("insert into draft_card(id,user_id,chapter_id,import_job_id,source_entry,question) values(?,?,?,?,?,?)",draft,user,chapter,job,"q"+i,"问题"+i);
+            jdbc.update("insert into card(id,user_id,chapter_id,draft_id,question) values(?,?,?,?,?)",card,user,chapter,draft,"问题"+i);
+        }
+    }
+    private JsonNode session(int... indexes) throws Exception {
+        var ids=Arrays.stream(indexes).mapToObj(cards::get).toList();
+        return learning.start(user,new LearningController.Start(UUID.randomUUID(),epoch,ids)).get("session");
+    }
+    private LearningController.Write command(JsonNode s,String action,String rating) {
+        var p=mapper.createObjectNode().put("itemId",s.at("/current/id").asText()).put("expectedReviewVersion",s.at("/current/expectedVersion").asLong())
+            .put("answerRevealed",true).put("confirmEarly",true).put("confirmed",true).put("rating",rating==null?"":rating)
+            .put("eventId",s.at("/events/0/id").asText());
+        return new LearningController.Write(UUID.randomUUID(),epoch,s.get("version").asLong(),action,p);
+    }
+    private JsonNode write(JsonNode s,String action,String rating) throws Exception {
+        return learning.write(user,UUID.fromString(s.get("id").asText()),command(s,action,rating));
+    }
+    private JsonNode current(JsonNode s){return mapper.valueToTree(learning.session(user,UUID.fromString(s.get("id").asText())));}
+    private int count(String table){return jdbc.queryForObject("select count(*) from "+table+" where user_id=?",Integer.class,user);}
+    @Test void scoreIsIdempotentAndStateEventReceiptAndRevisionCommitTogether() throws Exception {
+        var s=session(0,1);var c=command(s,"RATE","FORGOT");UUID id=UUID.fromString(s.get("id").asText());
+        var first=learning.write(user,id,c);assertThat(learning.write(user,id,c)).isEqualTo(mapper.readTree(first.toString()));
+        assertThat(first.at("/session/canUndo").asBoolean()).isTrue();
+        assertThat(count("review_event")).isEqualTo(1);assertThat(count("review_state")).isEqualTo(1);assertThat(count("session_item")).isEqualTo(3);
+        assertThat(first.at("/session/current/cardId").asText()).isEqualTo(cards.get(1).toString());assertThat(first.get("dueDate").asText()).isEqualTo("2026-11-01");
+        assertThat(learning.summary(user)).containsEntry("todayNew",1L).containsEntry("todayReview",0L);
+        assertThatThrownBy(()->learning.write(user,id,new LearningController.Write(c.operationId(),epoch,0L,"SKIP",c.payload()))).isInstanceOf(ApiFailure.class);
+    }
+    @Test void replayLimitSurvivesNewSessionsAndSkipPreservesWeakState() throws Exception {
+        var s=write(session(0),"RATE","FORGOT").get("session");
+        assertThat(s.at("/current/isReplay").asBoolean()).isTrue();
+        var replay=write(s,"RATE","REMEMBERED");assertThat(replay.get("isReplay").asBoolean()).isTrue();
+        assertThat(replay.at("/session/events/0/afterState/stage").asInt()).isEqualTo(-1);
+        assertThat(replay.at("/session/events/0/afterState/lapseCount").asInt()).isEqualTo(1);
+        var again=write(session(0),"RATE","FORGOT").get("session");
+        assertThat(again.get("current").isNull()).isTrue();assertThat(count("review_replay_allowance")).isEqualTo(1);
+        assertThat(learning.summary(user)).containsEntry("todayNew",1L).containsEntry("todayReview",0L);
+        var second=write(session(1),"RATE","FORGOT").get("session");write(second,"SKIP",null);
+        assertThat(jdbc.queryForObject("select latest_rating from review_state where card_id=?",String.class,cards.get(1))).isEqualTo("FORGOT");
+    }
+    @Test void undoFirstScoreRestoresUnlearnedQueueAndStatsWithMonotonicVersion() throws Exception {
+        var initial=session(0,1);var scored=write(initial,"RATE","FORGOT").get("session");
+        var undone=write(scored,"UNDO",null).get("session");
+        assertThat(undone.get("canUndo").asBoolean()).isFalse();
+        assertThat(count("review_state")).isZero();assertThat(count("review_event")).isEqualTo(2);assertThat(count("session_item")).isEqualTo(2);
+        assertThat(count("review_replay_allowance")).isZero();assertThat(undone.at("/current/cardId").asText()).isEqualTo(cards.get(0).toString());
+        assertThat(undone.at("/current/expectedVersion").asLong()).isEqualTo(2);assertThat(learning.summary(user)).containsEntry("todayNew",0L).containsEntry("learned",0L);
+        assertThatThrownBy(()->write(initial,"RATE","REMEMBERED")).isInstanceOf(ApiFailure.class);
+        var rescore=write(undone,"RATE","REMEMBERED");assertThat(rescore.get("isReplay").asBoolean()).isFalse();
+    }
+    @Test void undoReplayRestoresOriginalRatingDueDateAndReplayPosition() throws Exception {
+        var s=write(session(0),"RATE","FORGOT").get("session");var replay=write(s,"RATE","REMEMBERED").get("session");
+        var undone=write(replay,"UNDO",null).get("session");assertThat(undone.at("/review/latestRating").asText()).isEqualTo("FORGOT");
+        assertThat(undone.at("/review/dueDate").asText()).isEqualTo("2026-11-01");assertThat(undone.at("/current/isReplay").asBoolean()).isTrue();
+        assertThat(learning.summary(user)).containsEntry("todayNew",1L);
+    }
+    @Test void undoLaterDayScoreRestoresPreviousScheduleAndReviewStatistics() throws Exception {
+        write(session(0),"RATE","REMEMBERED");clock.value=clock.value.plus(Duration.ofDays(2));
+        var before=session(0);var scored=write(before,"RATE","REMEMBERED").get("session");
+        assertThat(learning.summary(user)).containsEntry("todayReview",1L);
+        var undone=write(scored,"UNDO",null).get("session");
+        assertThat(undone.at("/review/dueDate").asText()).isEqualTo(before.at("/review/dueDate").asText());
+        assertThat(undone.at("/review/stage").asInt()).isEqualTo(before.at("/review/stage").asInt());
+        assertThat(learning.summary(user)).containsEntry("todayReview",0L).containsEntry("learned",1L);
+    }
+    @Test void subsequentOtherDeviceWritePreventsUndoAndOldSessionScore() throws Exception {
+        var a=session(0);var b=session(0);var scored=write(a,"RATE","REMEMBERED").get("session");
+        assertThatThrownBy(()->write(b,"RATE","FORGOT")).isInstanceOf(ApiFailure.class);assertThat(count("review_event")).isEqualTo(1);
+        var next=write(session(0),"RATE","VAGUE").get("session");
+        assertThatThrownBy(()->write(scored,"UNDO",null)).isInstanceOf(ApiFailure.class);
+        assertThat(current(next).at("/events/0/rating").asText()).isEqualTo("VAGUE");
+    }
+    @Test void relearnRequiresConfirmationPreservesHistoryAndDoesNotCountNewAgain() throws Exception {
+        write(session(0),"RATE","REMEMBERED");clock.value=clock.value.plus(Duration.ofDays(2));
+        var s=session(0);var c=command(s,"RELEARN",null);((com.fasterxml.jackson.databind.node.ObjectNode)c.payload()).put("confirmed",false);
+        assertThatThrownBy(()->learning.write(user,UUID.fromString(s.get("id").asText()),c)).isInstanceOf(ApiFailure.class);
+        var reset=write(s,"RELEARN",null).get("session");assertThat(reset.at("/review/stage").asInt()).isEqualTo(-1);
+        assertThat(reset.at("/review/dueDate").asText()).isEqualTo("2026-11-02");assertThat(reset.at("/review/firstLearnedAt").asText()).isEqualTo("2026-10-31T04:00:00Z");
+        write(reset,"RATE","REMEMBERED");assertThat(learning.summary(user)).containsEntry("todayNew",0L).containsEntry("todayReview",1L);
+    }
+    @Test void fractionalTimestampInEventMatchesPersistedStateAcrossRelearn() throws Exception {
+        clock.value=Instant.parse("2026-10-31T04:00:00.123456789Z");
+        var score=write(session(0),"RATE","REMEMBERED");
+        var first=score.at("/session/events/0/afterState/firstLearnedAt").asText();
+        var next=session(0);assertThat(next.at("/review/firstLearnedAt").asText()).isEqualTo(first);
+        var reset=write(next,"RELEARN",null).get("session");assertThat(reset.at("/review/firstLearnedAt").asText()).isEqualTo(first);
+        assertThat(first).isEqualTo("2026-10-31T04:00:00.123456Z");
+    }
+    @Test void clockRolloverRejectsOldSessionAndNextDayUsesNormalRules() throws Exception {
+        var old=session(0);write(old,"RATE","FORGOT");clock.value=Instant.parse("2026-10-31T16:00:00Z");
+        assertThat(current(old).get("expired").asBoolean()).isTrue();assertThatThrownBy(()->write(current(old),"UNDO",null)).isInstanceOf(ApiFailure.class);
+        var next=write(session(0),"RATE","REMEMBERED");assertThat(next.get("isReplay").asBoolean()).isFalse();assertThat(next.get("dueDate").asText()).isEqualTo("2026-11-02");
+        assertThat(learning.summary(user)).containsEntry("todayNew",0L).containsEntry("todayReview",1L);
+    }
+    @Test void receiptFailureRollsBackAllLearningWrites() throws Exception {
+        var s=session(0);long rev=jdbc.queryForObject("select revision from app_user where id=?",Long.class,user);
+        jdbc.execute("create function fail_learning_receipt() returns trigger language plpgsql as $$ begin raise exception 'injected'; end $$");
+        jdbc.execute("create trigger fail_learning_receipt before insert on mutation_receipt for each row execute function fail_learning_receipt()");
+        try{assertThatThrownBy(()->write(s,"RATE","FORGOT")).isInstanceOf(RuntimeException.class);}
+        finally{jdbc.execute("drop trigger fail_learning_receipt on mutation_receipt");jdbc.execute("drop function fail_learning_receipt()");}
+        assertThat(count("review_state")).isZero();assertThat(count("review_event")).isZero();assertThat(count("review_replay_allowance")).isZero();
+        assertThat(current(s).get("version").asLong()).isZero();assertThat(count("session_item")).isEqualTo(1);
+        assertThat(jdbc.queryForObject("select revision from app_user where id=?",Long.class,user)).isEqualTo(rev);
+    }
+    @Test void concurrentScoresOnlyOneWinsEvenAcrossSessions() throws Exception {
+        var a=session(0);var b=session(0);
+        try(var pool=java.util.concurrent.Executors.newFixedThreadPool(2)){
+            var tasks=List.of(pool.submit(()->write(a,"RATE","REMEMBERED")),pool.submit(()->write(b,"RATE","FORGOT")));int success=0,conflicts=0;
+            for(var t:tasks)try{t.get(10,java.util.concurrent.TimeUnit.SECONDS);success++;}catch(java.util.concurrent.ExecutionException e){assertThat(e.getCause()).isInstanceOf(ApiFailure.class);conflicts++;}
+            assertThat(success).isEqualTo(1);assertThat(conflicts).isEqualTo(1);assertThat(count("review_event")).isEqualTo(1);
+        }
+    }
+    @Test void readOnlyRoutesAndSecurityValidationEpochAndEarlyConfirmation() throws Exception {
+        var s=session(0);var owner=user(new AccountPrincipal(user,"test",""));var outsider=user(new AccountPrincipal(UUID.randomUUID(),"other",""));
+        mvc.perform(get("/api/learning-sessions/"+s.get("id").asText())).andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/learning-sessions/"+s.get("id").asText()).with(outsider)).andExpect(status().isNotFound());
+        var c=command(s,"RATE","REMEMBERED");String body=mapper.writeValueAsString(c);
+        mvc.perform(post("/api/learning-sessions/"+s.get("id").asText()+"/review").with(owner).contentType("application/json").content(body)).andExpect(status().isForbidden());
+        ((com.fasterxml.jackson.databind.node.ObjectNode)c.payload()).put("answerRevealed",false);
+        assertThatThrownBy(()->learning.write(user,UUID.fromString(s.get("id").asText()),c)).isInstanceOf(ApiFailure.class);
+        write(s,"RATE","REMEMBERED");clock.value=clock.value.plus(Duration.ofDays(1));
+        // Set a future due date to exercise explicit early practice confirmation.
+        jdbc.update("update review_state set due_date='2026-12-01' where user_id=?",user);
+        var early=session(0);var ec=command(early,"RATE","REMEMBERED");((com.fasterxml.jackson.databind.node.ObjectNode)ec.payload()).put("confirmEarly",false);
+        assertThatThrownBy(()->learning.write(user,UUID.fromString(early.get("id").asText()),ec)).isInstanceOf(ApiFailure.class);
+        long revision=jdbc.queryForObject("select revision from app_user where id=?",Long.class,user);
+        current(early);learning.summary(user);assertThat(jdbc.queryForObject("select revision from app_user where id=?",Long.class,user)).isEqualTo(revision);
+        assertThatThrownBy(()->learning.start(user,new LearningController.Start(UUID.randomUUID(),UUID.randomUUID(),List.of(cards.getFirst())))).isInstanceOf(ApiFailure.class);
+        assertThatThrownBy(()->learning.start(user,new LearningController.Start(UUID.randomUUID(),epoch,List.of(UUID.randomUUID())))).isInstanceOf(ApiFailure.class);
+    }
+}

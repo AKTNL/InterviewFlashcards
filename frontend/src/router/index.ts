@@ -10,6 +10,7 @@ export const router = createRouter({
     { path: '/imports/:id', name: 'import', meta: { requiresAuth: true }, component: () => import('../views/ImportView.vue') },
     { path: '/chapters/:id/cards', name: 'chapter-cards', meta: { requiresAuth: true }, component: () => import('../views/CardsView.vue') },
     { path: '/cards', name: 'cards', meta: { requiresAuth: true }, component: () => import('../views/CardsView.vue') },
+    { path: '/practice/:id?', name: 'practice', meta: { requiresAuth: true }, component: () => import('../views/PracticeView.vue') },
     { path: '/cards/:id', name: 'card-detail', meta: { requiresAuth: true }, component: () => import('../views/CardDetailView.vue') },
     { path: '/sources/:id/read', name: 'source-reader', meta: { requiresAuth: true }, component: () => import('../views/SourceReaderView.vue') },
     { path: '/:pathMatch(.*)*', name: 'not-found', component: () => import('../views/NotFoundView.vue') },

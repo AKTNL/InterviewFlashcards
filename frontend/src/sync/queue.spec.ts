@@ -3,6 +3,23 @@ import { reactive } from 'vue'
 import { ApiError } from '../api/client'
 import { MutationQueue, syncApi } from './queue'
 import type { Mutation, QueueStorage, Snapshot, Source, WriteResult } from './types'
+import type { LearningSession } from '../api/learning'
+
+it('recovers a scoring receipt after response loss without submitting another score', async () => {
+  const item = await queue.enqueue('user', 'epoch', { kind: 'review.write', name: '不会', action: 'RATE', expectedVersion: 0, payload: { sessionId: 'session', itemId: 'item', expectedReviewVersion: 0, rating: 'FORGOT' } })
+  await storage.put({ ...item, status: 'syncing' })
+  vi.mocked(api.receipt).mockResolvedValue({ session: { id: 'session', version: 1 } as LearningSession, dueDate: '2026-11-01',
+    mutation: { operationId: item.operationId, dataEpoch: 'epoch', entityVersion: 1, revision: 2, serverTime: '' } })
+  await new MutationQueue(storage, api).run('user', active, changed, show)
+  expect(api.send).not.toHaveBeenCalled();expect(rows.get(item.operationId)?.status).toBe('synced')
+})
+it('rejects scoring receipts for a different session and retains the original score', async () => {
+  const item = await queue.enqueue('user', 'epoch', { kind: 'review.write', name: '模糊', action: 'RATE', expectedVersion: 0, payload: { sessionId: 'session', rating: 'VAGUE' } })
+  vi.mocked(api.send).mockResolvedValue({ session: { id: 'other', version: 1 } as LearningSession,
+    mutation: { operationId: item.operationId, dataEpoch: 'epoch', entityVersion: 1, revision: 2, serverTime: '' } })
+  await queue.run('user', active, changed, show)
+  expect(rows.get(item.operationId)?.status).toBe('pending');expect(rows.get(item.operationId)?.payload?.rating).toBe('VAGUE')
+})
 
 const source: Source = { id: 'source', originalFilename: '远端.pdf', version: 0, pageCount: 1, byteSize: 100, createdAt: '2026-10-31T00:00:00Z' }
 const snapshot: Snapshot = { dataEpoch: 'epoch', revision: 0, sources: [source] }

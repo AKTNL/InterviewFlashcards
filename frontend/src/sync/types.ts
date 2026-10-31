@@ -3,6 +3,8 @@ export interface Source {
 }
 export interface Snapshot { dataEpoch: string; revision: number; sources: Source[] }
 export interface WriteResult {
+  session?: import('../api/learning').LearningSession
+  eventId?: string; dueDate?: string; isReplay?: boolean
   source?: Source
   job?: { id: string; version: number }
   chapter?: { id: string; version: number }
@@ -13,7 +15,7 @@ export interface WriteResult {
 export type SyncStatus = 'pending' | 'syncing' | 'synced' | 'failed' | 'needs-attention'
 export interface Mutation {
   operationId: string; userId: string; dataEpoch: string; createdAt: number
-  kind: 'source.upload' | 'source.rename' | 'import.retry' | 'chapter.review' | 'card.update'; name: string; sourceId?: string; jobId?: string; cardId?: string; expectedVersion?: number; file?: Blob
+  kind: 'source.upload' | 'source.rename' | 'import.retry' | 'chapter.review' | 'card.update' | 'session.start' | 'review.write'; name: string; sourceId?: string; jobId?: string; cardId?: string; expectedVersion?: number; file?: Blob
   chapterId?: string; action?: string; payload?: Record<string, unknown>
   status: SyncStatus; attempts: number; nextAttemptAt: number
   error?: { code: string; message: string; details?: unknown; requestId?: string }; result?: WriteResult

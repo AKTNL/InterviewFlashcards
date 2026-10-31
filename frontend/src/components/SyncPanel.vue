@@ -35,13 +35,16 @@ async function action(item: Mutation, choice: 'resubmit' | 'discard' | 'security
     <p v-if="actionError" role="alert" class="form-error">{{ actionError }}</p>
     <ul class="sync-items">
       <li v-for="item in recent" :key="item.operationId">
-        <div class="sync-item-heading"><strong>{{ item.kind === 'card.update' ? '卡片整理' : item.kind === 'chapter.review' ? '章节检查' : item.kind === 'source.upload' ? '上传' : item.kind === 'import.retry' ? '重试解析' : '修改名称' }}：{{ item.name }}</strong>
+        <div class="sync-item-heading"><strong>{{ item.kind === 'review.write' ? '学习记录' : item.kind === 'session.start' ? '创建练习' : item.kind === 'card.update' ? '卡片整理' : item.kind === 'chapter.review' ? '章节检查' : item.kind === 'source.upload' ? '上传' : item.kind === 'import.retry' ? '重试解析' : '修改名称' }}：{{ item.name }}</strong>
           <span role="status" :class="['sync-label', item.status]">{{ labels[item.status] }}</span>
         </div>
         <p v-if="item.error">{{ item.error.message }}</p>
         <p v-if="item.error?.requestId" class="request-id">请求编号 {{ item.error.requestId }}</p>
         <p v-if="remoteName(item)">服务端名称：{{ remoteName(item) }}</p>
         <p v-if="item.result?.duplicate">相同 PDF 已存在，已关联原有资料。</p>
+        <p v-if="item.result?.dueDate">下次复习：{{ item.result.dueDate }}{{ item.result.isReplay ? '（同日重练，阶段不升级）' : '' }}</p>
+        <RouterLink v-if="item.result?.session" :to="`/practice/${item.result.session.id}`">继续此练习</RouterLink>
+        <details v-if="item.kind === 'review.write' && item.error"><summary>核对评分与当前状态</summary><pre class="source-text">{{ JSON.stringify({ local: item.payload, server: item.error.details }, null, 2) }}</pre><button class="secondary-button" @click="download(item)">下载核对副本</button></details>
         <details v-if="(item.kind === 'chapter.review' || item.kind === 'card.update') && item.error"><summary>核对本地操作与服务端内容</summary><pre class="source-text">{{ JSON.stringify({ local: item.payload, server: item.error.details }, null, 2) }}</pre><button class="secondary-button" @click="download(item)">下载核对副本</button></details>
         <p v-if="item.status === 'pending'">内容已保留在此浏览器，收到服务端确认后才会显示已同步。</p>
         <div v-if="item.status === 'needs-attention' || item.status === 'failed'" class="sync-actions">
