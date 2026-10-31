@@ -1,25 +1,32 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
-import { ApiError, request } from '../api/client'
-
-interface Source {
-  id: string; originalFilename: string; pageCount: number; byteSize: number; createdAt: string
-}
-const sources = ref<Source[]>([])
-const loading = ref(false)
+import { computed, ref } from 'vue'
+import { ApiError } from '../api/client'
+import { useSyncStore } from '../stores/sync'
+import type { Source } from '../sync/types'
+const sync = useSyncStore()
+const sources = computed(() => sync.state?.sources ?? [])
+const loading = computed(() => sync.busy)
 const uploading = ref(false)
 const error = ref<ApiError | null>(null)
 const notice = ref('')
 const input = ref<HTMLInputElement>()
+const editing = ref<{ id: string; name: string; version: number } | null>(null)
 function fail(cause: unknown) {
   error.value = cause instanceof ApiError ? cause : new ApiError('UNKNOWN', '操作失败，请重试', 0)
 }
 async function load() {
-  loading.value = true
   error.value = null
-  try { sources.value = (await request<Source[]>('/api/sources')).data }
-  catch (cause) { fail(cause) }
-  finally { loading.value = false }
+  await sync.refresh(true)
+}
+function edit(source: Source) { editing.value = { id: source.id, name: source.originalFilename, version: source.version } }
+async function saveName() {
+  const value = editing.value
+  if (!value) return
+  error.value = null
+  try {
+    await sync.enqueue({ kind: 'source.rename', sourceId: value.id, name: value.name, expectedVersion: value.version })
+    editing.value = null
+  } catch (cause) { fail(cause) }
 }
 async function upload() {
   const file = input.value?.files?.[0]
@@ -32,18 +39,13 @@ async function upload() {
     return
   }
   uploading.value = true
-  const form = new FormData()
-  form.append('file', file)
   try {
-    const result = (await request<{ source: Source; duplicate: boolean }>('/api/sources', {
-      method: 'POST', body: form,
-    })).data
-    notice.value = result.duplicate ? '这份 PDF 已保存，已为你找到原有资料。' : 'PDF 已保存，可以查看原文。自动解析与逐章检查将在后续开放。'
-    await load()
+    await sync.enqueue({ kind: 'source.upload', name: file.name, file })
+    notice.value = '已在此浏览器保留上传内容，请在“保存与同步”中查看确认结果。'
+    if (input.value) input.value.value = ''
   } catch (cause) { fail(cause) }
-  finally { uploading.value = false; if (input.value) input.value.value = '' }
+  finally { uploading.value = false }
 }
-onMounted(load)
 </script>
 
 <template>
@@ -55,11 +57,12 @@ onMounted(load)
   <section class="upload-panel" aria-labelledby="upload-title">
     <h2 id="upload-title">添加一份 PDF</h2>
     <p>支持未加密、可读取的 PDF，单份不超过 50 MiB。</p>
-    <label class="primary-button file-picker" :class="{ disabled: uploading }">
-      {{ uploading ? '正在上传并检查…' : '选择 PDF' }}
-      <input ref="input" type="file" accept=".pdf,application/pdf" :disabled="uploading" aria-label="选择 PDF" @change="upload" />
+    <label class="primary-button file-picker" :class="{ disabled: uploading || !sync.state }">
+      {{ uploading ? '正在保留上传内容…' : '选择 PDF' }}
+      <input ref="input" type="file" accept=".pdf,application/pdf" :disabled="uploading || !sync.state" aria-label="选择 PDF" @change="upload" />
     </label>
-    <p class="form-note">相同文件会保留为同一份资料。上传较慢或超时后，可重新选择文件核对。</p>
+    <p class="form-note">相同文件保留为同一份资料。上传中断后会保留原操作，重新连接时重试；自动解析将在后续开放。</p>
+    <button v-if="!sync.state" class="secondary-button" :disabled="loading" @click="load">连接资料服务</button>
   </section>
   <div v-if="error" role="alert" class="form-error">
     <p>{{ error.message }}</p><p v-if="error.requestId" class="request-id">请求编号 {{ error.requestId }}</p>
@@ -74,6 +77,13 @@ onMounted(load)
     <p v-else-if="!sources.length && !error" class="empty-state">还没有资料，从第一份 PDF 开始。</p>
     <article v-for="source in sources" :key="source.id" class="source-row">
       <div><h3>{{ source.originalFilename }}</h3><p>{{ source.pageCount }} 页 · {{ (source.byteSize / 1024 / 1024).toFixed(2) }} MiB</p></div>
+      <form v-if="editing?.id === source.id" class="rename-form" @submit.prevent="saveName">
+        <label :for="`name-${source.id}`">资料名称</label>
+        <input :id="`name-${source.id}`" v-model="editing.name" required maxlength="255" />
+        <button class="secondary-button" type="submit">保存名称</button>
+        <button class="secondary-button" type="button" @click="editing = null">取消</button>
+      </form>
+      <button v-else class="secondary-button" @click="edit(source)">修改名称</button>
       <a class="secondary-button" :href="`/api/sources/${source.id}/content`" target="_blank" rel="noopener">查看原文 <span class="sr-only">（新窗口）</span></a>
     </article>
   </section>

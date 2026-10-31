@@ -24,6 +24,11 @@ public record ApiResponses(LearningTime time, ObjectMapper mapper) {
         return ResponseEntity.status(code.status()).body(body(code, request, fields));
     }
 
+    public ResponseEntity<ApiError> error(ApiFailure failure, HttpServletRequest request) {
+        return ResponseEntity.status(failure.code().status()).body(new ApiError(
+                new ApiError.Detail(failure.code(), failure.code().message(), List.of(), failure.details()), meta(request)));
+    }
+
     public void writeError(ErrorCode code, HttpServletRequest request, HttpServletResponse response)
             throws IOException {
         response.setStatus(code.status().value());
@@ -33,6 +38,6 @@ public record ApiResponses(LearningTime time, ObjectMapper mapper) {
     }
 
     private ApiError body(ErrorCode code, HttpServletRequest request, List<String> fields) {
-        return new ApiError(new ApiError.Detail(code, code.message(), fields), meta(request));
+        return new ApiError(new ApiError.Detail(code, code.message(), fields, null), meta(request));
     }
 }

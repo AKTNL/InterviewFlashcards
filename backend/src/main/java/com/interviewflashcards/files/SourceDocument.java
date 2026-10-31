@@ -15,6 +15,7 @@ public class SourceDocument {
     @Column(name = "byte_size", nullable = false) private long byteSize;
     @Column(name = "storage_key", nullable = false) private UUID storageKey;
     @Column(name = "created_at", nullable = false) private Instant createdAt;
+    @Column(nullable = false) private long version;
     protected SourceDocument() {}
     public SourceDocument(UUID userId, String name, FileStorage.Staged staged, int pages, Instant now) {
         id = UUID.randomUUID(); storageKey = UUID.randomUUID(); this.userId = userId;
@@ -27,4 +28,7 @@ public class SourceDocument {
     public int getPageCount() { return pageCount; }
     public long getByteSize() { return byteSize; }
     public Instant getCreatedAt() { return createdAt; }
+    public long getVersion() { return version; }
+    // Version checks and writes run under MutationService's owner lock.
+    public void rename(String name) { originalFilename = name; version++; }
 }

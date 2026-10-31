@@ -15,13 +15,14 @@ export class ApiError extends Error {
     public readonly status: number,
     public readonly requestId?: string,
     public readonly fields: string[] = [],
+    public readonly details: unknown = null,
   ) {
     super(message)
     this.name = 'ApiError'
   }
 
   get retryable(): boolean {
-    return ['NETWORK_ERROR', 'REQUEST_TIMEOUT', 'SERVICE_UNAVAILABLE'].includes(this.code)
+    return ['NETWORK_ERROR', 'REQUEST_TIMEOUT', 'INVALID_RESPONSE', 'SERVICE_UNAVAILABLE', 'STORAGE_UNAVAILABLE', 'INTERNAL_ERROR'].includes(this.code)
   }
 }
 
@@ -63,6 +64,7 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
         response.status,
         requestId,
         Array.isArray(error?.fields) ? error.fields.filter((field): field is string => typeof field === 'string') : [],
+        error?.details ?? null,
       )
     }
     if (path === '/api/auth/login' || path === '/api/auth/logout') resetCsrf()

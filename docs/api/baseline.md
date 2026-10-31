@@ -28,7 +28,8 @@
   "error": {
     "code": "SERVICE_UNAVAILABLE",
     "message": "服务暂时不可用，请稍后重试",
-    "fields": []
+    "fields": [],
+    "details": null
   },
   "meta": {
     "requestId": "136059ef-f395-4bfb-9658-7680c2c466e9",
@@ -61,7 +62,7 @@
 | 503 | `SERVICE_UNAVAILABLE` | 可以由用户发起重试 |
 | 500 | `INTERNAL_ERROR` | 凭请求编号排查 |
 
-路由首先经过安全过滤器：需认证的路径即使不存在，未登录也优先返回 401；缺少 CSRF 的写请求优先返回 403。表中的 MVC 错误码用于经过授权的控制器请求。版本冲突、幂等与恢复代次错误在 P0-04 固化，不提前模拟实现。
+路由首先经过安全过滤器：需认证的路径即使不存在，未登录也优先返回 401；缺少 CSRF 的写请求优先返回 403。表中的 MVC 错误码用于经过授权的控制器请求。P0-04 新增的 `VERSION_CONFLICT`、`OPERATION_ID_REUSED`、`EPOCH_EXPIRED`（均为 409）、冲突 `details` 及业务队列重试规则见 [写入与同步协议](mutations-and-sync.md)。
 
 前端额外区分 `NETWORK_ERROR`、`REQUEST_TIMEOUT`、`REQUEST_CANCELLED`、`INVALID_RESPONSE`。统一客户端设置 10 秒超时，不自动重放请求；网络、超时与 503 可提示重试，认证、校验与冲突不可统一盲目重试。反向代理 5xx 的非 JSON 响应显示通用服务不可用说明。
 

@@ -27,7 +27,7 @@ public class ApiExceptionHandler {
 
     @ExceptionHandler(ApiFailure.class)
     ResponseEntity<ApiError> failure(ApiFailure exception, HttpServletRequest request) {
-        return responses.error(exception.code(), request, List.of());
+        return responses.error(exception, request);
     }
 
     @ExceptionHandler(MaxUploadSizeExceededException.class)
@@ -35,7 +35,8 @@ public class ApiExceptionHandler {
         return responses.error(ErrorCode.FILE_TOO_LARGE, request, List.of());
     }
 
-    @ExceptionHandler({MethodArgumentTypeMismatchException.class, MissingServletRequestPartException.class})
+    @ExceptionHandler({MethodArgumentTypeMismatchException.class, MissingServletRequestPartException.class,
+            org.springframework.web.bind.MissingServletRequestParameterException.class})
     ResponseEntity<ApiError> invalidParameter(HttpServletRequest request) {
         return responses.error(ErrorCode.INVALID_REQUEST, request, List.of());
     }

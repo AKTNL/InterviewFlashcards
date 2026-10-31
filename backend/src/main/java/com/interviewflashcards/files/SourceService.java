@@ -2,6 +2,8 @@ package com.interviewflashcards.files;
 
 import com.interviewflashcards.common.web.ApiFailure;
 import com.interviewflashcards.common.web.ErrorCode;
+import com.interviewflashcards.sync.MutationService;
+import com.fasterxml.jackson.databind.JsonNode;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Locale;
@@ -12,7 +14,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 @Service
 public record SourceService(FileStorage storage, SourceRegistrar registrar, SourceDocumentRepository sources) {
-    public SourceRegistrar.Registration upload(UUID userId, MultipartFile file) {
+    public JsonNode upload(UUID userId, MutationService.Command command, MultipartFile file) {
         String type = file.getContentType();
         if (type == null || !(type.equalsIgnoreCase("application/pdf") || type.equalsIgnoreCase("application/octet-stream"))
                 || file.isEmpty()) throw new ApiFailure(ErrorCode.INVALID_PDF);
@@ -31,7 +33,7 @@ public record SourceService(FileStorage storage, SourceRegistrar registrar, Sour
                 // Force page tree traversal now; broken PDFs must not be registered as readable.
                 for (var page : document.getPages()) page.getMediaBox();
             } catch (IOException | IllegalArgumentException exception) { throw new ApiFailure(ErrorCode.INVALID_PDF); }
-            return registrar.register(userId, name, staged, pages);
+            return registrar.register(userId, command, name, staged, pages);
         } catch (IOException exception) { throw new ApiFailure(ErrorCode.STORAGE_UNAVAILABLE); }
     }
     public SourceDocument owned(UUID userId, UUID id) {

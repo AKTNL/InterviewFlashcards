@@ -1,10 +1,17 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from 'vue'
+import { onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink, RouterView, useRouter } from 'vue-router'
 import { useAuthStore } from './stores/auth'
 import { ApiError } from './api/client'
+import { useSyncStore } from './stores/sync'
+import SyncPanel from './components/SyncPanel.vue'
 
 const auth = useAuthStore()
+const sync = useSyncStore()
+watch(() => auth.user, user => {
+  if (user) void sync.connect(user).catch(() => {})
+  else sync.stop()
+}, { immediate: true })
 const router = useRouter()
 const logoutError = ref('')
 const signingOut = ref(false)
@@ -13,7 +20,10 @@ function expired() {
   if (router.currentRoute.value.meta.requiresAuth) void router.replace('/login')
 }
 function activate() {
-  if (document.visibilityState === 'visible' && auth.user) void auth.refresh().catch(() => {})
+  if (document.visibilityState === 'visible' && auth.user) {
+    void auth.refresh().catch(() => {})
+    void sync.refresh()
+  }
 }
 async function signOut() {
   signingOut.value = true
@@ -25,11 +35,16 @@ async function signOut() {
 onMounted(() => {
   window.addEventListener('session-expired', expired)
   document.addEventListener('visibilitychange', activate)
+  window.addEventListener('online', activate)
+  window.addEventListener('focus', activate)
   void auth.refresh().catch(() => {})
 })
 onUnmounted(() => {
   window.removeEventListener('session-expired', expired)
   document.removeEventListener('visibilitychange', activate)
+  window.removeEventListener('online', activate)
+  window.removeEventListener('focus', activate)
+  sync.stop()
 })
 </script>
 
@@ -52,6 +67,7 @@ onUnmounted(() => {
   <main id="main" tabindex="-1">
     <p v-if="logoutError" role="alert" class="form-error">{{ logoutError }}</p>
     <RouterView />
+    <SyncPanel v-if="auth.user" />
   </main>
   <footer class="site-footer">每一次主动回忆，都让知识多留一会儿。</footer>
 </template>

@@ -5,6 +5,9 @@ import org.springframework.http.HttpStatus;
 public enum ErrorCode {
     VALIDATION_ERROR(HttpStatus.BAD_REQUEST, "请求参数不正确"),
     INVALID_REQUEST(HttpStatus.BAD_REQUEST, "请求格式不正确"),
+    VERSION_CONFLICT(HttpStatus.CONFLICT, "资料已被其他操作修改，请核对后重新保存"),
+    EPOCH_EXPIRED(HttpStatus.CONFLICT, "数据已恢复或替换，请核对本地内容"),
+    OPERATION_ID_REUSED(HttpStatus.CONFLICT, "操作编号对应的内容不一致，请保留内容并核对"),
     UNAUTHENTICATED(HttpStatus.UNAUTHORIZED, "请先登录"),
     BAD_CREDENTIALS(HttpStatus.UNAUTHORIZED, "账号或密码不正确"),
     CSRF_INVALID(HttpStatus.FORBIDDEN, "安全凭证已过期，请刷新后重试"),

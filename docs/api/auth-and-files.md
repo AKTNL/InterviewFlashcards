@@ -22,12 +22,13 @@ Cookie 仅用于同源请求：`HttpOnly`、`SameSite=Lax`、仅 Cookie 跟踪�
 | 方法 | 路径 | 行为 |
 | --- | --- | --- |
 | GET | `/api/sources` | 返回当前用户的来源数组，按创建时间降序 |
-| POST | `/api/sources` | `multipart/form-data`，单个 `file` 字段；返回 `{source, duplicate}` |
+| POST | `/api/sources` | multipart：`file`、`operationId`、`dataEpoch`；返回 `{source, duplicate, mutation}` |
+| PATCH | `/api/sources/{id}` | JSON：操作 ID、代次、expectedVersion、name；版本保护名称编辑 |
 | GET | `/api/sources/{id}` | 当前用户的来源元数据 |
 | GET / HEAD | `/api/sources/{id}/content` | 当前用户的 PDF 原始文件流 |
 | GET / HEAD | `/api/assets/{id}/content` | 当前用户的 PNG/JPEG 资源流 |
 
-来源字段：`id`、`originalFilename`、`sha256`、`pageCount`、`byteSize`、`createdAt`，不暴露物理路径、存储键或他人归属信息。不存在和属于他人的 ID 均返回 404；未登录先返回 401。图片的生成与登记属于 P0-05，本任务交付存储元数据和受保护读取入口，不开放任意图片上传。
+来源字段：`id`、`originalFilename`、`sha256`、`pageCount`、`byteSize`、`createdAt`、`version`，不暴露物理路径、存储键或他人归属信息。P0-04 起所有业务修改遵循 [写入与同步协议](mutations-and-sync.md)，上传不再接受缺少协议字段的请求。不存在和属于他人的 ID 均返回 404；未登录先返回 401。图片的生成与登记属于 P0-05，本任务交付存储元数据和受保护读取入口，不开放任意图片上传。
 
 上传限制：单文件 50 MiB，multipart 请求 51 MiB。文件名以 `.pdf` 结尾，MIME 为 `application/pdf` 或浏览器缺省的 `application/octet-stream`；同时检查 `%PDF-` 标识和 PDFBox 可读取性、页树、正页数，拒绝加密文件（包括空密码加密）和空文件。流式计算 SHA-256，文件名只保留清理后的显示名；服务端生成 UUID 作为存储键。
 

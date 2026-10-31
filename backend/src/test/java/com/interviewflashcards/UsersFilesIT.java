@@ -8,6 +8,7 @@ import static org.springframework.security.test.web.servlet.setup.SecurityMockMv
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.interviewflashcards.files.*;
+import com.interviewflashcards.sync.MutationService;
 import java.io.ByteArrayOutputStream;
 import java.nio.file.*;
 import java.sql.DriverManager;
@@ -77,7 +78,14 @@ class UsersFilesIT {
     }
     private JsonNode json(MvcResult result) throws Exception { return mapper.readTree(result.getResponse().getContentAsByteArray()); }
     private MvcResult upload(Login login, String name, byte[] content) throws Exception {
+        return upload(login, name, content, UUID.randomUUID(), epoch(login));
+    }
+    private UUID epoch(Login login) throws Exception {
+        return UUID.fromString(json(mvc.perform(get("/api/auth/me").session(login.session())).andReturn()).at("/data/dataEpoch").asText());
+    }
+    private MvcResult upload(Login login, String name, byte[] content, UUID operation, UUID epoch) throws Exception {
         return mvc.perform(multipart("/api/sources").file(new MockMultipartFile("file", name, "application/pdf", content))
+                .param("operationId", operation.toString()).param("dataEpoch", epoch.toString())
                 .session(login.session()).header("X-CSRF-TOKEN", login.token())).andReturn();
     }
 
@@ -164,10 +172,11 @@ class UsersFilesIT {
             if (iteration == 0) assertThat(action).isNull(); else assertThat(action).isInstanceOf(DataIntegrityViolationException.class);
         }
         var fileService = app.getBean(SourceService.class);
+        UUID otherEpoch = jdbc.queryForObject("select data_epoch from app_user where id=?", UUID.class, otherId);
         try (var executor = Executors.newFixedThreadPool(2)) {
-            var first = executor.submit(() -> fileService.upload(otherId, new MockMultipartFile("file", "one.pdf", "application/pdf", pdf)));
-            var second = executor.submit(() -> fileService.upload(otherId, new MockMultipartFile("file", "two.pdf", "application/pdf", pdf)));
-            assertThat(first.get(20, TimeUnit.SECONDS).source().getId()).isEqualTo(second.get(20, TimeUnit.SECONDS).source().getId());
+            var first = executor.submit(() -> fileService.upload(otherId, new MutationService.Command(UUID.randomUUID(), otherEpoch), new MockMultipartFile("file", "one.pdf", "application/pdf", pdf)));
+            var second = executor.submit(() -> fileService.upload(otherId, new MutationService.Command(UUID.randomUUID(), otherEpoch), new MockMultipartFile("file", "two.pdf", "application/pdf", pdf)));
+            assertThat(first.get(20, TimeUnit.SECONDS).at("/source/id")).isEqualTo(second.get(20, TimeUnit.SECONDS).at("/source/id"));
         }
         assertThat(jdbc.queryForObject("select count(*) from source_document where user_id=?", Integer.class, otherId)).isEqualTo(1);
         assertThat(jdbc.queryForObject("select count(*) from source_document where user_id=?", Integer.class, userId)).isEqualTo(1);
@@ -179,8 +188,109 @@ class UsersFilesIT {
         var login = login("owner");
         mvc.perform(get("/api/sources/" + savedId + "/content").session(login.session()))
                 .andExpect(status().isOk()).andExpect(content().bytes(pdf));
-        assertThat(jdbc.queryForObject("select count(*) from flyway_schema_history where version is not null", Integer.class)).isEqualTo(2);
+        assertThat(jdbc.queryForObject("select count(*) from flyway_schema_history where version is not null", Integer.class)).isEqualTo(3);
         assertThat(app.getBean(jakarta.servlet.MultipartConfigElement.class).getLocation())
                 .isEqualTo(directory.resolve("tmp").toAbsolutePath().normalize().toString());
+    }
+    private MvcResult rename(Login login, String source, UUID operation, UUID epoch, long version, String name) throws Exception {
+        return mvc.perform(patch("/api/sources/" + source).session(login.session()).header("X-CSRF-TOKEN", login.token())
+                .contentType("application/json").content(mapper.writeValueAsBytes(Map.of("operationId", operation, "dataEpoch", epoch,
+                        "expectedVersion", version, "name", name)))).andReturn();
+    }
+    private long revision() { return jdbc.queryForObject("select revision from app_user where id=?", Long.class, userId); }
+
+    @Test @Order(5) void lostResponseReplayDigestAndReceiptOwnership() throws Exception {
+        var owner = login("owner"); var other = login("other"); UUID epoch = epoch(owner); UUID operation = UUID.randomUUID();
+        long before = revision();
+        var first = rename(owner, savedId, operation, epoch, 0, "更新资料.pdf");
+        assertThat(first.getResponse().getStatus()).isEqualTo(200);
+        assertThat(json(first).at("/data/source/version").asLong()).isEqualTo(1);
+        assertThat(json(first).at("/data/mutation/revision").asLong()).isEqualTo(before + 1);
+        var replay = rename(owner, savedId, operation, epoch, 0, "更新资料.pdf");
+        assertThat(json(replay).get("data")).isEqualTo(json(first).get("data"));
+        assertThat(revision()).isEqualTo(before + 1);
+        var changed = rename(owner, savedId, operation, epoch, 1, "不同内容.pdf");
+        assertThat(json(changed).at("/error/code").asText()).isEqualTo("OPERATION_ID_REUSED");
+        mvc.perform(get("/api/sync/receipts/" + operation).param("dataEpoch", epoch.toString()).session(owner.session()))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.source.originalFilename").value("更新资料.pdf"));
+        mvc.perform(get("/api/sync/receipts/" + operation).param("dataEpoch", epoch(other).toString()).session(other.session()))
+                .andExpect(status().isNotFound());
+        UUID uploadId = UUID.randomUUID();
+        var upload = upload(owner, "retry.pdf", pdf, uploadId, epoch);
+        assertThat(json(upload(owner, "retry.pdf", pdf, uploadId, epoch)).get("data")).isEqualTo(json(upload).get("data"));
+        assertThat(json(upload(owner, "other-name.pdf", pdf, uploadId, epoch)).at("/error/code").asText()).isEqualTo("OPERATION_ID_REUSED");
+        assertThat(revision()).isEqualTo(before + 1);
+        mvc.perform(multipart("/api/sources").file(new MockMultipartFile("file", "a.pdf", "application/pdf", pdf))
+                .session(owner.session()).header("X-CSRF-TOKEN", owner.token())).andExpect(status().isBadRequest());
+    }
+
+    @Test @Order(6) void twoDevicesCannotOverwriteTheSameVersionAndSnapshotsMatch() throws Exception {
+        var desktop = login("owner"); var phone = login("owner"); UUID epoch = epoch(desktop);
+        long before = revision(); var barrier = new CyclicBarrier(2);
+        List<MvcResult> results;
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            var first = executor.submit(() -> { barrier.await(); return rename(desktop, savedId, UUID.randomUUID(), epoch, 1, "电脑.pdf"); });
+            var second = executor.submit(() -> { barrier.await(); return rename(phone, savedId, UUID.randomUUID(), epoch, 1, "手机.pdf"); });
+            results = List.of(first.get(20, TimeUnit.SECONDS), second.get(20, TimeUnit.SECONDS));
+        }
+        assertThat(results.stream().map(r -> r.getResponse().getStatus())).containsExactlyInAnyOrder(200, 409);
+        var conflict = results.stream().filter(r -> r.getResponse().getStatus() == 409).findFirst().orElseThrow();
+        assertThat(json(conflict).at("/error/code").asText()).isEqualTo("VERSION_CONFLICT");
+        assertThat(json(conflict).at("/error/details/current/version").asLong()).isEqualTo(2);
+        assertThat(revision()).isEqualTo(before + 1);
+        var snapshot = json(mvc.perform(get("/api/sync/snapshot").session(phone.session())).andExpect(status().isOk()).andReturn());
+        assertThat(snapshot.at("/data/sources/0/version").asLong()).isEqualTo(2);
+        assertThat(snapshot.at("/data/revision").asLong()).isEqualTo(revision());
+        mvc.perform(get("/api/sync/revision")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/sync/revision").session(phone.session())).andExpect(jsonPath("$.data.dataEpoch").value(epoch.toString()));
+        var other = login("other");
+        assertThat(rename(other, savedId, UUID.randomUUID(), epoch(other), 2, "越权.pdf").getResponse().getStatus()).isEqualTo(404);
+        assertThat(rename(phone, savedId, UUID.randomUUID(), epoch, 2, " ").getResponse().getStatus()).isEqualTo(400);
+    }
+
+    @Test @Order(7) void callbackAndReceiptFailureRollbackAndConcurrentSameIdOnlyExecuteOnce() throws Exception {
+        var mutations = app.getBean(MutationService.class); var owner = login("owner"); UUID epoch = epoch(owner);
+        UUID failedId = UUID.randomUUID(); UUID deckId = UUID.randomUUID(); long before = revision();
+        assertThatThrownBy(() -> mutations.execute(userId, new MutationService.Command(failedId, epoch), "test.rollback", Map.of(), () -> {
+            jdbc.update("insert into deck(id,user_id,name) values(?,?,'rollback')", deckId, userId);
+            throw new java.io.IOException("simulated storage failure");
+        })).isInstanceOf(java.io.IOException.class);
+        assertThat(jdbc.queryForObject("select count(*) from deck where id=?", Integer.class, deckId)).isZero();
+        assertThat(jdbc.queryForObject("select count(*) from mutation_receipt where operation_id=?", Integer.class, failedId)).isZero();
+        assertThat(revision()).isEqualTo(before);
+        UUID receiptFailure = UUID.randomUUID();
+        jdbc.execute("create function reject_test_receipt() returns trigger language plpgsql as $$ begin if NEW.operation_id='" + receiptFailure + "'::uuid then raise exception 'test receipt failure'; end if; return NEW; end $$");
+        jdbc.execute("create trigger reject_test_receipt before insert on mutation_receipt for each row execute function reject_test_receipt()");
+        try {
+            var failed = rename(owner, savedId, receiptFailure, epoch, 2, "必须回滚.pdf");
+            assertThat(failed.getResponse().getStatus()).isEqualTo(503);
+            assertThat(jdbc.queryForObject("select version from source_document where id=?", Long.class, UUID.fromString(savedId))).isEqualTo(2);
+            assertThat(revision()).isEqualTo(before);
+        } finally { jdbc.execute("drop trigger reject_test_receipt on mutation_receipt"); jdbc.execute("drop function reject_test_receipt()"); }
+        UUID operation = UUID.randomUUID(); var calls = new java.util.concurrent.atomic.AtomicInteger(); var barrier = new CyclicBarrier(2);
+        java.util.concurrent.Callable<JsonNode> action = () -> { barrier.await(); return mutations.execute(userId,
+                new MutationService.Command(operation, epoch), "test.concurrent", Map.of("a", 1), () -> {
+                    calls.incrementAndGet(); return new MutationService.Change(Map.of("ok", true), 0, true);
+                }); };
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            var a = executor.submit(action); var b = executor.submit(action);
+            assertThat(mapper.readTree(a.get(20, TimeUnit.SECONDS).toString())).isEqualTo(mapper.readTree(b.get(20, TimeUnit.SECONDS).toString()));
+        }
+        assertThat(calls).hasValue(1); assertThat(revision()).isEqualTo(before + 1);
+    }
+
+    @Test @Order(8) void epochChangeRejectsEvenExistingReceiptsAndOldWrites() throws Exception {
+        var owner = login("owner"); UUID oldEpoch = epoch(owner); UUID operation = UUID.randomUUID();
+        assertThat(rename(owner, savedId, operation, oldEpoch, 2, "恢复前.pdf").getResponse().getStatus()).isEqualTo(200);
+        UUID newEpoch = UUID.randomUUID();
+        jdbc.update("update app_user set data_epoch=?,revision=revision+1 where id=?", newEpoch, userId);
+        long before = revision();
+        var replay = rename(owner, savedId, operation, oldEpoch, 2, "恢复前.pdf");
+        assertThat(json(replay).at("/error/code").asText()).isEqualTo("EPOCH_EXPIRED");
+        assertThat(json(replay).at("/error/details/dataEpoch").asText()).isEqualTo(newEpoch.toString());
+        assertThat(json(upload(owner, "old.pdf", pdf, UUID.randomUUID(), oldEpoch)).at("/error/code").asText()).isEqualTo("EPOCH_EXPIRED");
+        mvc.perform(get("/api/sync/receipts/" + operation).param("dataEpoch", oldEpoch.toString()).session(owner.session()))
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.error.details.dataEpoch").value(newEpoch.toString()));
+        assertThat(revision()).isEqualTo(before);
     }
 }
