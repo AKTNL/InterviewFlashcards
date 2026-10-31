@@ -2,6 +2,7 @@ import { ApiError, request } from '../api/client'
 import type { Mutation, QueueStorage, Snapshot, Source, WriteResult } from './types'
 
 export const syncApi = {
+  revision: async () => (await request<Pick<Snapshot, 'dataEpoch' | 'revision' | 'learningDate'>>('/api/sync/revision')).data,
   snapshot: async () => (await request<Snapshot>('/api/sync/snapshot')).data,
   receipt: async (item: Mutation) => {
     try { return (await request<WriteResult>(`/api/sync/receipts/${item.operationId}?dataEpoch=${item.dataEpoch}`)).data }
@@ -9,6 +10,10 @@ export const syncApi = {
   },
   source: async (id: string) => (await request<Source>(`/api/sources/${id}`)).data,
   send: async (item: Mutation): Promise<WriteResult> => {
+    if (item.kind === 'conflict.resolve') return (await request<WriteResult>(`/api/sync/conflicts/${item.payload?.conflictId}/resolve`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...item.payload,
+        operationId: item.operationId, dataEpoch: item.dataEpoch, expectedVersion: item.expectedVersion }),
+    })).data
     if (item.kind === 'preferences.save' || item.kind === 'session.daily') return (await request<WriteResult>(
       item.kind === 'preferences.save' ? '/api/preferences' : '/api/learning-sessions/daily', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...item.payload,
@@ -93,19 +98,22 @@ export class MutationQueue {
             result = await this.api.send(item)
           }
           if (result.mutation?.operationId !== item.operationId || result.mutation.dataEpoch !== item.dataEpoch
-              || result.mutation.entityVersion !== (item.kind === 'preferences.save' ? result.preferences?.version : item.kind === 'session.daily' || item.kind === 'session.start' || item.kind === 'review.write' ? result.session?.version : item.kind === 'card.update' ? result.card?.version : item.kind === 'chapter.review' ? result.chapter?.version : item.kind === 'import.retry' ? result.job?.version : result.source?.version)
+              || result.mutation.entityVersion !== (item.kind === 'conflict.resolve' ? result.conflict?.version : item.kind === 'preferences.save' ? result.preferences?.version : item.kind === 'session.daily' || item.kind === 'session.start' || item.kind === 'review.write' ? result.session?.version : item.kind === 'card.update' ? result.card?.version : item.kind === 'chapter.review' ? result.chapter?.version : item.kind === 'import.retry' ? result.job?.version : result.source?.version)
+              || (item.kind === 'conflict.resolve' && (result.conflict?.id !== item.payload?.conflictId || !result.conflict?.resolved))
               || (item.kind === 'review.write' && result.session?.id !== item.payload?.sessionId)
               || (item.kind === 'card.update' && result.card?.id !== item.cardId)
               || (item.kind === 'chapter.review' && result.chapter?.id !== item.chapterId)
               || (item.kind === 'import.retry' && result.job?.id !== item.jobId) || !Number.isSafeInteger(result.mutation.revision))
             throw new ApiError('INVALID_RESPONSE', '未收到有效确认，将保留操作供重试。', 0)
-          item.status = 'synced'; item.result = result; item.file = undefined; item.error = undefined
+          item.status = result.conflict && !result.conflict.resolved ? 'needs-attention' : 'synced'
+          item.result = result; item.file = undefined
+          item.error = item.status === 'needs-attention' ? { code: 'REVIEW_CONFLICT', message: '两台设备提交了不同评分，请核对并处理；当前评分保持不变。', details: result.conflict } : undefined
         } catch (cause) {
           const error = cause instanceof ApiError ? cause : new ApiError('NETWORK_ERROR', '连接失败，内容已保留。', 0)
           item.attempts++
           item.error = { code: error.code, message: error.message, details: error.details, requestId: error.requestId }
           item.status = error.retryable || error.code === 'UNAUTHENTICATED' ? 'pending'
-            : ['VERSION_CONFLICT', 'EPOCH_EXPIRED', 'OPERATION_ID_REUSED', 'NOT_FOUND', 'CSRF_INVALID'].includes(error.code) ? 'needs-attention' : 'failed'
+            : ['VERSION_CONFLICT', 'SESSION_EXPIRED', 'EARLY_REVIEW_CONFIRMATION', 'EPOCH_EXPIRED', 'OPERATION_ID_REUSED', 'NOT_FOUND', 'CSRF_INVALID'].includes(error.code) ? 'needs-attention' : 'failed'
           item.nextAttemptAt = this.now() + Math.min(60_000, 1000 * 2 ** Math.min(item.attempts, 6))
           await this.storage.put(item); await changed()
           if (item.status === 'pending' || error.code === 'EPOCH_EXPIRED') break

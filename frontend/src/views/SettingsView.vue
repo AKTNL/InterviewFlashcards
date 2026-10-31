@@ -2,8 +2,13 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { learningApi, type TodayLearning } from '../api/learning'
 import { useSyncStore } from '../stores/sync'
+import { onSyncRefresh } from '../sync/refresh'
+import { onBeforeRouteLeave } from 'vue-router'
 const sync = useSyncStore(), today = ref<TodayLearning>(), loading = ref(false), busy = ref(false), error = ref(''), message = ref('')
 const dailyNewCount = ref(5), reviewBatchSize = ref(20), referenceMinutes = ref<number | ''>(''), chapterIds = ref<string[]>([])
+const baseline = ref('')
+const formValue = () => JSON.stringify([dailyNewCount.value, reviewBatchSize.value, referenceMinutes.value, chapterIds.value])
+const dirty = computed(() => !!baseline.value && baseline.value !== formValue())
 const pending = computed(() => sync.items.some(i => i.kind === 'preferences.save' && i.status !== 'synced'))
 const valid = computed(() => Number.isInteger(dailyNewCount.value) && dailyNewCount.value >= 0 && dailyNewCount.value <= 100
   && Number.isInteger(reviewBatchSize.value) && reviewBatchSize.value >= 1 && reviewBatchSize.value <= 100
@@ -20,6 +25,7 @@ async function load() {
     const t = await learningApi.today(); today.value = t
     dailyNewCount.value = t.preferences.dailyNewCount; reviewBatchSize.value = t.preferences.reviewBatchSize
     referenceMinutes.value = t.preferences.referenceMinutes ?? ''; chapterIds.value = [...t.preferences.chapterIds]
+    baseline.value = formValue()
   } catch (cause) { error.value = cause instanceof Error ? cause.message : '读取设置失败' }
   finally { loading.value = false }
 }
@@ -31,6 +37,7 @@ async function save() {
     await sync.enqueue({ kind: 'preferences.save', name: '每日目标与学习范围', expectedVersion: today.value.preferences.version,
       payload: { dailyNewCount: dailyNewCount.value, reviewBatchSize: reviewBatchSize.value, referenceMinutes: referenceMinutes.value === '' ? null : referenceMinutes.value, chapterIds: chapterIds.value } })
     message.value = '设置已保留，等待服务端确认。'
+    baseline.value = formValue()
   } catch (cause) { error.value = cause instanceof Error ? cause.message : '保留设置失败，请重试' }
   finally { busy.value = false }
 }
@@ -40,6 +47,11 @@ watch(() => sync.items.filter(i => i.status === 'synced' && i.kind === 'preferen
   }
 })
 onMounted(load)
+onSyncRefresh(() => {
+  if (dirty.value || pending.value || busy.value) { message.value = '服务端数据已更新，本地设置编辑已保留。保存时将核对版本。'; return }
+  return load()
+})
+onBeforeRouteLeave(() => !dirty.value || window.confirm('还有未保存的学习设置，确定离开并放弃吗？'))
 </script>
 <template>
   <RouterLink to="/">← 返回今日学习</RouterLink>

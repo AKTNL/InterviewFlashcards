@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { onSyncRefresh } from '../sync/refresh'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute } from 'vue-router'
 import { cardsApi, ratings, type CardDetail } from '../api/cards'
@@ -65,6 +66,7 @@ onBeforeRouteLeave(canLeave)
 onBeforeRouteUpdate(canLeave)
 onMounted(() => { window.addEventListener('focus', load); window.addEventListener('beforeunload', beforeUnload) })
 onUnmounted(() => { generation++; window.removeEventListener('focus', load); window.removeEventListener('beforeunload', beforeUnload) })
+onSyncRefresh(load)
 </script>
 <template>
   <RouterLink to="/cards">← 返回题库</RouterLink>

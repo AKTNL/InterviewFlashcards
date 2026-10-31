@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref, watch } from 'vue'
+import { onSyncRefresh } from '../sync/refresh'
+import { onMounted, onUnmounted, ref } from 'vue'
 import { importsApi, statusNames, stageNames, type ImportJob } from '../api/imports'
-import { useSyncStore } from '../stores/sync'
 const props = defineProps<{ sourceId: string }>()
-const sync = useSyncStore()
 const job = ref<ImportJob>()
 const error = ref('')
 let timer: ReturnType<typeof setTimeout> | undefined
@@ -19,7 +18,7 @@ async function load() {
     if (!stopped && (error.value || !job.value || ['QUEUED', 'PARSING'].includes(job.value.status))) timer = setTimeout(() => { void load() }, 2500)
   }
 }
-watch(() => sync.state?.revision, () => { void load() })
+onSyncRefresh(load)
 onMounted(() => { void load(); window.addEventListener('focus', load) })
 onUnmounted(() => { stopped = true; clearTimeout(timer); window.removeEventListener('focus', load) })
 </script>

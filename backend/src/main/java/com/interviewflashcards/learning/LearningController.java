@@ -22,6 +22,13 @@ public record LearningController(LearningService learning, ApiResponses response
         @NotNull @Min(0) @Max(100) Integer dailyNewCount,@NotNull @Min(1) @Max(100) Integer reviewBatchSize,
         @Min(1) @Max(1440) Integer referenceMinutes,@NotNull @Size(max=1000) List<@NotNull UUID> chapterIds) {}
     public record Plan(@NotNull UUID operationId,@NotNull UUID dataEpoch,@NotBlank @Pattern(regexp="MIXED|REVIEW|NEW") String mode) {}
+    public record Resolve(@NotNull UUID operationId,@NotNull UUID dataEpoch,@NotNull @PositiveOrZero Long expectedVersion,
+        @NotNull @PositiveOrZero Long expectedReviewVersion,@NotBlank @Pattern(regexp="CURRENT|CANDIDATE") String choice) {}
+    @PostMapping("/api/sync/conflicts/{id}/resolve")
+    public ApiResponse<?> resolve(@AuthenticationPrincipal AccountPrincipal user,@PathVariable UUID id,
+                                 @Valid @RequestBody Resolve body,HttpServletRequest request) throws IOException {
+        return responses.success(learning.resolve(user.id(),id,body),request);
+    }
     @GetMapping("/api/preferences")
     public ApiResponse<?> preferences(@AuthenticationPrincipal AccountPrincipal user,HttpServletRequest request) {
         return responses.success(learning.preferences(user.id()),request);

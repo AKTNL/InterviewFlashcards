@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { onSyncRefresh } from '../sync/refresh'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { onBeforeRouteLeave } from 'vue-router'
 import { importsApi, type ChapterReview, type Draft } from '../api/imports'
@@ -106,6 +107,7 @@ function focus() { if (!dirty.value && !pending.value && !enqueuing.value) void 
 onBeforeRouteLeave(() => !dirty.value || window.confirm('当前修改尚未保存，确定暂时退出？已保存草稿和正式卡片会保留。'))
 onMounted(() => { void load(); window.addEventListener('beforeunload', beforeUnload); window.addEventListener('focus', focus) })
 onUnmounted(() => { stopped = true; generation++; detailGeneration++; window.removeEventListener('beforeunload', beforeUnload); window.removeEventListener('focus', focus); emit('dirty', false) })
+onSyncRefresh(load)
 </script>
 <template>
   <section class="chapter-review" aria-label="逐章检查">

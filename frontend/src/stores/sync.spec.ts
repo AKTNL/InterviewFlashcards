@@ -1,4 +1,4 @@
-import { beforeEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { ApiError } from '../api/client'
 import { queueStorage } from '../sync/database'
@@ -17,6 +17,7 @@ beforeEach(() => {
   vi.mocked(queueStorage.put).mockImplementation(async item => { rows.set(item.operationId, structuredClone(item)) })
   vi.mocked(queueStorage.remove).mockImplementation(async id => { rows.delete(id) })
   vi.spyOn(syncApi, 'snapshot').mockResolvedValue(snapshot)
+  vi.spyOn(syncApi, 'revision').mockResolvedValue(snapshot)
   vi.spyOn(syncApi, 'receipt').mockResolvedValue(null)
   vi.spyOn(syncApi, 'source').mockResolvedValue(source)
 })
@@ -72,4 +73,40 @@ it('does not move an old user’s conflict payload into a newly signed-in user�
   expect(rows.size).toBe(1); expect(rows.get(item.operationId)?.userId).toBe(user.id)
   expect(store.items).toEqual([])
   store.stop()
+})
+
+afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks() })
+it('checks active pages every 30 seconds, reads only revisions until changed, and backs off failures', async () => {
+  vi.useFakeTimers()
+  const store = useSyncStore(); await store.connect(user)
+  vi.mocked(syncApi.snapshot).mockClear()
+  await vi.advanceTimersByTimeAsync(30_000)
+  expect(syncApi.revision).toHaveBeenCalledTimes(1); expect(syncApi.snapshot).not.toHaveBeenCalled()
+  vi.mocked(syncApi.revision).mockRejectedValueOnce(new ApiError('NETWORK_ERROR', '断网', 0))
+  await vi.advanceTimersByTimeAsync(30_000); expect(store.status).toBe('failed')
+  const changed = { ...snapshot, revision: 4 }
+  vi.mocked(syncApi.revision).mockResolvedValue(changed); vi.mocked(syncApi.snapshot).mockResolvedValue(changed)
+  await vi.advanceTimersByTimeAsync(5000)
+  expect(store.state?.revision).toBe(4); expect(store.status).toBe('synced')
+  store.stop(); const calls = vi.mocked(syncApi.revision).mock.calls.length
+  await vi.advanceTimersByTimeAsync(60_000); expect(syncApi.revision).toHaveBeenCalledTimes(calls)
+})
+it('does not call a successful snapshot fully synchronized while a local conflict remains', async () => {
+  const item = { ...pending(), status: 'needs-attention' as const, error: { code: 'VERSION_CONFLICT', message: '冲突' } }
+  rows.set(item.operationId, item)
+  const store = useSyncStore(); await store.connect(user)
+  expect(store.status).toBe('needs-attention'); await store.refresh(true)
+  expect(store.status).toBe('needs-attention'); expect(store.items[0]?.name).toBe('local.pdf'); store.stop()
+})
+it('fetches a new learning day without a changed revision and releases scores resolved on another device', async () => {
+  const item = { ...pending(), kind: 'review.write' as const, status: 'needs-attention' as const, error: { code: 'REVIEW_CONFLICT', message: '评分冲突' },
+    result: { conflict: { id: 'conflict' }, session: { id: 'old' }, mutation: {} } as never }
+  rows.set(item.operationId, item)
+  const store = useSyncStore(); await store.connect(user)
+  expect(store.status).toBe('needs-attention')
+  const changed = { ...snapshot, learningDate: '2026-11-01', data: { sync_conflict: [{ id: 'conflict', resolved: true }] } }
+  vi.mocked(syncApi.revision).mockResolvedValue(changed); vi.mocked(syncApi.snapshot).mockResolvedValue(changed)
+  await store.refresh()
+  expect(store.state?.learningDate).toBe('2026-11-01'); expect(store.items[0]?.status).toBe('synced')
+  expect(store.items[0]?.result?.session).toBeUndefined(); expect(store.status).toBe('synced'); store.stop()
 })

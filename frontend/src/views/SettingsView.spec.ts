@@ -39,3 +39,12 @@ it('refreshes the persisted settings when a restored pending operation is confir
   expect((wrapper.get('input[type="number"]').element as HTMLInputElement).value).toBe('0')
   expect(wrapper.text()).toContain('学习设置已同步')
 })
+
+it('keeps unsaved settings when a remote revision arrives and refreshes pristine settings', async () => {
+  const { wrapper, sync } = await view()
+  await wrapper.get('input[type="number"]').setValue(0)
+  vi.mocked(learningApi.today).mockClear()
+  sync.state = { dataEpoch: 'epoch', revision: 2, sources: [] }; await flushPromises()
+  expect(learningApi.today).not.toHaveBeenCalled(); expect((wrapper.get('input[type="number"]').element as HTMLInputElement).value).toBe('0')
+  expect(wrapper.text()).toContain('本地设置编辑已保留')
+})

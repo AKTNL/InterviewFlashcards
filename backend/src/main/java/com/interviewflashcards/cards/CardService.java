@@ -85,7 +85,7 @@ public class CardService {
             "originalContent",json(c.get("original_content")),"contentBlocks",json(c.get("display_content")),"displayRevision",c.get("display_revision"),
             "applicableVersion",c.get("applicable_version"),"technicalCorrection",c.get("technical_correction"),
             "annotation",obj("notes",text(c.get("notes")),"hint",text(c.get("hint")),"memoryPoints",text(c.get("memory_points")),"favorite",Boolean.TRUE.equals(c.get("favorite")),"version",c.get("annotation_version")),
-            "review",obj("learned",c.get("first_learned_at")!=null,"dueDate",c.get("due_date"),"latestRating",c.get("latest_rating"),"lapseCount",c.get("lapse_count")),
+            "review",obj("version",c.get("review_version"),"learned",c.get("first_learned_at")!=null,"dueDate",c.get("due_date"),"latestRating",c.get("latest_rating"),"lapseCount",c.get("lapse_count")),
             "tags",jdbc.queryForList("select t.name from tag t join card_tag ct on ct.user_id=t.user_id and ct.tag_id=t.id where ct.user_id=? and ct.card_id=? order by t.name",String.class,user,id),
             "sources",jdbc.queryForList("select s.source_id as \"sourceId\",s.physical_page as page,s.region,d.original_filename as name from source_span s join source_document d on d.user_id=s.user_id and d.id=s.source_id where s.user_id=? and s.card_id=? order by s.sort_order,s.id",user,id)
                 .stream().map(s -> obj("sourceId",s.get("sourceId"),"page",s.get("page"),"bbox",json(s.get("region")),"name",s.get("name"))).toList(),

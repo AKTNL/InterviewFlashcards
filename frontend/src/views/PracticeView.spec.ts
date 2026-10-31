@@ -35,6 +35,7 @@ it('binds score to session/item/state versions and waits for confirmation before
   const change = enqueue.mock.calls[0]![0]
   sync.items = [{ ...change, operationId: 'op', userId: 'user', dataEpoch: 'epoch', createdAt: 1, status: 'pending', attempts: 0, nextAttemptAt: 0 }];await flushPromises()
   expect(button('不会').attributes('disabled')).toBeDefined()
+  vi.mocked(learningApi.session).mockResolvedValue({ ...sample, version: 4, status: 'COMPLETED', current: null })
   sync.items = [{ ...sync.items[0]!, status: 'synced', result: { dueDate: '2026-11-01', session: { ...sample, version: 4, status: 'COMPLETED', current: null }, mutation: { operationId: 'op', dataEpoch: 'epoch', entityVersion: 4, revision: 9, serverTime: '' } } }];await flushPromises()
   expect(wrapper.text()).toContain('下次复习：2026-11-01');expect(wrapper.text()).toContain('本轮练习结束')
 })
@@ -62,4 +63,20 @@ it('requires explicit start and persists selected card IDs through the queue', a
   route.params.id = undefined;route.fullPath = '/practice?cards=card'
   const { enqueue, button } = await view();expect(enqueue).not.toHaveBeenCalled();await button('开始主动回忆').trigger('click')
   expect(enqueue).toHaveBeenCalledWith(expect.objectContaining({ kind: 'session.start', payload: { cardIds: ['card'] } }))
+})
+
+it('refreshes remote session advancement when a server revision arrives', async () => {
+  const { wrapper, sync } = await view()
+  vi.mocked(learningApi.session).mockResolvedValue({ ...sample, current: null, status: 'COMPLETED' })
+  sync.state = { dataEpoch: 'epoch', revision: 8, sources: [] }; await flushPromises()
+  expect(wrapper.text()).toContain('本轮练习结束')
+})
+
+it('uses the latest server session after recovering an older successful receipt', async () => {
+  const { wrapper, sync } = await view()
+  vi.mocked(learningApi.session).mockResolvedValue({ ...sample, version: 9, current: null, status: 'COMPLETED' })
+  sync.items = [{ operationId: 'recovered', userId: 'user', dataEpoch: 'epoch', createdAt: 1, kind: 'review.write', name: '恢复评分', action: 'RATE',
+    payload: { sessionId: 'session' }, status: 'synced', attempts: 0, nextAttemptAt: 0,
+    result: { session: { ...sample, version: 4 }, dueDate: '2026-11-01', mutation: { operationId: 'recovered', dataEpoch: 'epoch', entityVersion: 4, revision: 4, serverTime: '' } } }]
+  await flushPromises(); expect(wrapper.text()).toContain('本轮练习结束'); expect(wrapper.text()).not.toContain('HashMap')
 })

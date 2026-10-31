@@ -61,7 +61,8 @@ public class LearningService {
         int remaining=planned?remainingNew(user):Integer.MAX_VALUE;
         for(var i:items) {
             String reason=null;
-            if(planned && !Boolean.TRUE.equals(i.get("completed"))) {
+            if(!Boolean.TRUE.equals(i.get("completed")) && !Objects.equals(i.get("expectedVersion"),i.get("currentVersion"))) reason="已有其他学习记录";
+            if(planned && !Boolean.TRUE.equals(i.get("completed")) && reason==null) {
                 if(i.get("currentVersion")==null) reason="卡片已删除";
                 else if(!Boolean.TRUE.equals(i.get("selected")) || !"IMPORTED".equals(i.get("check_status"))) reason="章节已暂停";
                 else if(!Objects.equals(i.get("expectedVersion"),i.get("currentVersion"))) reason="已有其他学习记录";
@@ -98,14 +99,14 @@ public class LearningService {
             and not exists(select 1 from review_event u where u.user_id=e.user_id and u.undo_of=e.id)
             order by e.event_order desc limit 1
             """,user);
-        boolean canUndo=!latest.isEmpty() && id.equals(latest.getFirst().get("session_id"))
+        boolean canUndo=!latest.isEmpty() && !"CORRECT".equals(events.isEmpty()?null:events.getFirst().get("kind")) && id.equals(latest.getFirst().get("session_id"))
             && Objects.equals(row.get("version"),latest.getFirst().get("session_version_after"))
             && latest.getFirst().get("review_version").toString().equals(latest.getFirst().get("scored_version"));
         var round=jdbc.queryForMap("""
             select count(distinct e.card_id) filter(where e.before_state='null'::jsonb) as "newCount",
             count(distinct e.card_id) filter(where (e.after_state->>'firstLearnedAt')::timestamptz < ?::date at time zone ?) as "reviewCount"
             from review_event e join session_item i on i.user_id=e.user_id and i.id=e.session_item_id
-            where e.user_id=? and i.session_id=? and e.kind='RATE'
+            where e.user_id=? and i.session_id=? and e.kind in ('RATE','CORRECT')
             and not exists(select 1 from review_event u where u.user_id=e.user_id and u.undo_of=e.id)
             """,row.get("learning_date"),time.learningZone().getId(),user,id);
         var attention=jdbc.queryForList("""
@@ -113,7 +114,7 @@ public class LearningService {
             from session_item i join card c on c.user_id=i.user_id and c.id=i.card_id
             join review_state r on r.user_id=c.user_id and r.card_id=c.id
             where i.user_id=? and i.session_id=? and r.latest_rating in ('FORGOT','VAGUE')
-            and exists(select 1 from review_event e where e.user_id=i.user_id and e.session_item_id=i.id and e.kind='RATE'
+            and exists(select 1 from review_event e where e.user_id=i.user_id and e.session_item_id=i.id and e.kind in ('RATE','CORRECT')
                 and not exists(select 1 from review_event u where u.user_id=e.user_id and u.undo_of=e.id)) order by c.id
             """,user,id);
         return obj("id",id,"version",row.get("version"),"mode",row.get("mode"),"status","INVALIDATED".equals(row.get("status"))?"INVALIDATED":current==null?"COMPLETED":"ACTIVE","learningDate",row.get("learning_date").toString(),
@@ -141,11 +142,101 @@ public class LearningService {
             """,UUID.randomUUID(),user,card,Timestamp.from(state.firstLearnedAt()),Timestamp.from(state.lastReviewedAt()),state.dueDate(),
             state.stage(),state.latestRating().name(),state.lapseCount(),version);
     }
+    /** Compare the immutable baseline, rather than silently treating a stale score as another practice. */
+    private MutationService.Change competingScore(UUID user,UUID id,LearningController.Write c,long sv) throws IOException {
+        if(!"RATE".equals(c.action())) return null;
+        var p=c.payload();
+        if(!confirmed(p,"answerRevealed") || !p.path("expectedReviewVersion").isIntegralNumber()
+            || !p.path("expectedReviewVersion").canConvertToLong() || p.path("expectedReviewVersion").asLong()<0) invalid();
+        Rating rating;
+        try { rating=Rating.valueOf(p.path("rating").asText()); } catch(IllegalArgumentException e) { throw new ApiFailure(ErrorCode.INVALID_REQUEST); }
+        var items=jdbc.queryForList("select id,card_id,expected_review_version from session_item where user_id=? and session_id=? and id::text=?",
+            user,id,p.path("itemId").asText());
+        if(items.isEmpty()) return null;
+        var item=items.getFirst(); UUID card=(UUID)item.get("card_id");
+        long expected=p.path("expectedReviewVersion").asLong();
+        if(expected!=((Number)item.get("expected_review_version")).longValue() || cardVersion(user,card)==expected) return null;
+        var events=jdbc.queryForList("""
+            select * from review_event e where user_id=? and card_id=? and kind='RATE'
+            and (after_state->>'version')::bigint=?
+            and not exists(select 1 from review_event u where u.user_id=e.user_id and u.undo_of=e.id)
+            """,user,card,expected+1);
+        if(events.isEmpty()) return null;
+        var event=events.getFirst(); var current=state(user,card);
+        if(rating.name().equals(event.get("rating")))
+            return new MutationService.Change(obj("duplicateScore",true,"eventId",event.get("id"),"dueDate",current==null?null:current.dueDate(),"session",session(user,id)),sv,false);
+        UUID conflict=UUID.randomUUID();
+        var server=obj("eventId",event.get("id"),"rating",event.get("rating"),"learningDate",event.get("learning_date").toString(),
+            "afterState",json(event.get("after_state")),"current",current);
+        jdbc.update("""
+            insert into sync_conflict(id,user_id,entity_id,entity_type,client_content,server_content,data_epoch,operation_id)
+            values(?,?,?,'REVIEW',?::jsonb,?::jsonb,?,?)
+            """,conflict,user,card,mapper.writeValueAsString(obj("sessionId",id,"payload",p)),mapper.writeValueAsString(server),c.dataEpoch(),c.operationId());
+        return new MutationService.Change(obj("conflict",conflictView(user,conflict),"session",session(user,id)),sv,true);
+    }
+    private Map<String,Object> conflictRow(UUID user,UUID id) {
+        var rows=jdbc.queryForList("select * from sync_conflict where user_id=? and id=? and entity_type='REVIEW'",user,id);
+        if(rows.isEmpty()) throw new ApiFailure(ErrorCode.NOT_FOUND);
+        return rows.getFirst();
+    }
+    public Map<String,Object> conflictView(UUID user,UUID id) {
+        var row=conflictRow(user,id);
+        return obj("id",id,"cardId",row.get("entity_id"),"dataEpoch",row.get("data_epoch"),"operationId",row.get("operation_id"),
+            "version",row.get("version"),"resolved",row.get("resolved"),"resolution",row.get("resolution"),
+            "local",json(row.get("client_content")),"server",json(row.get("server_content")));
+    }
+    public JsonNode resolve(UUID user,UUID id,LearningController.Resolve c) throws IOException {
+        return mutations.execute(user,new MutationService.Command(c.operationId(),c.dataEpoch()),"learning.resolve",obj("id",id,"command",c),()->{
+            var row=conflictRow(user,id);
+            if(!Objects.equals(c.expectedVersion(),row.get("version")) || Boolean.TRUE.equals(row.get("resolved")))
+                throw new ApiFailure(ErrorCode.VERSION_CONFLICT,Map.of("current",conflictView(user,id)));
+            if(!c.dataEpoch().equals(row.get("data_epoch"))) throw new ApiFailure(ErrorCode.EPOCH_EXPIRED);
+            if(!Set.of("CURRENT","CANDIDATE").contains(c.choice())) invalid();
+            UUID card=(UUID)row.get("entity_id");long version=cardVersion(user,card);
+            if("CANDIDATE".equals(c.choice())) {
+                var remote=json(row.get("server_content"));var local=json(row.get("client_content"));
+                var events=jdbc.queryForList("select * from review_event where user_id=? and id=?",user,UUID.fromString(remote.path("eventId").asText()));
+                if(events.isEmpty()) throw new ApiFailure(ErrorCode.NOT_FOUND);
+                var event=events.getFirst();
+                State old=mapper.treeToValue(json(event.get("after_state")),State.class);
+                State before=mapper.treeToValue(json(event.get("before_state")),State.class);
+                // A correction replaces this exact score. Later practice, undo or a new learning day requires fresh review.
+                if(c.expectedReviewVersion()!=version || old.version()!=version || !event.get("learning_date").toString().equals(time.today().toString()))
+                    throw new ApiFailure(ErrorCode.VERSION_CONFLICT,obj("current",state(user,card),"conflict",conflictView(user,id)));
+                var rating=Rating.valueOf(local.at("/payload/rating").asText());
+                var corrected=ReviewRules.rate(before,rating,old.lastReviewedAt(),time.learningZone(),rules.intervals(),version+1);
+                UUID item=(UUID)event.get("session_item_id");
+                var originalItem=jdbc.queryForMap("select session_id,is_replay from session_item where user_id=? and id=?",user,item);
+                UUID sessionId=(UUID)originalItem.get("session_id");
+                long sv=((Number)sessionRow(user,sessionId).get("version")).longValue();
+                var command=new LearningController.Write(c.operationId(),c.dataEpoch(),sv,"RATE",local.path("payload"));
+                UUID correction=UUID.randomUUID();
+                insertEvent(user,command,correction,card,item,before,corrected.state(),corrected.replay(),(UUID)event.get("id"),queue(user,sessionId),sv+1,"CORRECT");
+                saveState(user,card,corrected.state(),version+1);
+                // Only an unconsumed automatic replay may change; a consumed replay would have advanced review_version.
+                jdbc.update("delete from review_replay_allowance where user_id=? and event_id=?",user,event.get("id"));
+                jdbc.update("delete from session_item where user_id=? and session_id=? and card_id=? and is_replay=true and not completed",user,sessionId,card);
+                if(rating==Rating.FORGOT && !Boolean.TRUE.equals(originalItem.get("is_replay"))) {
+                    int reserved=jdbc.update("insert into review_replay_allowance(user_id,card_id,learning_date,session_id,event_id) values(?,?,?,?,?) on conflict do nothing",
+                        user,card,time.today(),sessionId,correction);
+                    if(reserved==1) jdbc.update("""
+                        insert into session_item(id,user_id,session_id,card_id,sort_order,expected_review_version,is_replay,replay_count,item_kind)
+                        values(?,?,?,?,(select coalesce(max(sort_order),-1)+1 from session_item where user_id=? and session_id=?),?,true,1,'REPLAY')
+                        """,UUID.randomUUID(),user,sessionId,card,user,sessionId,version+1);
+                }
+                advance(user,sessionId,sv+1);
+            }
+            jdbc.update("update sync_conflict set resolved=true,resolution=?,version=version+1 where user_id=? and id=?",c.choice(),user,id);
+            return new MutationService.Change(obj("conflict",conflictView(user,id)),c.expectedVersion()+1,true);
+        });
+    }
     public JsonNode write(UUID user,UUID id,LearningController.Write command) throws IOException {
         return mutations.execute(user,new MutationService.Command(command.operationId(),command.dataEpoch()),"learning.write",
             obj("id",id,"command",command),()->{
                 var session=sessionRow(user,id);
                 long sv=((Number)session.get("version")).longValue();
+                var duplicate=competingScore(user,id,command,sv);
+                if(duplicate!=null) return duplicate;
                 if(command.expectedVersion()==null || command.expectedVersion()!=sv) conflict(user,id);
                 if(!session.get("learning_date").toString().equals(time.today().toString()) || "INVALIDATED".equals(session.get("status")))
                     throw new ApiFailure(ErrorCode.SESSION_EXPIRED,Map.of("current",session(user,id)));
@@ -218,7 +309,7 @@ public class LearningService {
                 || sv!=((Number)event.get("session_version_after")).longValue()) conflict(user,id);
         State after=mapper.treeToValue(json(event.get("after_state")),State.class),before=mapper.treeToValue(json(event.get("before_state")),State.class);
         long version=cardVersion(user,card);
-        if(after.version()!=version) conflict(user,id);
+        if(after.version()!=version || "CORRECT".equals(event.get("kind"))) conflict(user,id);
         var oldQueue=json(event.get("before_queue"));
         UUID compensation=UUID.randomUUID();
         insertEvent(user,command,compensation,card,(UUID)event.get("session_item_id"),after,before,true,(UUID)event.get("id"),queue(user,id),sv+1,"UNDO");
@@ -251,7 +342,7 @@ public class LearningService {
         // Effective history, never increment-only counters; compensation rows are excluded.
         var counts=jdbc.queryForMap("""
             with effective as (
-                select e.* from review_event e where e.user_id=? and e.kind='RATE'
+                select e.* from review_event e where e.user_id=? and e.kind in ('RATE','CORRECT')
                 and not exists(select 1 from review_event u where u.user_id=e.user_id and u.undo_of=e.id)
             ), firsts as (select card_id,min(learning_date) as first_day from effective group by card_id)
             select (select count(*) from review_state where user_id=?) as learned,

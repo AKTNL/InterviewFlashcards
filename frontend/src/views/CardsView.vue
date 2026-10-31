@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { onSyncRefresh } from '../sync/refresh'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { cardsApi, filters, ratings, type CatalogEntry, type CardPage } from '../api/cards'
@@ -29,6 +30,7 @@ function clear() { q.value = ''; deck.value = ''; module.value = ''; chapter.val
 watch(() => route.fullPath, load, { immediate: true })
 onMounted(() => window.addEventListener('focus', load))
 onUnmounted(() => { generation++; window.removeEventListener('focus', load) })
+onSyncRefresh(load)
 </script>
 <template>
   <section class="sources-intro"><p class="eyebrow">LIBRARY · 正式题库</p><h1>找一道题，认真读懂</h1><p class="muted">浏览、收藏和整理笔记不会改变复习日期。</p></section>

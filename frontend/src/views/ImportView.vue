@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { onSyncRefresh } from '../sync/refresh'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { importsApi, stageNames, statusNames, type ImportJob, type Chapter } from '../api/imports'
@@ -47,7 +48,7 @@ async function retry() {
     notice.value = '重试请求已在本机保留，请在“保存与同步”查看确认结果。'
   } catch (cause) { error.value = cause instanceof Error ? cause.message : '重试请求保留失败' }
 }
-watch(() => sync.state?.revision, () => { void load() })
+onSyncRefresh(load)
 watch(() => route.params.id, () => { generation++; job.value = undefined; chapters.value = []; chapterId.value = ''; void load() })
 onMounted(() => { void load(); window.addEventListener('focus', load) })
 onUnmounted(() => { stopped = true; generation++; clearTimeout(timer); window.removeEventListener('focus', load) })

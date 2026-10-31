@@ -71,7 +71,7 @@ beforeEach(() => {
   rows = new Map(); now = 100
   storage = { all: async () => structuredClone([...rows.values()]),
     put: async item => { rows.set(item.operationId, structuredClone(item)) }, remove: async id => { rows.delete(id) } }
-  api = { snapshot: vi.fn().mockResolvedValue(snapshot), receipt: vi.fn().mockResolvedValue(null),
+  api = { revision: vi.fn().mockResolvedValue(snapshot), snapshot: vi.fn().mockResolvedValue(snapshot), receipt: vi.fn().mockResolvedValue(null),
     source: vi.fn().mockResolvedValue(source), send: vi.fn() }
   queue = new MutationQueue(storage, api, () => now)
 })
@@ -205,4 +205,19 @@ it('detaches nested Vue form proxies before durable storage and preserves the su
   const item = await queue.enqueue('user', 'epoch', { kind: 'chapter.review', name: '编辑', chapterId: 'chapter', action: 'EDIT', payload: { value: form } })
   form.question = '提交后继续输入'; form.sources[0]!.bbox[0] = 20
   expect(rows.get(item.operationId)?.payload).toEqual({ value: { question: '已提交的修正', sources: [{ page: 10, bbox: [0, 65.348709, 612, 792] }] } })
+})
+
+it('retains a server-persisted candidate from its receipt after response loss without retrying the score', async () => {
+  const item = await queue.enqueue('user', 'epoch', { kind: 'review.write', name: '不会', action: 'RATE', expectedVersion: 0, payload: { sessionId: 'session', rating: 'FORGOT' } })
+  vi.mocked(api.receipt).mockResolvedValue({ session: { id: 'session', version: 0 } as LearningSession, conflict: { id: 'conflict', resolved: false } as never,
+    mutation: { operationId: item.operationId, dataEpoch: 'epoch', entityVersion: 0, revision: 2, serverTime: '' } })
+  await queue.run('user', active, changed, show); await queue.run('user', active, changed, show, true)
+  expect(rows.get(item.operationId)?.status).toBe('needs-attention'); expect(rows.get(item.operationId)?.result?.conflict?.id).toBe('conflict')
+  expect(rows.get(item.operationId)?.payload?.rating).toBe('FORGOT'); expect(api.send).not.toHaveBeenCalled()
+})
+it('keeps expired sessions for user attention rather than replaying or silently starting extra practice', async () => {
+  const item = await queue.enqueue('user', 'epoch', { kind: 'review.write', name: '评分', action: 'RATE', payload: { sessionId: 'session' } })
+  vi.mocked(api.send).mockRejectedValue(new ApiError('SESSION_EXPIRED', '已过期', 409))
+  await queue.run('user', active, changed, show); await queue.run('user', active, changed, show, true)
+  expect(rows.get(item.operationId)?.status).toBe('needs-attention'); expect(api.send).toHaveBeenCalledTimes(1)
 })

@@ -145,7 +145,7 @@ class LearningIT {
         write(session(0),"RATE","REMEMBERED");var resumed=current(s);
         assertThat(resumed.at("/items/0/unavailable").asBoolean()).isTrue();
         assertThat(resumed.at("/current/cardId").asText()).isEqualTo(cards.get(1).toString());
-        assertThatThrownBy(()->write(s,"RATE","REMEMBERED")).isInstanceOf(ApiFailure.class);
+        assertThat(write(s,"RATE","REMEMBERED").path("duplicateScore").asBoolean()).isTrue();
         write(resumed,"RATE","REMEMBERED");assertThat(learning.summary(user)).containsEntry("todayNew",2L);
         assertThat(learning.today(user)).containsEntry("remainingNew",0);
     }
@@ -231,7 +231,7 @@ class LearningIT {
     }
     @Test void subsequentOtherDeviceWritePreventsUndoAndOldSessionScore() throws Exception {
         var a=session(0);var b=session(0);var scored=write(a,"RATE","REMEMBERED").get("session");
-        assertThatThrownBy(()->write(b,"RATE","FORGOT")).isInstanceOf(ApiFailure.class);assertThat(count("review_event")).isEqualTo(1);
+        assertThat(write(b,"RATE","FORGOT").at("/conflict/resolved").asBoolean()).isFalse();assertThat(count("review_event")).isEqualTo(1);
         var next=write(session(0),"RATE","VAGUE").get("session");
         assertThatThrownBy(()->write(scored,"UNDO",null)).isInstanceOf(ApiFailure.class);
         assertThat(current(next).at("/events/0/rating").asText()).isEqualTo("VAGUE");
@@ -272,9 +272,95 @@ class LearningIT {
         var a=session(0);var b=session(0);
         try(var pool=java.util.concurrent.Executors.newFixedThreadPool(2)){
             var tasks=List.of(pool.submit(()->write(a,"RATE","REMEMBERED")),pool.submit(()->write(b,"RATE","FORGOT")));int success=0,conflicts=0;
-            for(var t:tasks)try{t.get(10,java.util.concurrent.TimeUnit.SECONDS);success++;}catch(java.util.concurrent.ExecutionException e){assertThat(e.getCause()).isInstanceOf(ApiFailure.class);conflicts++;}
-            assertThat(success).isEqualTo(1);assertThat(conflicts).isEqualTo(1);assertThat(count("review_event")).isEqualTo(1);
+            for(var t:tasks) { var r=t.get(10,java.util.concurrent.TimeUnit.SECONDS); if(r.has("conflict")) conflicts++;else success++; }
+            assertThat(success).isEqualTo(1);assertThat(conflicts).isEqualTo(1);assertThat(count("review_event")).isEqualTo(1);assertThat(count("sync_conflict")).isEqualTo(1);
         }
+    }
+    private LearningController.Resolve resolution(JsonNode conflict,String choice,long reviewVersion) {
+        return new LearningController.Resolve(UUID.randomUUID(),epoch,conflict.path("version").asLong(),reviewVersion,choice);
+    }
+    @Test void identicalDeviceScoresReturnReceiptWithoutAdvancingScheduleOrCounts() throws Exception {
+        var a=session(0);var b=session(0);var first=write(a,"RATE","REMEMBERED");
+        var cmd=command(b,"RATE","REMEMBERED");UUID id=UUID.fromString(b.path("id").asText());
+        var second=learning.write(user,id,cmd);
+        assertThat(second.path("duplicateScore").asBoolean()).isTrue();
+        assertThat(second.path("dueDate")).isEqualTo(first.path("dueDate"));
+        assertThat(learning.write(user,id,cmd)).isEqualTo(mapper.readTree(second.toString()));
+        assertThat(count("review_event")).isEqualTo(1);assertThat(count("sync_conflict")).isZero();
+        assertThat(learning.summary(user)).containsEntry("todayNew",1L);
+        assertThat(current(b).path("current").isNull()).isTrue();
+    }
+    @Test void candidateIsDurableAndCorrectionReplacesOneEffectiveScoreAtomically() throws Exception {
+        var a=session(0);var b=session(0);var scored=write(a,"RATE","REMEMBERED");
+        var cmd=command(b,"RATE","FORGOT");UUID sid=UUID.fromString(b.path("id").asText());
+        var candidate=learning.write(user,sid,cmd);var conflict=candidate.path("conflict");
+        assertThat(learning.write(user,sid,cmd)).isEqualTo(mapper.readTree(candidate.toString()));assertThat(count("sync_conflict")).isEqualTo(1);
+        assertThat(jdbc.queryForObject("select latest_rating from review_state where user_id=?",String.class,user)).isEqualTo("REMEMBERED");
+        UUID cid=UUID.fromString(conflict.path("id").asText());var rc=resolution(conflict,"CANDIDATE",1);
+        var result=learning.resolve(user,cid,rc);assertThat(learning.resolve(user,cid,rc)).isEqualTo(mapper.readTree(result.toString()));
+        assertThat(result.at("/conflict/resolved").asBoolean()).isTrue();
+        assertThat(jdbc.queryForObject("select latest_rating from review_state where user_id=?",String.class,user)).isEqualTo("FORGOT");
+        assertThat(jdbc.queryForObject("select stage from review_state where user_id=?",Integer.class,user)).isEqualTo(-1);
+        assertThat(count("review_event")).isEqualTo(2);assertThat(count("review_replay_allowance")).isEqualTo(1);
+        assertThat(learning.summary(user)).containsEntry("todayNew",1L).containsEntry("todayReview",0L);
+        var latest=current(scored.path("session"));assertThat(latest.at("/round/newCount").asInt()).isEqualTo(1);
+        assertThat(latest.at("/current/isReplay").asBoolean()).isTrue();assertThat(latest.path("canUndo").asBoolean()).isFalse();
+        assertThat(jdbc.queryForObject("select count(*) from review_event e where user_id=? and not exists(select 1 from review_event u where u.user_id=e.user_id and u.undo_of=e.id)",Integer.class,user)).isEqualTo(1);
+    }
+    @Test void acceptingCurrentDoesNotChangeScheduleAndCandidatesCannotOverwriteLaterPracticeOrNewDay() throws Exception {
+        var a=session(0);var b=session(0);write(a,"RATE","FORGOT");var conflict=write(b,"RATE","VAGUE").path("conflict");
+        UUID cid=UUID.fromString(conflict.path("id").asText());
+        write(current(a),"RATE","REMEMBERED");
+        assertThatThrownBy(()->learning.resolve(user,cid,resolution(conflict,"CANDIDATE",2))).isInstanceOf(ApiFailure.class);
+        assertThat(count("review_event")).isEqualTo(2);assertThat(learning.conflictView(user,cid)).containsEntry("resolved",false);
+        clock.value=clock.value.plus(Duration.ofDays(1));
+        assertThatThrownBy(()->learning.resolve(user,cid,resolution(conflict,"CANDIDATE",2))).isInstanceOf(ApiFailure.class);
+        learning.resolve(user,cid,resolution(conflict,"CURRENT",2));
+        assertThat(count("review_event")).isEqualTo(2);assertThat(learning.conflictView(user,cid)).containsEntry("resolution","CURRENT");
+    }
+    @Test void correctingSameDayManualPracticeKeepsItsStageAndOffersOnlyOneAutomaticReplay() throws Exception {
+        write(session(0),"RATE","REMEMBERED");
+        var a=session(0);var b=session(0);write(a,"RATE","REMEMBERED");
+        var conflict=write(b,"RATE","FORGOT").path("conflict");
+        learning.resolve(user,UUID.fromString(conflict.path("id").asText()),resolution(conflict,"CANDIDATE",2));
+        var latest=current(a);assertThat(latest.at("/current/isReplay").asBoolean()).isTrue();
+        assertThat(latest.at("/review/stage").asInt()).isEqualTo(0);
+        assertThat(learning.summary(user)).containsEntry("todayNew",1L).containsEntry("todayReview",0L);
+        var finished=write(latest,"RATE","FORGOT").path("session");
+        assertThat(finished.path("current").isNull()).isTrue();assertThat(count("review_replay_allowance")).isEqualTo(1);
+    }
+    @Test void correctingForgotRemovesUnconsumedReplayAndConflictResolutionHonorsOwnershipEpochAndRollback() throws Exception {
+        var a=session(0);var b=session(0);write(a,"RATE","FORGOT");var conflict=write(b,"RATE","REMEMBERED").path("conflict");
+        UUID cid=UUID.fromString(conflict.path("id").asText());var c=resolution(conflict,"CANDIDATE",1);
+        assertThatThrownBy(()->learning.resolve(UUID.randomUUID(),cid,c)).isInstanceOf(RuntimeException.class);
+        var owner=user(new AccountPrincipal(user,"test",""));
+        mvc.perform(post("/api/sync/conflicts/"+cid+"/resolve").with(owner).contentType("application/json").content(mapper.writeValueAsString(c))).andExpect(status().isForbidden());
+        UUID outsider=UUID.randomUUID();jdbc.update("insert into app_user(id,username,password_hash,data_epoch) values(?,?,'unused',?)",outsider,"other-"+outsider,epoch);
+        mvc.perform(post("/api/sync/conflicts/"+cid+"/resolve").with(user(new AccountPrincipal(outsider,"other",""))).with(csrf()).contentType("application/json").content(mapper.writeValueAsString(c))).andExpect(status().isNotFound());
+        assertThatThrownBy(()->learning.resolve(user,cid,new LearningController.Resolve(UUID.randomUUID(),UUID.randomUUID(),0L,1L,"CURRENT"))).isInstanceOf(ApiFailure.class);
+        UUID blocked=UUID.randomUUID();var fail=new LearningController.Resolve(blocked,epoch,0L,1L,"CANDIDATE");
+        jdbc.execute("alter table mutation_receipt add constraint reject_p010 check(operation_id<>'"+blocked+"'::uuid)");
+        try { assertThatThrownBy(()->learning.resolve(user,cid,fail)).isInstanceOf(RuntimeException.class); }
+        finally { jdbc.execute("alter table mutation_receipt drop constraint reject_p010"); }
+        assertThat(count("review_event")).isEqualTo(1);assertThat(count("review_replay_allowance")).isEqualTo(1);
+        var done=learning.resolve(user,cid,c);assertThat(done.at("/conflict/resolved").asBoolean()).isTrue();
+        assertThat(current(a).path("current").isNull()).isTrue();assertThat(count("review_replay_allowance")).isZero();
+        assertThat(learning.summary(user)).containsEntry("todayNew",1L);
+    }
+    @Test void snapshotIncludesAllBusinessScopesAndKeepsAccountAndStorageSecretsPrivate() throws Exception {
+        prefer(2,10,List.of(chapter));var a=session(0);var b=session(0);write(a,"RATE","REMEMBERED");write(b,"RATE","VAGUE");
+        var sync=app.getBean(com.interviewflashcards.sync.SyncService.class);
+        var snapshot=mapper.valueToTree(sync.snapshot(user,true));
+        assertThat(snapshot.at("/data/card").size()).isEqualTo(3);assertThat(snapshot.at("/data/draft_card").size()).isEqualTo(3);
+        assertThat(snapshot.at("/data/review_event").size()).isEqualTo(1);assertThat(snapshot.at("/data/sync_conflict").size()).isEqualTo(1);
+        assertThat(snapshot.at("/data/learning_preference").size()).isEqualTo(1);assertThat(snapshot.at("/data/learning_session").size()).isEqualTo(2);
+        assertThat(snapshot.toString()).doesNotContain("password_hash","storage_key","raw_evidence","attempt_token");
+        assertThat(snapshot.path("learningDate").asText()).isEqualTo("2026-10-31");
+        var other=UUID.randomUUID();jdbc.update("insert into app_user(id,username,password_hash) values(?,?,'unused')",other,"other-"+other);
+        assertThat(mapper.valueToTree(sync.snapshot(other,true)).at("/data/card").size()).isZero();
+        var owner=user(new AccountPrincipal(user,"test",""));
+        mvc.perform(get("/api/sync/snapshot")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/sync/snapshot").with(owner)).andExpect(status().isOk()).andExpect(jsonPath("$.data.data.review_event.length()").value(1));
     }
     @Test void readOnlyRoutesAndSecurityValidationEpochAndEarlyConfirmation() throws Exception {
         var s=session(0);var owner=user(new AccountPrincipal(user,"test",""));var outsider=user(new AccountPrincipal(UUID.randomUUID(),"other",""));

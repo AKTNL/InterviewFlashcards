@@ -1,5 +1,6 @@
 import { mount, flushPromises } from '@vue/test-utils'
 import { reactive } from 'vue'
+import { createPinia, setActivePinia } from 'pinia'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { cardsApi } from '../api/cards'
 import CardsView from './CardsView.vue'
@@ -8,6 +9,7 @@ vi.mock('vue-router', () => ({ useRoute: () => reactive(mocks.route), useRouter:
 vi.mock('../api/cards', async original => ({ ...await original<typeof import('../api/cards')>(), cardsApi: { catalog: vi.fn(), list: vi.fn() } }))
 const wrappers: { unmount(): void }[] = []
 beforeEach(() => {
+  setActivePinia(createPinia())
   vi.clearAllMocks();mocks.route.query = {};mocks.route.params = {}
   vi.mocked(cardsApi.catalog).mockResolvedValue([{ deckId: 'deck', deckName: '面试', moduleId: 'java', moduleName: 'Java', chapterId: 'chapter', chapterName: '集合', checkStatus: 'IMPORTED', cardCount: 21 }])
   vi.mocked(cardsApi.list).mockResolvedValue({ items: [{ id: 'card', question: 'HashMap', moduleName: 'Java', chapterName: '集合', needsCheck: true, favorite: true, learned: false, dueDate: null, latestRating: null }], total: 21, offset: 0, limit: 20, learningDate: '2026-10-31' })

@@ -1,27 +1,35 @@
-import { ref, shallowRef } from 'vue'
+import { computed, ref, shallowRef } from 'vue'
 import { defineStore } from 'pinia'
 import type { Profile } from '../api/auth'
 import { ApiError, request } from '../api/client'
 import { queueStorage } from '../sync/database'
 import { MutationQueue, syncApi } from '../sync/queue'
-import type { Mutation, Snapshot } from '../sync/types'
+import type { Mutation, Snapshot, ReviewConflict } from '../sync/types'
 
 export const useSyncStore = defineStore('sync', () => {
   const items = shallowRef<Mutation[]>([])
   const state = shallowRef<Snapshot | null>(null)
   const error = ref('')
   const busy = ref(false)
+  const conflicts = computed<ReviewConflict[]>(() => (state.value?.data?.sync_conflict ?? []).filter(r => !r.resolved && r.entity_type === 'REVIEW').map(r => ({
+    id: String(r.id), cardId: String(r.entity_id), dataEpoch: String(r.data_epoch), operationId: String(r.operation_id), version: Number(r.version), resolved: false,
+    local: r.client_content as ReviewConflict['local'], server: r.server_content as ReviewConflict['server'],
+  })))
+  const status = computed(() => items.value.some(i => i.status === 'needs-attention') || conflicts.value.length ? 'needs-attention'
+    : items.value.some(i => i.status === 'failed') ? 'failed' : busy.value ? 'syncing'
+      : items.value.some(i => i.status !== 'synced') ? 'pending' : error.value || !state.value ? 'failed' : 'synced')
   const queue = new MutationQueue(queueStorage)
   let user: Profile | null = null
   let timer: ReturnType<typeof setTimeout> | undefined
   let generation = 0
+  let failures = 0
   async function reload() {
     const owner = user?.id; const current = generation
     const entries = owner ? await queue.entries(owner) : []
     if (current === generation) items.value = entries
   }
   function stop() {
-    user = null; generation++; clearTimeout(timer); items.value = []; state.value = null; error.value = ''
+    user = null; generation++; clearTimeout(timer); items.value = []; state.value = null; error.value = ''; failures = 0
   }
   async function connect(profile: Profile) {
     if (user?.id !== profile.id) { stop(); user = profile }
@@ -35,16 +43,34 @@ export const useSyncStore = defineStore('sync', () => {
     const current = generation; const owner = user.id
     const active = () => current === generation && user?.id === owner
     busy.value = true; error.value = ''
-    try { await reload(); await queue.run(owner, active, reload, value => { if (active()) state.value = value }, force) }
-    catch (cause) { if (active()) error.value = cause instanceof ApiError ? cause.message : '本地保存失败，请检查浏览器存储空间；内容尚未确认保存。' }
+    try {
+      await reload()
+      const pending = items.value.some(i => i.status === 'pending' || i.status === 'syncing')
+      const revision = state.value && !force && !pending ? await syncApi.revision() : null
+      if (!active()) return
+      if (!revision || revision.dataEpoch !== state.value?.dataEpoch || revision.revision !== state.value?.revision || revision.learningDate !== state.value?.learningDate) {
+        await queue.run(owner, active, reload, value => { if (active()) state.value = value }, force)
+      }
+      failures = 0
+      // A conflict resolved on another device must release this browser's blocked scoring operation.
+      const resolved = new Set((state.value?.data?.sync_conflict ?? []).filter(r => r.resolved).map(r => r.id))
+      for (const item of items.value) if (item.error?.code === 'REVIEW_CONFLICT' && item.result?.conflict && resolved.has(item.result.conflict.id)) {
+        await queueStorage.put({ ...item, status: 'synced', error: undefined,
+          result: { ...item.result, session: undefined, conflict: { ...item.result.conflict, resolved: true } } })
+      }
+      await reload()
+    }
+    catch (cause) { if (active()) { failures++; error.value = cause instanceof ApiError ? cause.message : '本地保存失败，请检查浏览器存储空间；内容尚未确认保存。' } }
     finally {
       busy.value = false
       if (active()) {
         const pending = items.value.filter(item => item.status === 'pending' || item.status === 'syncing')
-        if (pending.length && !pending.some(item => item.error?.code === 'UNAUTHENTICATED')) {
-          const delay = error.value ? 15_000 : Math.max(1000, Math.min(...pending.map(item => item.nextAttemptAt - Date.now())))
-          timer = setTimeout(() => { void refresh() }, delay)
-        }
+        const delay = failures ? Math.min(120_000, 5000 * 2 ** Math.min(failures - 1, 5))
+          : pending.length ? Math.max(1000, Math.min(...pending.map(item => item.nextAttemptAt - Date.now()))) : 30_000
+        if (!pending.some(item => item.error?.code === 'UNAUTHENTICATED')) timer = setTimeout(() => {
+          if (document.visibilityState === 'visible') void refresh()
+          else timer = setTimeout(() => { void refresh() }, 30_000)
+        }, delay)
       } else if (user) { void refresh() }
     }
   }
@@ -65,9 +91,29 @@ export const useSyncStore = defineStore('sync', () => {
   async function resubmit(item: Mutation) {
     if (!user || item.userId !== user.id || item.dataEpoch !== state.value?.dataEpoch) return
     const current = generation
+    async function verifyViewed(value: { version: number; annotation?: { version: number } }) {
+      const viewed = (item.error?.details as { current?: typeof value } | undefined)?.current
+      const version = (v: typeof value) => item.kind === 'card.update' && item.action === 'ANNOTATION' ? v.annotation?.version : v.version
+      if (viewed && version(viewed) !== version(value)) {
+        const serverDraft = item.kind === 'chapter.review' ? (await request(`/api/drafts/${item.payload?.draftId}`)).data : undefined
+        if (current !== generation || item.userId !== user?.id || item.dataEpoch !== state.value?.dataEpoch) return false
+        await queueStorage.put({ ...item, error: { code: 'VERSION_CONFLICT', message: '服务端又有修改，核对内容已更新，请再次核对后保存。', details: { current: value, serverDraft } } })
+        await reload()
+        throw new Error('服务端又有修改，请核对更新后的内容再保存。')
+      }
+      return true
+    }
+    if (item.kind === 'preferences.save') {
+      const value = (await request<{ version: number }>('/api/preferences')).data
+      if (current !== generation || item.userId !== user?.id || item.dataEpoch !== state.value?.dataEpoch) return
+      if (!await verifyViewed(value)) return
+      await enqueue({ kind: item.kind, name: item.name, payload: item.payload, expectedVersion: value.version })
+      await discard(item); return
+    }
     if (item.kind === 'card.update') {
       const value = (await request<{ version: number; annotation: { version: number } }>(`/api/cards/${item.cardId}`)).data
       if (current !== generation || item.userId !== user?.id || item.dataEpoch !== state.value?.dataEpoch) return
+      if (!await verifyViewed(value)) return
       await enqueue({ kind: item.kind, name: item.name, cardId: item.cardId, action: item.action, payload: item.payload,
         expectedVersion: item.action === 'ANNOTATION' ? value.annotation.version : value.version })
       await discard(item); return
@@ -75,14 +121,24 @@ export const useSyncStore = defineStore('sync', () => {
     if (item.kind === 'chapter.review' && item.action === 'EDIT') {
       const value = (await request<{ version: number }>(`/api/chapters/${item.chapterId}/review`)).data
       if (current !== generation || item.userId !== user?.id || item.dataEpoch !== state.value?.dataEpoch) return
+      if (!await verifyViewed(value)) return
       await enqueue({ kind: item.kind, name: item.name, chapterId: item.chapterId, action: item.action, payload: item.payload, expectedVersion: value.version })
       await discard(item); return
     }
     if (item.kind !== 'source.rename') return
     const source = await syncApi.source(item.sourceId!)
     if (current !== generation || item.userId !== user?.id || item.dataEpoch !== state.value?.dataEpoch) return
+    if (!await verifyViewed(source)) return
     await enqueue({ kind: item.kind, name: item.name, sourceId: source.id, expectedVersion: source.version })
     await discard(item)
   }
-  return { items, state, error, busy, connect, stop, refresh, enqueue, discard, resubmit, retrySecurity }
+  async function resolve(conflict: ReviewConflict, choice: 'CURRENT' | 'CANDIDATE') {
+    if (conflict.dataEpoch !== state.value?.dataEpoch || conflict.resolved) return
+    const current = generation
+    const card = (await request<{ review: { version: number } }>(`/api/cards/${conflict.cardId}`)).data
+    if (current !== generation || conflict.dataEpoch !== state.value?.dataEpoch) return
+    await enqueue({ kind: 'conflict.resolve', name: choice === 'CURRENT' ? '接受当前评分' : '使用候选更正评分', expectedVersion: conflict.version,
+      payload: { conflictId: conflict.id, expectedReviewVersion: card.review.version, choice } })
+  }
+  return { items, state, error, busy, conflicts, status, connect, stop, refresh, enqueue, discard, resubmit, retrySecurity, resolve }
 })

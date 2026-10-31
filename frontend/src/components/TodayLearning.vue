@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { onSyncRefresh } from '../sync/refresh'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { learningApi, learningModes, type TodayLearning } from '../api/learning'
@@ -38,6 +39,7 @@ watch(() => sync.items.filter(i => i.status === 'synced').map(i => i.operationId
 function activate() { if (document.visibilityState === 'visible') void load() }
 onMounted(() => { void load(); window.addEventListener('focus', activate); document.addEventListener('visibilitychange', activate) })
 onUnmounted(() => { generation++; window.removeEventListener('focus', activate); document.removeEventListener('visibilitychange', activate) })
+onSyncRefresh(load)
 </script>
 <template>
   <section class="today-panel" aria-labelledby="today-title">

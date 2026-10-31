@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { onSyncRefresh } from '../sync/refresh'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { cardsApi, ratings, type CardDetail } from '../api/cards'
@@ -65,12 +66,16 @@ watch(() => sync.items.filter(i => i.status === 'synced').map(i => i.operationId
       message.value = i.action === 'UNDO' ? '已撤销，评分前的状态和队列已恢复。' : i.action === 'SKIP' ? '已跳过重练，保留复习安排。'
         : `已保存。下次复习：${i.result.dueDate}${i.result.isReplay ? ' · 同日重练，阶段不升级' : ''}`
       await apply(i.result.session)
+      // A recovered receipt may predate another device's subsequent session advancement.
+      await load()
     }
   }
 })
 watch(() => route.fullPath, () => { generation++; session.value = undefined; card.value = undefined; answer.value = false; hint.value = false; void load() }, { immediate: true })
+watch(pending, value => { if (!value && sync.items.some(i => i.kind === 'review.write' && i.payload?.sessionId === route.params.id && i.result?.conflict?.resolved)) void load() })
 onMounted(() => window.addEventListener('focus', load))
 onUnmounted(() => { generation++; window.removeEventListener('focus', load) })
+onSyncRefresh(load)
 </script>
 <template>
   <div class="sync-actions"><RouterLink to="/">← 返回今日学习 / 稍后继续</RouterLink><RouterLink to="/cards">返回题库</RouterLink></div>
