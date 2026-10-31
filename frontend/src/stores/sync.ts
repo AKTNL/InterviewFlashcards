@@ -48,7 +48,7 @@ export const useSyncStore = defineStore('sync', () => {
       } else if (user) { void refresh() }
     }
   }
-  async function enqueue(change: Pick<Mutation, 'kind' | 'name' | 'sourceId' | 'jobId' | 'chapterId' | 'action' | 'payload' | 'expectedVersion' | 'file'>) {
+  async function enqueue(change: Pick<Mutation, 'kind' | 'name' | 'sourceId' | 'jobId' | 'chapterId' | 'cardId' | 'action' | 'payload' | 'expectedVersion' | 'file'>) {
     if (!user) throw new Error('请先登录')
     if (!state.value) throw new Error('请先连接服务，取得当前数据后再保存。')
     try {
@@ -65,6 +65,13 @@ export const useSyncStore = defineStore('sync', () => {
   async function resubmit(item: Mutation) {
     if (!user || item.userId !== user.id || item.dataEpoch !== state.value?.dataEpoch) return
     const current = generation
+    if (item.kind === 'card.update') {
+      const value = (await request<{ version: number; annotation: { version: number } }>(`/api/cards/${item.cardId}`)).data
+      if (current !== generation || item.userId !== user?.id || item.dataEpoch !== state.value?.dataEpoch) return
+      await enqueue({ kind: item.kind, name: item.name, cardId: item.cardId, action: item.action, payload: item.payload,
+        expectedVersion: item.action === 'ANNOTATION' ? value.annotation.version : value.version })
+      await discard(item); return
+    }
     if (item.kind === 'chapter.review' && item.action === 'EDIT') {
       const value = (await request<{ version: number }>(`/api/chapters/${item.chapterId}/review`)).data
       if (current !== generation || item.userId !== user?.id || item.dataEpoch !== state.value?.dataEpoch) return

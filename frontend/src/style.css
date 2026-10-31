@@ -150,3 +150,30 @@ button[aria-pressed=true] { outline: 2px solid #315b48; outline-offset: 2px; }
 .source-coordinates { display: grid; grid-template-columns: repeat(auto-fit, minmax(65px, 1fr)); gap: .5rem; }
 .card-identity { overflow-wrap: anywhere; font-size: .85rem; }
 .chapter-review details { margin-block: 1rem; }
+.library-filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; padding: 1.3rem; background: #e7ece4; border-radius: .8rem; }
+.library-filters label { display: grid; gap: .4rem; min-width: 0; }
+.library-filters input, .library-filters select, .pdf-toolbar input, .pdf-toolbar select { min-width: 0; max-width: 100%; min-height: 44px; padding: .5rem; font: inherit; background: white; border: 1px solid #b7c3b7; border-radius: .3rem; }
+.library-filters .sync-actions { grid-column: 1 / -1; }
+.library-results { margin-block: 2rem; }
+.library-results li { padding: 1rem .5rem; border-bottom: 1px solid #d8ded9; overflow-wrap: anywhere; }
+.library-results li > a { font-size: 1.1rem; }
+.library-results p { margin-block: .4rem; }
+.check-reminder { padding: .7rem 1rem; background: #fff0d5; color: #80541b; border-left: 3px solid #b37c32; }
+.card-detail h1 { font-size: clamp(26px, 4vw, 38px); overflow-wrap: anywhere; }
+.card-detail .eyebrow, .card-sources { overflow-wrap: anywhere; }
+.card-tag { display: inline-block; border-radius: .3rem; background: #e7ece4; padding: .15rem .5rem; margin: .2rem; }
+.card-answer, .card-answer > section { min-width: 0; max-width: 100%; }
+.card-answer figure { margin: 1rem 0; }
+.prose-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+.technical-correction { background: #edf1e7; border-left: 3px solid #56724b; padding: 1rem; margin-block: 1.2rem; }
+.followup { border-bottom: 1px solid #d8ded9; padding: .7rem 0; }
+.reader-title { font-size: 28px; margin-block: 1.5rem; }
+.pdf-reader { min-width: 0; margin-bottom: 2rem; }
+.pdf-toolbar { display: flex; align-items: center; gap: .7rem; flex-wrap: wrap; margin-block: 1rem; }
+.pdf-toolbar label { display: inline-flex; gap: .4rem; align-items: center; }
+.pdf-toolbar input { width: 5rem; }
+.pdf-scroll { max-width: 100%; overflow: auto; background: #dddeda; margin-block: 1rem; }
+.pdf-sheet { position: relative; width: max-content; }
+.pdf-sheet canvas { display: block; }
+.pdf-highlight { position: absolute; border: 2px solid #b97c18; background: #efbc3420; pointer-events: none; }
+@media (max-width: 420px) { .brand small { display: none; } .account-nav { gap: 8px; } .account-nav .secondary-button { padding-inline: 8px; } }

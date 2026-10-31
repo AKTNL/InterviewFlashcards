@@ -14,6 +14,24 @@ let queue: MutationQueue
 const active = () => true
 const changed = async () => {}
 const show = () => {}
+it('recovers a card annotation receipt after reload without writing or touching source versions', async () => {
+  const item = await queue.enqueue('user', 'epoch', { kind: 'card.update', cardId: 'card', action: 'ANNOTATION', name: '笔记', expectedVersion: 2, payload: { notes: '本地笔记' } })
+  await storage.put({ ...item, status: 'syncing' })
+  vi.mocked(api.receipt).mockResolvedValue({ card: { id: 'card', version: 3 }, mutation: { operationId: item.operationId, dataEpoch: 'epoch', entityVersion: 3, revision: 8, serverTime: '2026-10-31T00:00:00Z' } })
+  await new MutationQueue(storage, api).run('user', active, changed, show)
+  expect(api.send).not.toHaveBeenCalled();expect(api.source).not.toHaveBeenCalled();expect(rows.get(item.operationId)?.status).toBe('synced')
+})
+it('preserves both sides of a card conflict and refuses automatic replay', async () => {
+  const item = await queue.enqueue('user', 'epoch', { kind: 'card.update', cardId: 'card', action: 'ANNOTATION', name: '笔记', payload: { notes: '本地' }, expectedVersion: 0 })
+  vi.mocked(api.send).mockRejectedValue(new ApiError('VERSION_CONFLICT', '笔记冲突', 409, undefined, [], { current: { annotation: { notes: '另一设备' } } }))
+  await queue.run('user', active, changed, show);await queue.run('user', active, changed, show, true)
+  expect(api.send).toHaveBeenCalledTimes(1);expect(rows.get(item.operationId)?.payload?.notes).toBe('本地');expect(rows.get(item.operationId)?.error?.details).toEqual({ current: { annotation: { notes: '另一设备' } } })
+})
+it('rejects a card receipt for another card even when operation ID matches', async () => {
+  const item = await queue.enqueue('user', 'epoch', { kind: 'card.update', cardId: 'card', action: 'METADATA', name: '纠错', expectedVersion: 0 })
+  vi.mocked(api.send).mockResolvedValue({ card: { id: 'other', version: 1 }, mutation: { operationId: item.operationId, dataEpoch: 'epoch', entityVersion: 1, revision: 1, serverTime: '2026-10-31T00:00:00Z' } })
+  await queue.run('user', active, changed, show);expect(rows.get(item.operationId)?.status).toBe('pending');expect(rows.get(item.operationId)?.error?.code).toBe('INVALID_RESPONSE')
+})
 beforeEach(() => {
   rows = new Map(); now = 100
   storage = { all: async () => structuredClone([...rows.values()]),

@@ -1,6 +1,6 @@
 # InterviewFlashcards
 
-Java 后端面试卡片学习网站。P0-01～P0-06 已完成：工程与登录、PDF 上传解析、幂等写入与同步队列、完整草稿、逐章编辑/合并/拆分/排除、检查位置恢复和事务确认；已导入章节可阅读全文并原位修正。下一项为 P0-07 题库检索、完整阅读与原文核对。
+Java 后端面试卡片学习网站。P0-01～P0-07 已完成：工程与登录、PDF 上传解析、幂等写入与同步队列、逐章检查确认、全题库检索筛选、完整答案阅读、笔记收藏、内容与技术纠错，以及内置 PDF 定位核对。下一项为 P0-08 评分、复习算法与撤销。
 
 - [设计文档](docs/设计文档.md)
 - [开发文档与任务顺序](docs/开发文档.md)
@@ -17,6 +17,8 @@ Java 后端面试卡片学习网站。P0-01～P0-06 已完成：工程与登录�
 - [解析任务与草稿 API](docs/api/imports-and-drafts.md)
 - [P0-06 验收记录](docs/fixtures/p0-06/README.md)
 - [逐章检查与确认 API](docs/api/chapter-review.md)
+- [P0-07 验收记录](docs/fixtures/p0-07/README.md)
+- [题库与来源阅读 API](docs/api/card-library.md)
 
 快速启动（Docker Compose v2，在仓库根目录）：
 

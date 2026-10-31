@@ -14,6 +14,7 @@
     "preview": "vite preview --host 127.0.0.1"
   },
   "dependencies": {
+    "pdfjs-dist": "5.4.624",
     "pinia": "3.0.4",
     "vue": "3.5.44",
     "vue-router": "4.6.4"

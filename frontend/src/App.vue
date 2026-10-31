@@ -57,6 +57,7 @@ onUnmounted(() => {
     </RouterLink>
     <nav class="account-nav" aria-label="个人空间">
       <template v-if="auth.user">
+        <RouterLink to="/cards">题库</RouterLink>
         <RouterLink to="/sources">我的资料</RouterLink>
         <span class="account-name">{{ auth.user.username }}</span>
         <button class="secondary-button" :disabled="signingOut" @click="signOut">{{ signingOut ? '退出中…' : '退出' }}</button>
