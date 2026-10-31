@@ -1,12 +1,38 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { ApiError, request } from './client'
+import { ApiError, request, resetCsrf } from './client'
 
 afterEach(() => {
+  resetCsrf()
   vi.unstubAllGlobals()
   vi.useRealTimers()
 })
 
 describe('same-origin API client', () => {
+  it('fetches CSRF before writes and rotates it after login', async () => {
+    const meta = { requestId: 'id', serverTime: '2026-10-31T00:00:00Z' }
+    const fetcher = vi.fn()
+      .mockResolvedValueOnce(Response.json({ data: { headerName: 'X-CSRF-TOKEN', token: 'first' }, meta }))
+      .mockResolvedValueOnce(Response.json({ data: {}, meta }))
+      .mockResolvedValueOnce(Response.json({ data: { headerName: 'X-CSRF-TOKEN', token: 'second' }, meta }))
+      .mockResolvedValueOnce(Response.json({ data: true, meta }))
+    vi.stubGlobal('fetch', fetcher)
+    await request('/api/auth/login', { method: 'POST' })
+    await request('/api/auth/logout', { method: 'POST' })
+    expect(fetcher.mock.calls.map(call => call[0])).toEqual(['/api/auth/csrf', '/api/auth/login', '/api/auth/csrf', '/api/auth/logout'])
+    expect(fetcher.mock.calls[1]?.[1].headers['X-CSRF-TOKEN']).toBe('first')
+    expect(fetcher.mock.calls[3]?.[1].headers['X-CSRF-TOKEN']).toBe('second')
+  })
+
+  it('signals expired authentication without replaying the request', async () => {
+    const listener = vi.fn()
+    window.addEventListener('session-expired', listener)
+    const fetcher = vi.fn().mockResolvedValue(Response.json({ error: { code: 'UNAUTHENTICATED', message: '请先登录' } }, { status: 401 }))
+    vi.stubGlobal('fetch', fetcher)
+    await expect(request('/api/sources')).rejects.toMatchObject({ code: 'UNAUTHENTICATED' })
+    expect(listener).toHaveBeenCalledTimes(1)
+    expect(fetcher).toHaveBeenCalledTimes(1)
+    window.removeEventListener('session-expired', listener)
+  })
   it('keeps credentials same-origin and accepts the envelope', async () => {
     const payload = { data: { status: 'UP' }, meta: { requestId: 'test-id', serverTime: '2026-10-31T00:00:00Z' } }
     const fetcher = vi.fn().mockResolvedValue(Response.json(payload))

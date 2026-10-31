@@ -34,7 +34,7 @@ class ApplicationIT {
                 var jdbc = app.getBean(JdbcTemplate.class);
                 installation = jdbc.queryForObject("select installation_id from application_metadata", String.class);
                 assertThat(installation).isNotBlank();
-                assertThat(jdbc.queryForObject("select count(*) from flyway_schema_history where success and version is not null", Integer.class)).isEqualTo(1);
+                assertThat(jdbc.queryForObject("select count(*) from flyway_schema_history where success and version is not null", Integer.class)).isEqualTo(2);
                 assertThat(jdbc.queryForObject("show timezone", String.class)).isEqualTo("UTC");
                 // A data change must survive a complete Spring context/pool restart.
                 jdbc.update("update application_metadata set created_at = ?::timestamptz where id = 1", "2026-01-01T00:00:00Z");
@@ -45,7 +45,7 @@ class ApplicationIT {
                 assertThat(jdbc.queryForObject("select installation_id from application_metadata", String.class)).isEqualTo(installation);
                 assertThat(jdbc.queryForObject("select created_at from application_metadata", java.sql.Timestamp.class).toInstant())
                         .isEqualTo(Instant.parse("2026-01-01T00:00:00Z"));
-                assertThat(jdbc.queryForObject("select count(*) from flyway_schema_history where version is not null", Integer.class)).isEqualTo(1);
+                assertThat(jdbc.queryForObject("select count(*) from flyway_schema_history where version is not null", Integer.class)).isEqualTo(2);
                 checkHttp(app);
             }
         } finally {
@@ -61,6 +61,8 @@ class ApplicationIT {
                 "--server.port=0", "--spring.flyway.schemas=" + schema,
                 "--spring.flyway.default-schema=" + schema, "--spring.datasource.hikari.schema=" + schema,
                 "--app.storage.root=" + storage.resolve("files"),
+                "--app.account.username=integration",
+                "--app.account.password-hash=" + new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder(10).encode("integration-only"),
                 "--app.storage.temporary-root=" + storage.resolve("tmp"));
     }
 
@@ -81,7 +83,7 @@ class ApplicationIT {
         var csrf = client.send(HttpRequest.newBuilder(URI.create(base + "/api/health"))
                 .POST(HttpRequest.BodyPublishers.noBody()).build(), HttpResponse.BodyHandlers.ofString());
         assertThat(csrf.statusCode()).isEqualTo(403);
-        assertThat(JsonMapper.builder().build().readTree(csrf.body()).at("/error/code").asText()).isEqualTo("FORBIDDEN");
+        assertThat(JsonMapper.builder().build().readTree(csrf.body()).at("/error/code").asText()).isEqualTo("CSRF_INVALID");
     }
 
     private static String requiredEnvironment(String key) {

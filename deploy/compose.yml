@@ -29,6 +29,8 @@ services:
       STORAGE_ROOT: /data/files
       STORAGE_TEMP_ROOT: /data/tmp
       SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
+      ACCOUNT_USERNAME: ${ACCOUNT_USERNAME:?Set ACCOUNT_USERNAME}
+      ACCOUNT_PASSWORD_HASH: ${ACCOUNT_PASSWORD_HASH:?Set a BCrypt ACCOUNT_PASSWORD_HASH}
     volumes:
       - files:/data/files
       - temporary-files:/data/tmp

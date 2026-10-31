@@ -25,10 +25,20 @@ export class ApiError extends Error {
   }
 }
 
+let csrf: { headerName: string; token: string } | undefined
+let csrfRequest: Promise<void> | undefined
+export function resetCsrf() { csrf = undefined }
+
 export async function request<T>(path: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
   // Restrict all requests to the same-origin API; credentials never go to arbitrary URLs.
   if (!path.startsWith('/api/') || path.includes('\\')) {
     throw new ApiError('INVALID_REQUEST', '请求地址不正确', 0)
+  }
+  const writing = !['GET', 'HEAD', 'OPTIONS'].includes((options.method ?? 'GET').toUpperCase())
+  if (writing && !csrf) {
+    csrfRequest ??= request<{ headerName: string; token: string }>('/api/auth/csrf')
+      .then(result => { csrf = result.data }).finally(() => { csrfRequest = undefined })
+    await csrfRequest
   }
   const timeout = new AbortController()
   const timer = setTimeout(() => timeout.abort(), 10_000)
@@ -36,7 +46,8 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
     const response = await fetch(path, {
       ...options,
       credentials: 'same-origin',
-      headers: { Accept: 'application/json', ...Object.fromEntries(new Headers(options.headers)) },
+      headers: { Accept: 'application/json', ...Object.fromEntries(new Headers(options.headers)),
+        ...(writing && csrf ? { [csrf.headerName]: csrf.token } : {}) },
       signal: options.signal ? AbortSignal.any([options.signal, timeout.signal]) : timeout.signal,
     })
     const requestId = response.headers.get('X-Request-ID') ?? undefined
@@ -44,6 +55,8 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
     const payload: unknown = await response.json().catch(() => null)
     if (!response.ok) {
       const error = isObject(payload) && isObject(payload.error) ? payload.error : null
+      if (error?.code === 'CSRF_INVALID' || response.status === 401) resetCsrf()
+      if (error?.code === 'UNAUTHENTICATED') window.dispatchEvent(new Event('session-expired'))
       throw new ApiError(
         typeof error?.code === 'string' ? error.code : response.status >= 500 ? 'SERVICE_UNAVAILABLE' : 'HTTP_ERROR',
         typeof error?.message === 'string' ? error.message : '暂时无法完成请求，请稍后重试',
@@ -52,6 +65,7 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
         Array.isArray(error?.fields) ? error.fields.filter((field): field is string => typeof field === 'string') : [],
       )
     }
+    if (path === '/api/auth/login' || path === '/api/auth/logout') resetCsrf()
     if (!isObject(payload) || !('data' in payload) || !isObject(payload.meta)
       || typeof payload.meta.requestId !== 'string' || typeof payload.meta.serverTime !== 'string') {
       throw new ApiError('INVALID_RESPONSE', '服务响应格式不正确，请稍后重试', response.status, requestId)

@@ -13,7 +13,7 @@ it('shows service failure, trace and a working retry action', async () => {
       data: { status: 'UP', database: 'UP', learningDate: '2026-10-31', learningTimezone: 'Asia/Shanghai' },
       meta: { requestId: 'trace-ok', serverTime: '2026-10-31T00:00:00Z' },
     })
-  const wrapper = mount(HomeView, { global: { plugins: [createPinia()] } })
+  const wrapper = mount(HomeView, { global: { plugins: [createPinia()], stubs: { RouterLink: true } } })
   await flushPromises()
   expect(wrapper.find('[role="status"]').text()).toContain('服务暂时不可用')
   expect(wrapper.text()).toContain('trace-test')

@@ -8,9 +8,12 @@ Java 21 / Spring Boot 3.5.13 的单进程模块化应用。启动和验证见 [�
 - `common/time`：可注入 Clock 的学习日与时间戳，后续业务复用。
 - `common/web`：请求追踪、响应信封、错误码、校验与异常脱敏。
 - `health`：只读数据库和迁移基线检查。
+- `auth`：预置用户、BCrypt、会话资料和 CSRF。
+- `files`：PDF 验证、流式指纹、用户内去重、存储封装、鉴权 Range/HEAD 读取。
+- `tools`：不连接数据库的交互式密码 hash 工具。
 
-P0-03 起按 `identity`、`source`、`imports`、`library`、`learning`、`sync`、`backup` 建立业务模块；控制器、应用服务、实体/仓储留在各自模块内。个人规模下保持单部署单数据库，不拆微服务或引入消息队列。
+后续按 `imports`、`library`、`learning`、`sync`、`backup` 建立业务模块；控制器、应用服务、实体/仓储留在各自模块内。个人规模下保持单部署单数据库，不拆微服务或引入消息队列。
 
-数据库结构仅由 Flyway 演进。`V1__application_baseline.sql` 是基础设施表，包含唯一安装 ID 和 UTC 创建时间；健康检查依赖该基线。用户归属、唯一约束和实体从 P0-03 的新迁移开始。JPA 使用 `ddl-auto=validate`，禁止自动改表；Flyway clean 被禁用。
+数据库结构仅由 Flyway 演进。V1 是基础设施元数据；V2 建立用户、来源和各业务实体的基础表及复合归属外键。当前使用 User/SourceDocument/Asset 的 JPA 映射，其余表按对应任务补充业务行为。JPA 使用 `ddl-auto=validate`，禁止自动改表；Flyway clean 被禁用。
 
-配置均通过 `application.yml` 里的环境变量入口提供；密码无默认值。`app.storage` 在本任务中定义持久化与临时目录配置，P0-03 再实现存储接口和鉴权文件流。
+配置均通过 `application.yml` 里的环境变量入口提供；数据库密码、账号和 BCrypt hash 无默认值。来源文件不由静态目录暴露；存储与临时根目录必须分离。详见 [P0-03 决策](../docs/decisions/0003-p0-03-identity-and-storage.md)。

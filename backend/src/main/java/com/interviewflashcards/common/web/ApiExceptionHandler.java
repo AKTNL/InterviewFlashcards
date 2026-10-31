@@ -14,6 +14,9 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 @RestControllerAdvice
 public class ApiExceptionHandler {
@@ -21,6 +24,21 @@ public class ApiExceptionHandler {
     private final ApiResponses responses;
 
     public ApiExceptionHandler(ApiResponses responses) { this.responses = responses; }
+
+    @ExceptionHandler(ApiFailure.class)
+    ResponseEntity<ApiError> failure(ApiFailure exception, HttpServletRequest request) {
+        return responses.error(exception.code(), request, List.of());
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    ResponseEntity<ApiError> tooLarge(HttpServletRequest request) {
+        return responses.error(ErrorCode.FILE_TOO_LARGE, request, List.of());
+    }
+
+    @ExceptionHandler({MethodArgumentTypeMismatchException.class, MissingServletRequestPartException.class})
+    ResponseEntity<ApiError> invalidParameter(HttpServletRequest request) {
+        return responses.error(ErrorCode.INVALID_REQUEST, request, List.of());
+    }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     ResponseEntity<ApiError> validation(MethodArgumentNotValidException exception, HttpServletRequest request) {

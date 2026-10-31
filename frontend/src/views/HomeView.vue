@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
+import { RouterLink } from 'vue-router'
 import { useServiceStore } from '../stores/service'
 
 const service = useServiceStore()
@@ -17,7 +18,8 @@ onMounted(() => { void service.check() })
     <div class="workspace-copy">
       <span class="section-number">01 / 学习空间</span>
       <h2 id="workspace-title">你的卡片，从这里开始</h2>
-      <p>学习空间正在准备中。后续将支持导入资料、逐章检查和每日复习。</p>
+      <p>登录你的个人空间，保存与查看来源资料。逐章检查和每日复习将在后续开放。</p>
+      <RouterLink class="primary-button" to="/sources">进入我的资料 <span aria-hidden="true">→</span></RouterLink>
       <div class="steps" aria-label="学习方式">
         <span>看问题</span><span aria-hidden="true">→</span><span>主动回忆</span><span aria-hidden="true">→</span><span>核对答案</span>
       </div>

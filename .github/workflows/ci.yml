@@ -53,6 +53,10 @@ jobs:
       - run: mvn -B -ntp -Pintegration verify
   compose:
     runs-on: ubuntu-latest
+    env:
+      ACCOUNT_USERNAME: ci-only
+      # Disposable CI hash only; never use as a deployment credential.
+      ACCOUNT_PASSWORD_HASH: '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy'
     steps:
       - uses: actions/checkout@v4
       - name: Build and start same-origin stack

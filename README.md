@@ -1,6 +1,6 @@
 # InterviewFlashcards
 
-Java 后端面试卡片学习网站。P0-01、P0-02 已完成：解析基线、Vue/TypeScript、Spring Boot、PostgreSQL/Flyway 应用工程、Compose 和 CI 已建立并完成本地验收；登录与业务模型从 P0-03 开始。
+Java 后端面试卡片学习网站。P0-01～P0-03 已完成：解析基线、前后端工程、数据库/Compose/CI，以及预置账号登录、个人来源资料、PDF 上传去重和鉴权读取。写入同步协议从 P0-04 继续。
 
 - [设计文档](docs/设计文档.md)
 - [开发文档与任务顺序](docs/开发文档.md)
@@ -9,12 +9,14 @@ Java 后端面试卡片学习网站。P0-01、P0-02 已完成：解析基线、V
 - [本地启动与验证](docs/runbooks/local-development.md)
 - [基础 API 与错误码](docs/api/baseline.md)
 - [P0-02 验收记录](docs/fixtures/p0-02/README.md)
+- [P0-03 验收记录](docs/fixtures/p0-03/README.md)
+- [登录与文件 API](docs/api/auth-and-files.md)
 
 快速启动（Docker Compose v2，在仓库根目录）：
 
 ```powershell
 Copy-Item deploy/.env.example deploy/.env
-# 编辑 deploy/.env，填写自行生成的非空 POSTGRES_PASSWORD
+# 按本地开发手册生成 BCrypt hash，填写 POSTGRES_PASSWORD、ACCOUNT_USERNAME、ACCOUNT_PASSWORD_HASH
 docker compose --env-file deploy/.env -f deploy/compose.yml up --build -d --wait
 ```
 
