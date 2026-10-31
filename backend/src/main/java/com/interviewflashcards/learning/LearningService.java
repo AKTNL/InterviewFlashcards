@@ -47,17 +47,40 @@ public class LearningService {
         return rows.getFirst();
     }
     private List<Map<String,Object>> queue(UUID user,UUID id) {
-        return jdbc.queryForList("""
+        var items=jdbc.queryForList("""
             select i.id,i.card_id as "cardId",i.sort_order as "sortOrder",i.completed,i.is_replay as "isReplay",
-            i.skipped,i.expected_review_version as "expectedVersion",c.question,c.review_version as "currentVersion"
-            from session_item i join card c on c.user_id=i.user_id and c.id=i.card_id
+            i.skipped,i.item_kind as "itemKind",i.expected_review_version as "expectedVersion",c.question,c.review_version as "currentVersion",
+            c.chapter_id,ch.check_status,r.due_date,
+            exists(select 1 from learning_preference_chapter pc where pc.user_id=i.user_id and pc.chapter_id=c.chapter_id) as selected
+            from session_item i left join card c on c.user_id=i.user_id and c.id=i.card_id
+            left join chapter ch on ch.user_id=c.user_id and ch.id=c.chapter_id
+            left join review_state r on r.user_id=c.user_id and r.card_id=c.id
             where i.user_id=? and i.session_id=? order by i.sort_order
             """,user,id);
+        boolean planned=!"MANUAL".equals(sessionRow(user,id).get("mode"));
+        int remaining=planned?remainingNew(user):Integer.MAX_VALUE;
+        for(var i:items) {
+            String reason=null;
+            if(planned && !Boolean.TRUE.equals(i.get("completed"))) {
+                if(i.get("currentVersion")==null) reason="卡片已删除";
+                else if(!Boolean.TRUE.equals(i.get("selected")) || !"IMPORTED".equals(i.get("check_status"))) reason="章节已暂停";
+                else if(!Objects.equals(i.get("expectedVersion"),i.get("currentVersion"))) reason="已有其他学习记录";
+                else if("NEW".equals(i.get("itemKind"))) {
+                    if(i.get("due_date")!=null) reason="此题已学习";
+                    else if(remaining<=0) reason="今日新题额度已用完";
+                    else remaining--;
+                } else if(!Boolean.TRUE.equals(i.get("isReplay")) && (i.get("due_date")==null || ((java.sql.Date)i.get("due_date")).toLocalDate().isAfter(time.today()))) reason="已不在到期集合";
+            }
+            i.put("unavailable",reason!=null); i.put("skipReason",reason);
+            i.remove("chapter_id");i.remove("check_status");i.remove("due_date");i.remove("selected");
+        }
+        return items;
     }
+    private boolean pending(Map<String,Object> i) { return !Boolean.TRUE.equals(i.get("completed")) && !Boolean.TRUE.equals(i.get("unavailable")); }
     @Transactional(readOnly=true,isolation=Isolation.REPEATABLE_READ)
     public Map<String,Object> session(UUID user,UUID id) {
         var row=sessionRow(user,id); var items=queue(user,id);
-        var current=items.stream().filter(i->!Boolean.TRUE.equals(i.get("completed"))).findFirst().orElse(null);
+        var current=items.stream().filter(this::pending).findFirst().orElse(null);
         var events=jdbc.queryForList("""
             select e.id,e.card_id as "cardId",e.kind,e.rating,e.after_state as "afterState",e.is_replay as "isReplay"
             from review_event e join session_item i on i.user_id=e.user_id and i.id=e.session_item_id
@@ -78,9 +101,25 @@ public class LearningService {
         boolean canUndo=!latest.isEmpty() && id.equals(latest.getFirst().get("session_id"))
             && Objects.equals(row.get("version"),latest.getFirst().get("session_version_after"))
             && latest.getFirst().get("review_version").toString().equals(latest.getFirst().get("scored_version"));
-        return obj("id",id,"version",row.get("version"),"status",row.get("status"),"learningDate",row.get("learning_date").toString(),
+        var round=jdbc.queryForMap("""
+            select count(distinct e.card_id) filter(where e.before_state='null'::jsonb) as "newCount",
+            count(distinct e.card_id) filter(where (e.after_state->>'firstLearnedAt')::timestamptz < ?::date at time zone ?) as "reviewCount"
+            from review_event e join session_item i on i.user_id=e.user_id and i.id=e.session_item_id
+            where e.user_id=? and i.session_id=? and e.kind='RATE'
+            and not exists(select 1 from review_event u where u.user_id=e.user_id and u.undo_of=e.id)
+            """,row.get("learning_date"),time.learningZone().getId(),user,id);
+        var attention=jdbc.queryForList("""
+            select distinct c.id,c.question,r.latest_rating as "latestRating",r.lapse_count as "lapseCount"
+            from session_item i join card c on c.user_id=i.user_id and c.id=i.card_id
+            join review_state r on r.user_id=c.user_id and r.card_id=c.id
+            where i.user_id=? and i.session_id=? and r.latest_rating in ('FORGOT','VAGUE')
+            and exists(select 1 from review_event e where e.user_id=i.user_id and e.session_item_id=i.id and e.kind='RATE'
+                and not exists(select 1 from review_event u where u.user_id=e.user_id and u.undo_of=e.id)) order by c.id
+            """,user,id);
+        return obj("id",id,"version",row.get("version"),"mode",row.get("mode"),"status","INVALIDATED".equals(row.get("status"))?"INVALIDATED":current==null?"COMPLETED":"ACTIVE","learningDate",row.get("learning_date").toString(),
             "today",time.today(),"expired",!row.get("learning_date").toString().equals(time.today().toString()),
             "items",items,"current",current,"review",state,"events",events,"canUndo",canUndo,
+            "round",obj("newCount",round.get("newCount"),"reviewCount",round.get("reviewCount"),"attention",attention),
             "sameDayReplay",state!=null && LocalDate.ofInstant(state.lastReviewedAt(),time.learningZone()).equals(time.today()));
     }
     private State state(UUID user,UUID card) {
@@ -113,7 +152,7 @@ public class LearningService {
                 var p=command.payload();
                 if("UNDO".equals(command.action())) return undo(user,id,command,sv);
                 var items=queue(user,id);
-                var current=items.stream().filter(i->!Boolean.TRUE.equals(i.get("completed"))).findFirst().orElseThrow(()->new ApiFailure(ErrorCode.SESSION_EXPIRED));
+                var current=items.stream().filter(this::pending).findFirst().orElseThrow(()->new ApiFailure(ErrorCode.SESSION_EXPIRED));
                 UUID item=(UUID)current.get("id"),card=(UUID)current.get("cardId");
                 if(!item.toString().equals(p.path("itemId").asText())) conflict(user,id);
                 long version=cardVersion(user,card);
@@ -156,8 +195,8 @@ public class LearningService {
                         if(reserved==1) {
                             int order=items.stream().mapToInt(i->((Number)i.get("sortOrder")).intValue()).max().orElse(0)+1;
                             jdbc.update("""
-                                insert into session_item(id,user_id,session_id,card_id,sort_order,expected_review_version,is_replay,replay_count)
-                                values(?,?,?,?,?,?,true,1)
+                                insert into session_item(id,user_id,session_id,card_id,sort_order,expected_review_version,is_replay,replay_count,item_kind)
+                                values(?,?,?,?,?,?,true,1,'REPLAY')
                                 """,UUID.randomUUID(),user,id,card,order,version+1);
                         }
                     }
@@ -204,10 +243,8 @@ public class LearningService {
             mapper.writeValueAsString(before),mapper.writeValueAsString(after),rules.version(),time.today(),replay,undo,mapper.writeValueAsString(queue),sv,kind);
     }
     private void advance(UUID user,UUID id,long version) {
-        jdbc.update("""
-            update learning_session set version=?,status=case when exists(select 1 from session_item where user_id=? and session_id=? and not completed)
-            then 'ACTIVE' else 'COMPLETED' end where user_id=? and id=?
-            """,version,user,id,user,id);
+        jdbc.update("update learning_session set version=?,status=? where user_id=? and id=?",version,
+            queue(user,id).stream().anyMatch(this::pending)?"ACTIVE":"COMPLETED",user,id);
     }
     @Transactional(readOnly=true,isolation=Isolation.REPEATABLE_READ)
     public Map<String,Object> summary(UUID user) {
@@ -222,6 +259,104 @@ public class LearningService {
             (select count(distinct e.card_id) from effective e join firsts f on f.card_id=e.card_id where e.learning_date=? and f.first_day<?) as "todayReview"
             """,user,user,time.today(),time.today(),time.today());
         return obj("learningDate",time.today(),"learned",counts.get("learned"),"todayNew",counts.get("todayNew"),"todayReview",counts.get("todayReview"));
+    }
+    @Transactional(readOnly=true,isolation=Isolation.REPEATABLE_READ)
+    public Map<String,Object> preferences(UUID user) {
+        var rows=jdbc.queryForList("select * from learning_preference where user_id=?",user);
+        if(rows.isEmpty()) return obj("saved",false,"version",0L,"dailyNewCount",5,"reviewBatchSize",20,"referenceMinutes",null,"chapterIds",List.of());
+        var p=rows.getFirst();
+        return obj("saved",true,"version",p.get("version"),"dailyNewCount",p.get("daily_new_count"),"reviewBatchSize",p.get("review_batch_size"),
+            "referenceMinutes",p.get("reference_minutes"),"chapterIds",jdbc.queryForList("select chapter_id from learning_preference_chapter where user_id=? order by chapter_id",UUID.class,user));
+    }
+    public JsonNode savePreferences(UUID user,LearningController.Preferences c) throws IOException {
+        return mutations.execute(user,new MutationService.Command(c.operationId(),c.dataEpoch()),"learning.preferences",c,()->{
+            var p=preferences(user);
+            if(!Objects.equals(c.expectedVersion(),p.get("version"))) throw new ApiFailure(ErrorCode.VERSION_CONFLICT,Map.of("current",p));
+            if(c.dailyNewCount()==null || c.dailyNewCount()<0 || c.dailyNewCount()>100 || c.reviewBatchSize()==null || c.reviewBatchSize()<1 || c.reviewBatchSize()>100
+                || c.referenceMinutes()!=null && (c.referenceMinutes()<1 || c.referenceMinutes()>1440) || c.chapterIds()==null || c.chapterIds().size()>1000
+                || c.chapterIds().stream().anyMatch(Objects::isNull) || new HashSet<>(c.chapterIds()).size()!=c.chapterIds().size()) invalid();
+            for(var chapter:c.chapterIds()) if(jdbc.queryForObject("select count(*) from chapter where user_id=? and id=? and check_status='IMPORTED'",Integer.class,user,chapter)!=1)
+                throw new ApiFailure(ErrorCode.NOT_FOUND);
+            jdbc.update("""
+                insert into learning_preference(id,user_id,daily_new_count,review_batch_size,reference_minutes,version)
+                values(?,?,?,?,?,?) on conflict(user_id) do update set daily_new_count=excluded.daily_new_count,
+                review_batch_size=excluded.review_batch_size,reference_minutes=excluded.reference_minutes,version=excluded.version
+                """,UUID.randomUUID(),user,c.dailyNewCount(),c.reviewBatchSize(),c.referenceMinutes(),c.expectedVersion()+1);
+            UUID preference=jdbc.queryForObject("select id from learning_preference where user_id=?",UUID.class,user);
+            jdbc.update("delete from learning_preference_chapter where user_id=?",user);
+            for(var chapter:c.chapterIds()) jdbc.update("insert into learning_preference_chapter(user_id,preference_id,chapter_id) values(?,?,?)",user,preference,chapter);
+            // Reject devices still presenting a queue calculated using an earlier preference.
+            jdbc.update("update learning_session set version=version+1 where user_id=? and mode<>'MANUAL' and learning_date=?",user,time.today());
+            return new MutationService.Change(obj("preferences",preferences(user)),c.expectedVersion()+1,true);
+        });
+    }
+    private int remainingNew(UUID user) {
+        return Math.max(0,((Number)preferences(user).get("dailyNewCount")).intValue()-((Number)summary(user).get("todayNew")).intValue());
+    }
+    @Transactional(readOnly=true,isolation=Isolation.REPEATABLE_READ)
+    public Map<String,Object> today(UUID user) {
+        var p=preferences(user);var counts=summary(user);
+        var chapters=jdbc.queryForList("""
+            select ch.id,ch.name,m.name as "moduleName",d.name as "deckName",
+            exists(select 1 from learning_preference_chapter pc where pc.user_id=ch.user_id and pc.chapter_id=ch.id) as selected,
+            count(c.id) as total,count(r.card_id) as learned,
+            count(r.card_id) filter(where r.due_date<=?) as due,
+            count(r.card_id) filter(where r.latest_rating in ('FORGOT','VAGUE')) as weak
+            from chapter ch join module m on m.user_id=ch.user_id and m.id=ch.module_id
+            join deck d on d.user_id=m.user_id and d.id=m.deck_id
+            left join card c on c.user_id=ch.user_id and c.chapter_id=ch.id
+            left join review_state r on r.user_id=c.user_id and r.card_id=c.id
+            where ch.user_id=? and ch.check_status='IMPORTED'
+            group by ch.id,ch.user_id,ch.name,m.name,d.name,d.id,m.sort_order,m.id,ch.sort_order
+            order by d.id,m.sort_order,m.id,ch.sort_order,ch.id
+            """,time.today(),user);
+        long due=0,unlearned=0;
+        for(var ch:chapters) if(Boolean.TRUE.equals(ch.get("selected"))) {
+            due+=((Number)ch.get("due")).longValue();unlearned+=((Number)ch.get("total")).longValue()-((Number)ch.get("learned")).longValue();
+        }
+        var continuing=new ArrayList<Map<String,Object>>();
+        for(var id:jdbc.queryForList("select id from learning_session where user_id=? and learning_date=? and status<>'INVALIDATED' order by created_at desc,id",UUID.class,user,time.today())) {
+            var s=session(user,id);
+            if(s.get("current")!=null) continuing.add(obj("id",id,"mode",s.get("mode"),"remaining",((List<?>)s.get("items")).stream().map(i->(Map<String,Object>)i).filter(this::pending).count()));
+        }
+        return obj("learningDate",time.today(),"learningTimezone",time.learningZone().getId(),"preferences",p,"summary",counts,
+            "remainingNew",remainingNew(user),"availableNew",unlearned,"dueTotal",due,"chapters",chapters,"continuing",continuing);
+    }
+    public JsonNode daily(UUID user,LearningController.Plan c) throws IOException {
+        return mutations.execute(user,new MutationService.Command(c.operationId(),c.dataEpoch()),"learning.daily",c,()->{
+            if(!Set.of("MIXED","REVIEW","NEW").contains(c.mode())) invalid();
+            var p=preferences(user);
+            if(!Boolean.TRUE.equals(p.get("saved"))) invalid();
+            for(var old:jdbc.queryForList("select id from learning_session where user_id=? and learning_date=? and mode=? and status<>'INVALIDATED' order by created_at desc,id",UUID.class,user,time.today(),c.mode())) {
+                var s=session(user,old);
+                if(s.get("current")!=null) return new MutationService.Change(obj("session",s),((Number)s.get("version")).longValue(),false);
+            }
+            UUID id=UUID.randomUUID();
+            jdbc.update("insert into learning_session(id,user_id,learning_date,mode) values(?,?,?,?)",id,user,time.today(),c.mode());
+            var candidates=new ArrayList<Map<String,Object>>();
+            if(!"NEW".equals(c.mode())) candidates.addAll(jdbc.queryForList("""
+                select c.id,c.review_version,'REVIEW' as kind from card c
+                join chapter ch on ch.user_id=c.user_id and ch.id=c.chapter_id and ch.check_status='IMPORTED'
+                join learning_preference_chapter pc on pc.user_id=c.user_id and pc.chapter_id=c.chapter_id
+                join review_state r on r.user_id=c.user_id and r.card_id=c.id
+                where c.user_id=? and r.due_date<=?
+                order by r.due_date,case r.latest_rating when 'FORGOT' then 0 when 'VAGUE' then 1 else 2 end,c.id limit ?
+                """,user,time.today(),p.get("reviewBatchSize")));
+            if(!"REVIEW".equals(c.mode())) candidates.addAll(jdbc.queryForList("""
+                select c.id,c.review_version,'NEW' as kind from card c
+                join chapter ch on ch.user_id=c.user_id and ch.id=c.chapter_id and ch.check_status='IMPORTED'
+                join module m on m.user_id=ch.user_id and m.id=ch.module_id
+                join draft_card draft on draft.user_id=c.user_id and draft.id=c.draft_id
+                join learning_preference_chapter pc on pc.user_id=c.user_id and pc.chapter_id=c.chapter_id
+                where c.user_id=? and not exists(select 1 from review_state r where r.user_id=c.user_id and r.card_id=c.id)
+                order by m.deck_id,m.sort_order,m.id,ch.sort_order,ch.id,draft.sort_order,c.id limit ?
+                """,user,remainingNew(user)));
+            int order=0;
+            for(var card:candidates) jdbc.update("insert into session_item(id,user_id,session_id,card_id,sort_order,expected_review_version,item_kind) values(?,?,?,?,?,?,?)",
+                UUID.randomUUID(),user,id,card.get("id"),order++,card.get("review_version"),card.get("kind"));
+            advance(user,id,0);
+            return new MutationService.Change(obj("session",session(user,id)),0,true);
+        });
     }
     private void conflict(UUID user,UUID id) { throw new ApiFailure(ErrorCode.VERSION_CONFLICT,Map.of("current",session(user,id))); }
     private static boolean confirmed(JsonNode p,String field) { return p.path(field).isBoolean() && p.path(field).asBoolean(); }

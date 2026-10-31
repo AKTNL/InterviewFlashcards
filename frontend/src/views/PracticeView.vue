@@ -73,7 +73,7 @@ onMounted(() => window.addEventListener('focus', load))
 onUnmounted(() => { generation++; window.removeEventListener('focus', load) })
 </script>
 <template>
-  <RouterLink to="/cards">← 返回题库</RouterLink>
+  <div class="sync-actions"><RouterLink to="/">← 返回今日学习 / 稍后继续</RouterLink><RouterLink to="/cards">返回题库</RouterLink></div>
   <section class="sources-intro"><p class="eyebrow">RECALL · 主动回忆</p><h1>先回忆，再核对答案</h1><p>三档自评按服务端上海学习日安排复习。同日重练保留评分，阶段不升级。</p></section>
   <p v-if="error" role="alert" class="form-error">{{ error }}</p>
   <p v-if="message" role="status" class="notice">{{ message }}</p>
@@ -85,7 +85,9 @@ onUnmounted(() => { generation++; window.removeEventListener('focus', load) })
   </section>
   <section v-if="session" class="chapter-review">
     <p>学习日 {{ session.learningDate }} · 本轮已处理 {{ session.items.filter(i => i.completed).length }} / {{ session.items.length }} 项（含重练）</p>
-    <p v-if="session.expired" role="alert">会话已跨天，请返回题库重新进入练习，已保存的记录会保留。</p>
+    <p v-if="session.round">本轮新学 {{ session.round.newCount }} · 复习 {{ session.round.reviewCount }} · 仍需关注 {{ session.round.attention.length }} 题</p>
+    <p v-if="session.expired" role="alert">会话已跨天，请返回今日学习重新生成计划，按新学习日核算额度和到期题，已保存的记录会保留。</p>
+    <p v-if="session.items.some(i => i.unavailable)" class="notice">已跳过暂停章节、已由其他会话处理或超出今日新题额度的条目。</p>
     <p v-if="session.current && session.current.currentVersion !== session.current.expectedVersion" role="alert">此题已有后续学习。请读取最新状态并返回题库重新进入练习。</p>
     <article v-if="card && session.current" class="card-detail">
       <p class="eyebrow">{{ card.moduleName }} / {{ card.chapterName }}{{ session.current.isReplay ? ' · 本轮追加重练（可跳过）' : '' }}</p>
@@ -104,6 +106,7 @@ onUnmounted(() => { generation++; window.removeEventListener('focus', load) })
       <div class="sync-actions"><button v-if="session.current.isReplay" class="secondary-button" :disabled="blocked" @click="write('SKIP')">跳过重练</button><button v-if="session.review" class="secondary-button" :disabled="blocked" @click="write('RELEARN')">重新学习此题</button></div>
     </article>
     <p v-else-if="!session.current" role="status">本轮练习结束。已保存的评分将用于后续复习安排。</p>
+    <section v-if="!session.current && session.round" aria-label="本轮回顾"><h2>本轮回顾</h2><p>本轮结束表示本批条目已处理，不代表全部题目已经掌握。首页可查看剩余到期题并开始下一轮。</p><ul><li v-for="c in session.round.attention" :key="c.id"><RouterLink :to="`/cards/${c.id}`">{{ c.question }}</RouterLink> · 最近{{ ratings[c.latestRating] }} · 遗忘 {{ c.lapseCount }} 次</li></ul><RouterLink to="/">返回今日学习，查看剩余任务</RouterLink></section>
     <p v-if="session.events.length && !session.canUndo" class="form-note">此记录已有后续操作，当前不能直接撤销。</p>
     <div class="sync-actions"><button v-if="session.canUndo" class="secondary-button" :disabled="blocked" @click="write('UNDO')">{{ session.events[0]?.kind === 'RELEARN' ? '撤销重新学习' : '撤销最近一次评分' }}</button><button class="secondary-button" :disabled="pending || busy" @click="load">读取最新状态</button></div>
   </section>

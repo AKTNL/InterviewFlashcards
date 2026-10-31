@@ -18,6 +18,26 @@ public record LearningController(LearningService learning, ApiResponses response
     public record Write(@NotNull UUID operationId,@NotNull UUID dataEpoch,
                         @NotNull @PositiveOrZero Long expectedVersion,
                         @NotBlank @Pattern(regexp="RATE|UNDO|RELEARN|SKIP") String action,@NotNull JsonNode payload) {}
+    public record Preferences(@NotNull UUID operationId,@NotNull UUID dataEpoch,@NotNull @PositiveOrZero Long expectedVersion,
+        @NotNull @Min(0) @Max(100) Integer dailyNewCount,@NotNull @Min(1) @Max(100) Integer reviewBatchSize,
+        @Min(1) @Max(1440) Integer referenceMinutes,@NotNull @Size(max=1000) List<@NotNull UUID> chapterIds) {}
+    public record Plan(@NotNull UUID operationId,@NotNull UUID dataEpoch,@NotBlank @Pattern(regexp="MIXED|REVIEW|NEW") String mode) {}
+    @GetMapping("/api/preferences")
+    public ApiResponse<?> preferences(@AuthenticationPrincipal AccountPrincipal user,HttpServletRequest request) {
+        return responses.success(learning.preferences(user.id()),request);
+    }
+    @PostMapping("/api/preferences")
+    public ApiResponse<?> preferences(@AuthenticationPrincipal AccountPrincipal user,@Valid @RequestBody Preferences body,HttpServletRequest request) throws IOException {
+        return responses.success(learning.savePreferences(user.id(),body),request);
+    }
+    @GetMapping("/api/today")
+    public ApiResponse<?> today(@AuthenticationPrincipal AccountPrincipal user,HttpServletRequest request) {
+        return responses.success(learning.today(user.id()),request);
+    }
+    @PostMapping("/api/learning-sessions/daily")
+    public ApiResponse<?> daily(@AuthenticationPrincipal AccountPrincipal user,@Valid @RequestBody Plan body,HttpServletRequest request) throws IOException {
+        return responses.success(learning.daily(user.id(),body),request);
+    }
     @PostMapping("/api/learning-sessions")
     public ApiResponse<?> start(@AuthenticationPrincipal AccountPrincipal user,@Valid @RequestBody Start body,HttpServletRequest request) throws IOException {
         return responses.success(learning.start(user.id(),body),request);

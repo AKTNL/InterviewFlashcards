@@ -35,7 +35,7 @@ class LearningIT {
     private final String schema="learning_it_"+UUID.randomUUID().toString().replace("-","");
     private ServletWebServerApplicationContext app;
     private JdbcTemplate jdbc; private ObjectMapper mapper; private LearningService learning; private MockMvc mvc; private TestClock clock;
-    private UUID user,epoch; private List<UUID> cards;
+    private UUID user,epoch,chapter; private List<UUID> cards;
     @BeforeAll void start() {
         app=(ServletWebServerApplicationContext)new SpringApplicationBuilder(FlashcardsApplication.class,TimeOverride.class).run(
             "--server.port=0","--app.import.poll-ms=3600000","--spring.flyway.schemas="+schema,"--spring.flyway.default-schema="+schema,
@@ -51,6 +51,7 @@ class LearningIT {
     @BeforeEach void seed() {
         clock.value=Instant.parse("2026-10-31T04:00:00Z");user=UUID.randomUUID();epoch=UUID.randomUUID();cards=new ArrayList<>();
         UUID source=UUID.randomUUID(),job=UUID.randomUUID(),deck=UUID.randomUUID(),module=UUID.randomUUID(),chapter=UUID.randomUUID();
+        this.chapter=chapter;
         jdbc.update("insert into app_user(id,username,password_hash,data_epoch) values(?,?,'unused',?)",user,"u-"+user,epoch);
         jdbc.update("insert into source_document(id,user_id,original_filename,sha256,page_count,byte_size,storage_key) values(?,?,'test.pdf',?,1,10,?)",source,user,"b".repeat(64),UUID.randomUUID());
         jdbc.update("insert into deck(id,user_id,name) values(?,?,'面试')",deck,user);
@@ -59,7 +60,7 @@ class LearningIT {
         jdbc.update("insert into import_job(id,user_id,source_id,status,deck_id) values(?,?,?,'READY',?)",job,user,source,deck);
         for(int i=0;i<3;i++){
             UUID draft=UUID.randomUUID(),card=UUID.randomUUID();cards.add(card);
-            jdbc.update("insert into draft_card(id,user_id,chapter_id,import_job_id,source_entry,question) values(?,?,?,?,?,?)",draft,user,chapter,job,"q"+i,"问题"+i);
+            jdbc.update("insert into draft_card(id,user_id,chapter_id,import_job_id,source_entry,question,sort_order) values(?,?,?,?,?,?,?)",draft,user,chapter,job,"q"+i,"问题"+i,i);
             jdbc.update("insert into card(id,user_id,chapter_id,draft_id,question) values(?,?,?,?,?)",card,user,chapter,draft,"问题"+i);
         }
     }
@@ -78,6 +79,110 @@ class LearningIT {
     }
     private JsonNode current(JsonNode s){return mapper.valueToTree(learning.session(user,UUID.fromString(s.get("id").asText())));}
     private int count(String table){return jdbc.queryForObject("select count(*) from "+table+" where user_id=?",Integer.class,user);}
+    private LearningController.Preferences preferenceCommand(int target,int batch,List<UUID> chapters) {
+        return new LearningController.Preferences(UUID.randomUUID(),epoch,((Number)learning.preferences(user).get("version")).longValue(),target,batch,null,chapters);
+    }
+    private void prefer(int target,int batch,List<UUID> chapters) throws Exception { learning.savePreferences(user,preferenceCommand(target,batch,chapters)); }
+    private JsonNode daily(String mode) throws Exception { return learning.daily(user,new LearningController.Plan(UUID.randomUUID(),epoch,mode)).get("session"); }
+    @Test void preferencesAreExplicitVersionedIdempotentAndReadsDoNotWrite() throws Exception {
+        long revision=jdbc.queryForObject("select revision from app_user where id=?",Long.class,user);
+        assertThat(learning.preferences(user)).containsEntry("saved",false).containsEntry("dailyNewCount",5).containsEntry("reviewBatchSize",20).containsEntry("referenceMinutes",null);
+        learning.today(user);assertThat(count("learning_preference")).isZero();
+        assertThat(jdbc.queryForObject("select revision from app_user where id=?",Long.class,user)).isEqualTo(revision);
+        assertThatThrownBy(()->daily("MIXED")).isInstanceOf(ApiFailure.class);
+        var c=preferenceCommand(0,1,List.of(chapter));var result=learning.savePreferences(user,c);
+        assertThat(learning.savePreferences(user,c)).isEqualTo(mapper.readTree(result.toString()));
+        assertThat(result.at("/preferences/version").asLong()).isEqualTo(1);
+        assertThatThrownBy(()->learning.savePreferences(user,new LearningController.Preferences(UUID.randomUUID(),epoch,0L,5,20,null,List.of(chapter)))).isInstanceOf(ApiFailure.class);
+        assertThatThrownBy(()->prefer(5,20,List.of(UUID.randomUUID()))).isInstanceOf(ApiFailure.class);
+        assertThat(learning.preferences(user)).containsEntry("dailyNewCount",0).containsEntry("version",1L);
+    }
+    @Test void zeroNewGoalAndBatchNeverHideTotalDueAndOrderIsDeterministic() throws Exception {
+        clock.value=clock.value.minus(Duration.ofDays(3));
+        for(int i=0;i<3;i++) write(session(i),"RATE",i==1?"VAGUE":"REMEMBERED");
+        clock.value=clock.value.plus(Duration.ofDays(3));
+        jdbc.update("update review_state set due_date=? where user_id=?",LocalDate.of(2026,10,30),user);
+        jdbc.update("update review_state set due_date=? where card_id=?",LocalDate.of(2026,10,29),cards.get(2));
+        prefer(0,2,List.of(chapter));
+        var t=learning.today(user);assertThat(t).containsEntry("dueTotal",3L).containsEntry("remainingNew",0);
+        var s=daily("MIXED");assertThat(s.get("items").size()).isEqualTo(2);
+        assertThat(s.at("/items/0/cardId").asText()).isEqualTo(cards.get(2).toString());
+        assertThat(s.at("/items/1/cardId").asText()).isEqualTo(cards.get(1).toString());
+        s=write(s,"RATE","REMEMBERED").get("session");s=write(s,"RATE","REMEMBERED").get("session");
+        assertThat(s.get("current").isNull()).isTrue();assertThat(s.at("/round/reviewCount").asLong()).isEqualTo(2);
+        assertThat(learning.today(user)).containsEntry("dueTotal",1L);
+        assertThat(daily("NEW").get("current").isNull()).isTrue();
+        assertThat(daily("REVIEW").at("/current/cardId").asText()).isEqualTo(cards.getFirst().toString());
+    }
+    @Test void newQuotaCountsOnlyEffectiveScoresAndTargetChangesPreserveHistory() throws Exception {
+        prefer(2,20,List.of(chapter));var s=daily("NEW");
+        assertThat(s.at("/items/0/cardId").asText()).isEqualTo(cards.getFirst().toString());
+        assertThat(s.at("/items/1/cardId").asText()).isEqualTo(cards.get(1).toString());
+        assertThat(learning.today(user)).containsEntry("remainingNew",2);
+        assertThat(daily("NEW").get("id")).isEqualTo(s.get("id"));
+        s=write(s,"RATE","REMEMBERED").get("session");var after=s.get("events").get(0).get("afterState");
+        assertThat(learning.today(user)).containsEntry("remainingNew",1);
+        prefer(0,20,List.of(chapter));
+        assertThat(current(s).get("current").isNull()).isTrue();
+        assertThat(learning.summary(user)).containsEntry("todayNew",1L);
+        assertThat(jdbc.queryForObject("select due_date from review_state where card_id=?",LocalDate.class,cards.getFirst())).isEqualTo(LocalDate.parse(after.get("dueDate").asText()));
+        prefer(3,20,List.of(chapter));var restored=current(s);
+        assertThat(restored.at("/current/cardId").asText()).isEqualTo(cards.get(1).toString());
+        assertThat(learning.today(user)).containsEntry("remainingNew",2);
+    }
+    @Test void pausingSkipsPendingQueueAndResumePreservesOriginalOverdueDates() throws Exception {
+        clock.value=clock.value.minus(Duration.ofDays(5));write(session(0),"RATE","VAGUE");clock.value=clock.value.plus(Duration.ofDays(5));
+        prefer(1,20,List.of(chapter));var s=daily("MIXED");var due=jdbc.queryForObject("select due_date from review_state where card_id=?",LocalDate.class,cards.getFirst());
+        prefer(1,20,List.of());
+        assertThat(current(s).get("current").isNull()).isTrue();assertThat(learning.today(user)).containsEntry("dueTotal",0L);
+        assertThatThrownBy(()->write(s,"RATE","REMEMBERED")).isInstanceOf(ApiFailure.class);
+        assertThat(jdbc.queryForObject("select due_date from review_state where card_id=?",LocalDate.class,cards.getFirst())).isEqualTo(due);
+        prefer(1,20,List.of(chapter));assertThat(learning.today(user)).containsEntry("dueTotal",1L);
+        assertThat(daily("MIXED").at("/current/cardId").asText()).isEqualTo(cards.getFirst().toString());
+    }
+    @Test void anotherSessionProcessingAnItemIsSkippedWithoutDuplicateNewLearning() throws Exception {
+        prefer(2,20,List.of(chapter));var s=daily("NEW");
+        write(session(0),"RATE","REMEMBERED");var resumed=current(s);
+        assertThat(resumed.at("/items/0/unavailable").asBoolean()).isTrue();
+        assertThat(resumed.at("/current/cardId").asText()).isEqualTo(cards.get(1).toString());
+        assertThatThrownBy(()->write(s,"RATE","REMEMBERED")).isInstanceOf(ApiFailure.class);
+        write(resumed,"RATE","REMEMBERED");assertThat(learning.summary(user)).containsEntry("todayNew",2L);
+        assertThat(learning.today(user)).containsEntry("remainingNew",0);
+    }
+    @Test void midnightRecalculatesQuotaAndDueWithoutReusingYesterdaySession() throws Exception {
+        clock.value=Instant.parse("2026-10-31T15:59:59Z");prefer(1,20,List.of(chapter));var s=daily("NEW");
+        s=write(s,"RATE","REMEMBERED").get("session");assertThat(learning.today(user)).containsEntry("remainingNew",0);
+        clock.value=clock.value.plusSeconds(2);
+        assertThat(current(s).get("expired").asBoolean()).isTrue();
+        var yesterday=s;assertThatThrownBy(()->write(current(yesterday),"UNDO",null)).isInstanceOf(ApiFailure.class);
+        assertThat(learning.today(user)).containsEntry("remainingNew",1).containsEntry("dueTotal",1L);
+        var next=daily("MIXED");assertThat(next.get("id")).isNotEqualTo(s.get("id"));
+        assertThat(next.at("/items/0/itemKind").asText()).isEqualTo("REVIEW");assertThat(next.at("/items/1/itemKind").asText()).isEqualTo("NEW");
+        assertThat(next.get("learningDate").asText()).isEqualTo("2026-11-01");
+    }
+    @Test void roundStatsAttentionAndUndoUseEffectiveEvents() throws Exception {
+        prefer(1,20,List.of(chapter));var s=write(daily("NEW"),"RATE","VAGUE").get("session");
+        assertThat(s.at("/round/newCount").asInt()).isEqualTo(1);assertThat(s.at("/round/attention/0/id").asText()).isEqualTo(cards.getFirst().toString());
+        assertThat(learning.today(user).get("chapters").toString()).contains("weak=1");
+        s=write(s,"UNDO",null).get("session");assertThat(s.at("/round/newCount").asInt()).isZero();assertThat(s.at("/round/attention").size()).isZero();
+        assertThat(s.at("/current/cardId").asText()).isEqualTo(cards.getFirst().toString());assertThat(learning.today(user)).containsEntry("remainingNew",1);
+    }
+    @Test void dailyRoutesEnforceSecurityAndPreferenceFailureRollsBack() throws Exception {
+        var owner=user(new AccountPrincipal(user,"test",""));
+        mvc.perform(get("/api/today")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/preferences").with(owner)).andExpect(status().isOk());
+        var c=preferenceCommand(0,20,List.of(chapter));String body=mapper.writeValueAsString(c);
+        mvc.perform(post("/api/preferences").with(owner).contentType("application/json").content(body)).andExpect(status().isForbidden());
+        mvc.perform(post("/api/preferences").with(owner).with(csrf()).contentType("application/json").content(body.replace("\"reviewBatchSize\":20","\"reviewBatchSize\":0"))).andExpect(status().isBadRequest());
+        jdbc.execute("create function fail_daily_receipt() returns trigger language plpgsql as $$ begin raise exception 'receipt failure'; end $$");
+        jdbc.execute("create trigger fail_daily_receipt before insert on mutation_receipt for each row execute function fail_daily_receipt()");
+        try { assertThatThrownBy(()->learning.savePreferences(user,c)).isInstanceOf(RuntimeException.class); }
+        finally { jdbc.execute("drop trigger fail_daily_receipt on mutation_receipt");jdbc.execute("drop function fail_daily_receipt()"); }
+        assertThat(count("learning_preference")).isZero();assertThat(count("learning_preference_chapter")).isZero();
+        assertThat(jdbc.queryForObject("select revision from app_user where id=?",Long.class,user)).isZero();
+        prefer(5,20,List.of(chapter));
+        mvc.perform(post("/api/learning-sessions/daily").with(owner).with(csrf()).contentType("application/json").content(mapper.writeValueAsString(new LearningController.Plan(UUID.randomUUID(),epoch,"NEW")))).andExpect(status().isOk());
+    }
     @Test void scoreIsIdempotentAndStateEventReceiptAndRevisionCommitTogether() throws Exception {
         var s=session(0,1);var c=command(s,"RATE","FORGOT");UUID id=UUID.fromString(s.get("id").asText());
         var first=learning.write(user,id,c);assertThat(learning.write(user,id,c)).isEqualTo(mapper.readTree(first.toString()));

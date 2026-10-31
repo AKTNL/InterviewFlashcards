@@ -1,0 +1,62 @@
+<script setup lang="ts">
+import { computed, onMounted, ref, watch } from 'vue'
+import { learningApi, type TodayLearning } from '../api/learning'
+import { useSyncStore } from '../stores/sync'
+const sync = useSyncStore(), today = ref<TodayLearning>(), loading = ref(false), busy = ref(false), error = ref(''), message = ref('')
+const dailyNewCount = ref(5), reviewBatchSize = ref(20), referenceMinutes = ref<number | ''>(''), chapterIds = ref<string[]>([])
+const pending = computed(() => sync.items.some(i => i.kind === 'preferences.save' && i.status !== 'synced'))
+const valid = computed(() => Number.isInteger(dailyNewCount.value) && dailyNewCount.value >= 0 && dailyNewCount.value <= 100
+  && Number.isInteger(reviewBatchSize.value) && reviewBatchSize.value >= 1 && reviewBatchSize.value <= 100
+  && (referenceMinutes.value === '' || Number.isInteger(referenceMinutes.value) && referenceMinutes.value >= 1 && referenceMinutes.value <= 1440))
+const seen = new Set(sync.items.filter(i => i.status === 'synced').map(i => i.operationId))
+const restoring = new Set<string>()
+watch(() => sync.items, items => {
+  for (const i of items) if (i.kind === 'preferences.save' && i.status !== 'synced') restoring.add(i.operationId)
+}, { immediate: true })
+let submittedAfter = Infinity
+async function load() {
+  loading.value = true; error.value = ''
+  try {
+    const t = await learningApi.today(); today.value = t
+    dailyNewCount.value = t.preferences.dailyNewCount; reviewBatchSize.value = t.preferences.reviewBatchSize
+    referenceMinutes.value = t.preferences.referenceMinutes ?? ''; chapterIds.value = [...t.preferences.chapterIds]
+  } catch (cause) { error.value = cause instanceof Error ? cause.message : '读取设置失败' }
+  finally { loading.value = false }
+}
+async function save() {
+  if (!valid.value || pending.value || busy.value || !today.value) return
+  busy.value = true; error.value = ''; message.value = ''
+  submittedAfter = Date.now()
+  try {
+    await sync.enqueue({ kind: 'preferences.save', name: '每日目标与学习范围', expectedVersion: today.value.preferences.version,
+      payload: { dailyNewCount: dailyNewCount.value, reviewBatchSize: reviewBatchSize.value, referenceMinutes: referenceMinutes.value === '' ? null : referenceMinutes.value, chapterIds: chapterIds.value } })
+    message.value = '设置已保留，等待服务端确认。'
+  } catch (cause) { error.value = cause instanceof Error ? cause.message : '保留设置失败，请重试' }
+  finally { busy.value = false }
+}
+watch(() => sync.items.filter(i => i.status === 'synced' && i.kind === 'preferences.save').map(i => i.operationId).join(','), async () => {
+  for (const i of sync.items) if (i.kind === 'preferences.save' && i.status === 'synced' && !seen.has(i.operationId) && (i.createdAt >= submittedAfter || restoring.has(i.operationId))) {
+    seen.add(i.operationId); message.value = '学习设置已同步。已保存的学习历史与到期日期保持不变。'; await load()
+  }
+})
+onMounted(load)
+</script>
+<template>
+  <RouterLink to="/">← 返回今日学习</RouterLink>
+  <section class="sources-intro"><p class="eyebrow">PREFERENCES · 学习设置</p><h1>安排自己的学习节奏</h1><p>设置影响后续计划；暂停章节会跳过该章的每日任务，历史、笔记和复习日期仍会保留。</p></section>
+  <p v-if="error" role="alert" class="form-error">{{ error }}</p><p v-if="message" role="status" class="notice">{{ message }}</p>
+  <p v-if="loading" role="status">正在读取设置…</p>
+  <form v-if="today" class="chapter-review learning-settings" @submit.prevent="save">
+    <fieldset :disabled="pending || busy || loading"><legend>每日目标</legend>
+      <label>每日新题量<input v-model.number="dailyNewCount" type="number" min="0" max="100" required /></label><p class="form-note">0～100，设为 0 可专注复习。今日剩余额度按目标减去今日不同新学卡片数计算。</p>
+      <label>每轮复习批量<input v-model.number="reviewBatchSize" type="number" min="1" max="100" required /></label><p class="form-note">1～100，只限制本轮数量，首页仍显示全部到期总数。</p>
+      <label>每日参考时长（分钟，可选）<input v-model.number="referenceMinutes" type="number" min="1" max="1440" /></label><p class="form-note">留空表示不设置；不会强制计时或到时结束。</p>
+    </fieldset>
+    <fieldset :disabled="pending || busy || loading"><legend>参与学习的章节</legend><p v-if="!today.chapters.length">还没有已确认的章节，请先到我的资料完成逐章检查。</p>
+      <label v-for="ch in today.chapters" :key="ch.id" class="chapter-choice"><input v-model="chapterIds" type="checkbox" :value="ch.id" /><span>{{ ch.deckName }} · {{ ch.moduleName }} / {{ ch.name }}<small>已学 {{ ch.learned }}/{{ ch.total }} · 到期 {{ ch.due }} · 薄弱 {{ ch.weak }}</small></span></label>
+    </fieldset>
+    <p v-if="pending" role="status">设置尚未确认，请查看“保存与同步”；冲突时保留本地与服务端内容供核对。</p>
+    <div class="sync-actions"><button class="primary-button" type="submit" :disabled="!valid || pending || busy || loading">保存学习设置</button><button class="secondary-button" type="button" :disabled="pending || busy || loading" @click="load">重新读取设置</button></div>
+  </form>
+  <button v-else-if="!loading" class="secondary-button" @click="load">重试读取设置</button>
+</template>

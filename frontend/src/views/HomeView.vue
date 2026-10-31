@@ -2,19 +2,23 @@
 import { onMounted } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useServiceStore } from '../stores/service'
+import { useAuthStore } from '../stores/auth'
+import TodayLearning from '../components/TodayLearning.vue'
 
 const service = useServiceStore()
+const auth = useAuthStore()
 onMounted(() => { void service.check() })
 </script>
 
 <template>
-  <section class="intro">
+  <TodayLearning v-if="auth.user" />
+  <section v-else class="intro">
     <p class="eyebrow">INTERVIEW FLASHCARDS</p>
     <h1>把理解，<br />变成随时想得起。</h1>
     <p class="lead">从一个问题开始，先回忆，再阅读完整答案。<br class="desktop-break" />让每次复习都有迹可循。</p>
   </section>
 
-  <section class="workspace" aria-labelledby="workspace-title">
+  <section v-if="!auth.user" class="workspace" aria-labelledby="workspace-title">
     <div class="workspace-copy">
       <span class="section-number">01 / 学习空间</span>
       <h2 id="workspace-title">你的卡片，从这里开始</h2>

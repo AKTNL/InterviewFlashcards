@@ -31,6 +31,24 @@ let queue: MutationQueue
 const active = () => true
 const changed = async () => {}
 const show = () => {}
+it('recovers preference receipts and daily sessions without replaying confirmed writes', async () => {
+  for (const kind of ['preferences.save', 'session.daily'] as const) {
+    const item = await queue.enqueue('user', 'epoch', { kind, name: '学习', payload: kind === 'session.daily' ? { mode: 'REVIEW' } : { dailyNewCount: 0 }, expectedVersion: 0 })
+    await storage.put({ ...item, status: 'syncing' })
+    vi.mocked(api.receipt).mockResolvedValue({ ...(kind === 'session.daily' ? { session: { id: 'session', version: 0 } as LearningSession } : { preferences: { version: 1 } as never }),
+      mutation: { operationId: item.operationId, dataEpoch: 'epoch', entityVersion: kind === 'session.daily' ? 0 : 1, revision: 2, serverTime: '' } })
+    await new MutationQueue(storage, api).run('user', active, changed, show)
+    expect(rows.get(item.operationId)?.status).toBe('synced')
+  }
+  expect(api.send).not.toHaveBeenCalled()
+})
+it('retains local preferences and the competing version for explicit conflict resolution', async () => {
+  const item = await queue.enqueue('user', 'epoch', { kind: 'preferences.save', name: '范围', expectedVersion: 0, payload: { dailyNewCount: 0, chapterIds: [] } })
+  vi.mocked(api.send).mockRejectedValue(new ApiError('VERSION_CONFLICT', '设置已变更', 409, undefined, [], { current: { version: 1, dailyNewCount: 5 } }))
+  await queue.run('user', active, changed, show);await queue.run('user', active, changed, show, true)
+  expect(api.send).toHaveBeenCalledTimes(1);expect(rows.get(item.operationId)?.payload?.dailyNewCount).toBe(0)
+  expect(rows.get(item.operationId)?.status).toBe('needs-attention')
+})
 it('recovers a card annotation receipt after reload without writing or touching source versions', async () => {
   const item = await queue.enqueue('user', 'epoch', { kind: 'card.update', cardId: 'card', action: 'ANNOTATION', name: '笔记', expectedVersion: 2, payload: { notes: '本地笔记' } })
   await storage.put({ ...item, status: 'syncing' })
