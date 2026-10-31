@@ -13,6 +13,13 @@ watch(() => auth.user, user => {
   else sync.stop()
 }, { immediate: true })
 const router = useRouter()
+const epochNotice = ref('')
+watch(() => sync.state?.dataEpoch, (epoch, previous) => {
+  if (epoch && previous && epoch !== previous) {
+    epochNotice.value = '学习空间已恢复或替换，已重新加载。旧设备待提交内容已保留供核对，请查看“保存与同步”。'
+    if (router.currentRoute.value.name !== 'backups') void router.replace('/')
+  }
+})
 const logoutError = ref('')
 const signingOut = ref(false)
 function expired() {
@@ -60,6 +67,7 @@ onUnmounted(() => {
         <RouterLink to="/">今日学习</RouterLink>
         <RouterLink to="/cards">题库</RouterLink>
         <RouterLink to="/settings">学习设置</RouterLink>
+        <RouterLink to="/backups">备份与恢复</RouterLink>
         <RouterLink to="/sources">我的资料</RouterLink>
         <span class="account-name">{{ auth.user.username }}</span>
         <button class="secondary-button" :disabled="signingOut" @click="signOut">{{ signingOut ? '退出中…' : '退出' }}</button>
@@ -69,7 +77,8 @@ onUnmounted(() => {
   </header>
   <main id="main" tabindex="-1">
     <p v-if="logoutError" role="alert" class="form-error">{{ logoutError }}</p>
-    <RouterView />
+    <p v-if="epochNotice" role="status" class="notice">{{ epochNotice }}</p>
+    <RouterView :key="sync.state?.dataEpoch ?? 'initial'" />
     <SyncPanel v-if="auth.user" />
   </main>
   <footer class="site-footer">每一次主动回忆，都让知识多留一会儿。</footer>

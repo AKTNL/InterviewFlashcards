@@ -8,6 +8,7 @@ export const router = createRouter({
     { path: '/login', name: 'login', component: () => import('../views/LoginView.vue') },
     { path: '/sources', name: 'sources', meta: { requiresAuth: true }, component: () => import('../views/SourcesView.vue') },
     { path: '/settings', name: 'settings', meta: { requiresAuth: true }, component: () => import('../views/SettingsView.vue') },
+    { path: '/backups', name: 'backups', meta: { requiresAuth: true }, component: () => import('../views/BackupsView.vue') },
     { path: '/imports/:id', name: 'import', meta: { requiresAuth: true }, component: () => import('../views/ImportView.vue') },
     { path: '/chapters/:id/cards', name: 'chapter-cards', meta: { requiresAuth: true }, component: () => import('../views/CardsView.vue') },
     { path: '/cards', name: 'cards', meta: { requiresAuth: true }, component: () => import('../views/CardsView.vue') },
