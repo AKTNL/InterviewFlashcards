@@ -1,0 +1,63 @@
+name: interview-flashcards
+services:
+  db:
+    image: postgres:18.3-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB in deploy/.env}
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER in deploy/.env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set a nonempty POSTGRES_PASSWORD in deploy/.env}
+      TZ: UTC
+    ports:
+      - "127.0.0.1:${DB_PORT:-55432}:5432"
+    volumes:
+      - database:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+  backend:
+    build:
+      context: ../backend
+      args:
+        MAVEN_MIRROR_URL: ${MAVEN_MIRROR_URL:-https://repo1.maven.org/maven2}
+    environment:
+      DATABASE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB:?Set POSTGRES_DB}
+      DATABASE_USERNAME: ${POSTGRES_USER:?Set POSTGRES_USER}
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      STORAGE_ROOT: /data/files
+      STORAGE_TEMP_ROOT: /data/tmp
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
+    volumes:
+      - files:/data/files
+      - temporary-files:/data/tmp
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/api/health"]
+      interval: 10s
+      timeout: 6s
+      start_period: 40s
+      retries: 10
+    restart: unless-stopped
+  web:
+    build: ../frontend
+    ports:
+      - "${WEB_BIND_ADDRESS:-127.0.0.1}:${WEB_PORT:-8088}:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/api/health"]
+      interval: 10s
+      timeout: 6s
+      retries: 5
+    restart: unless-stopped
+volumes:
+  database:
+  files:
+  temporary-files:

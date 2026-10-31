@@ -1,0 +1,53 @@
+spring:
+  application:
+    name: interview-flashcards
+  datasource:
+    url: ${DATABASE_URL}
+    username: ${DATABASE_USERNAME}
+    password: ${DATABASE_PASSWORD}
+    hikari:
+      connection-timeout: 5000
+      maximum-pool-size: 5
+      connection-init-sql: SET TIME ZONE 'UTC'
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate.jdbc.time_zone: UTC
+  flyway:
+    enabled: true
+    clean-disabled: true
+    validate-on-migrate: true
+  jackson:
+    time-zone: UTC
+    serialization:
+      write-dates-as-timestamps: false
+  mvc:
+    log-request-details: false
+server:
+  port: ${SERVER_PORT:8080}
+  error:
+    include-message: never
+    include-binding-errors: never
+    include-stacktrace: never
+  servlet:
+    session:
+      cookie:
+        http-only: true
+        same-site: lax
+        secure: ${SESSION_COOKIE_SECURE:false}
+app:
+  learning-timezone: Asia/Shanghai
+  storage:
+    root: ${STORAGE_ROOT:./data/files}
+    temporary-root: ${STORAGE_TEMP_ROOT:./data/tmp}
+logging:
+  level:
+    root: INFO
+    org.springframework.web: WARN
+    org.springframework.security: WARN
+    org.hibernate.SQL: OFF
+    org.hibernate.orm.jdbc.bind: OFF
+  pattern:
+    console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX,UTC} %-5level [%X{requestId:-startup}] %logger{40} - %msg%n"
