@@ -33,9 +33,14 @@ function activate() {
   }
 }
 async function signOut() {
+  if (sync.items.some(i => i.status !== 'synced') && !window.confirm('还有未同步或失败的操作。退出后保留在此浏览器，尚未保存到服务端；需登录同一账号继续处理。确认退出吗？')) return
   signingOut.value = true
   logoutError.value = ''
-  try { await auth.signOut(); await router.replace('/login') }
+  try {
+    await router.push('/login')
+    if (router.currentRoute.value.path !== '/login') return
+    await auth.signOut()
+  }
   catch (error) { logoutError.value = error instanceof ApiError ? error.message : '退出失败，请重试' }
   finally { signingOut.value = false }
 }
@@ -78,7 +83,7 @@ onUnmounted(() => {
   <main id="main" tabindex="-1">
     <p v-if="logoutError" role="alert" class="form-error">{{ logoutError }}</p>
     <p v-if="epochNotice" role="status" class="notice">{{ epochNotice }}</p>
-    <RouterView :key="sync.state?.dataEpoch ?? 'initial'" />
+    <RouterView :key="sync.state?.dataEpoch ?? auth.user?.dataEpoch ?? 'initial'" />
     <SyncPanel v-if="auth.user" />
   </main>
   <footer class="site-footer">每一次主动回忆，都让知识多留一会儿。</footer>

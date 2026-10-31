@@ -58,8 +58,10 @@ onSyncRefresh(load)
       <p v-if="today.preferences.referenceMinutes">每日参考 {{ today.preferences.referenceMinutes }} 分钟，按自己的节奏学习。</p>
       <p v-if="!today.preferences.saved" class="notice">先到学习设置选择章节并确认目标。建议每天新题 5 道、每轮复习 20 道，可自行修改。</p>
       <p v-else-if="!today.preferences.chapterIds.length" class="notice">尚未选择学习章节，请在学习设置中选择已确认导入的章节。</p>
-      <p v-else-if="!today.dueTotal && (!today.remainingNew || !today.availableNew)" class="notice">今天暂无新的计划条目。可以调整设置，或去题库自主练习薄弱题。</p>
-      <div class="sync-actions"><button v-for="mode in ['MIXED', 'REVIEW', 'NEW']" :key="mode" class="primary-button" :disabled="!today.preferences.saved || busy || pending || loading" @click="start(mode)">{{ learningModes[mode] }}</button></div>
+      <p v-else-if="!today.chapters.some(c => c.selected && c.total > 0)" class="notice">当前学习范围内没有卡片。<RouterLink to="/settings">选择其他章节</RouterLink>，或<RouterLink to="/sources">继续导入检查</RouterLink>。</p>
+      <p v-if="!today.dueTotal" class="notice">范围内没有到期题，可以先学新题，或<RouterLink to="/cards">到题库自主练习</RouterLink>。</p>
+      <p v-if="!today.dueTotal && (!today.remainingNew || !today.availableNew)" class="notice">今天暂无新的计划条目。可以调整设置，或去题库自主练习薄弱题。</p>
+      <div class="sync-actions"><button v-for="mode in ['MIXED', 'REVIEW', 'NEW']" :key="mode" class="primary-button" :disabled="!today.preferences.saved || busy || pending || loading || (mode === 'REVIEW' ? !today.dueTotal : mode === 'NEW' ? !today.remainingNew || !today.availableNew : !today.dueTotal && (!today.remainingNew || !today.availableNew))" @click="start(mode)">{{ learningModes[mode] }}</button></div>
       <p v-if="pending" role="status">操作已保留，等待服务端确认；可在“保存与同步”查看进度。</p>
       <section v-if="today.continuing.length" aria-label="继续学习"><h2>接着上次继续</h2><ul class="continue-list"><li v-for="s in today.continuing" :key="s.id"><RouterLink :to="`/practice/${s.id}`">继续{{ learningModes[s.mode] }} · 剩余 {{ s.remaining }} 项</RouterLink></li></ul></section>
       <section aria-label="章节学习情况"><h2>章节学习情况</h2><p v-if="!today.chapters.length">还没有正式章节，请先上传资料并逐章检查确认。</p><ul class="chapter-stats"><li v-for="ch in today.chapters" :key="ch.id"><strong>{{ ch.moduleName }} / {{ ch.name }}</strong><span>{{ ch.selected ? '学习中' : '已暂停' }} · 已学 {{ ch.learned }}/{{ ch.total }} · 到期 {{ ch.due }} · 薄弱 {{ ch.weak }}</span></li></ul></section>

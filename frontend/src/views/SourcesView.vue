@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { onBeforeRouteLeave } from 'vue-router'
 import { ApiError } from '../api/client'
 import { useSyncStore } from '../stores/sync'
 import type { Source } from '../sync/types'
@@ -12,6 +13,13 @@ const error = ref<ApiError | null>(null)
 const notice = ref('')
 const input = ref<HTMLInputElement>()
 const editing = ref<{ id: string; name: string; version: number } | null>(null)
+const dirty = computed(() => !!editing.value && editing.value.name !== sources.value.find(s => s.id === editing.value?.id)?.originalFilename)
+function canLeave() { return !dirty.value || window.confirm('还有未保存的资料名称，确定放弃修改吗？') }
+function cancelName() { if (canLeave()) editing.value = null }
+function beforeUnload(event: BeforeUnloadEvent) { if (dirty.value) { event.preventDefault(); event.returnValue = '' } }
+onBeforeRouteLeave(canLeave)
+onMounted(() => window.addEventListener('beforeunload', beforeUnload))
+onUnmounted(() => window.removeEventListener('beforeunload', beforeUnload))
 function fail(cause: unknown) {
   error.value = cause instanceof ApiError ? cause : new ApiError('UNKNOWN', '操作失败，请重试', 0)
 }
@@ -19,7 +27,7 @@ async function load() {
   error.value = null
   await sync.refresh(true)
 }
-function edit(source: Source) { editing.value = { id: source.id, name: source.originalFilename, version: source.version } }
+function edit(source: Source) { if (canLeave()) editing.value = { id: source.id, name: source.originalFilename, version: source.version } }
 async function saveName() {
   const value = editing.value
   if (!value) return
@@ -82,7 +90,8 @@ async function upload() {
         <label :for="`name-${source.id}`">资料名称</label>
         <input :id="`name-${source.id}`" v-model="editing.name" required maxlength="255" />
         <button class="secondary-button" type="submit">保存名称</button>
-        <button class="secondary-button" type="button" @click="editing = null">取消</button>
+        <button class="secondary-button" type="button" @click="cancelName">取消</button>
+        <p v-if="dirty" role="status">资料名称尚未保存。</p>
       </form>
       <button v-else class="secondary-button" @click="edit(source)">修改名称</button>
       <a class="secondary-button" :href="`/api/sources/${source.id}/content`" target="_blank" rel="noopener">查看原文 <span class="sr-only">（新窗口）</span></a>

@@ -13,6 +13,7 @@ const error = ref(''), message = ref(''), busy = ref(false), loading = ref(false
 const cardIds = computed(() => String(route.query.cards ?? '').split(',').filter(Boolean))
 const selected = computed(() => new Set(cardIds.value).size === cardIds.value.length && cardIds.value.length > 0 && cardIds.value.length <= 100)
 const pending = computed(() => sync.items.some(i => i.status !== 'synced' && (i.kind === 'session.start' && !route.params.id || i.kind === 'review.write' && i.payload?.sessionId === route.params.id)))
+const needsAttention = computed(() => sync.items.some(i => ['failed', 'needs-attention'].includes(i.status) && (i.kind === 'session.start' && !route.params.id || i.kind === 'review.write' && i.payload?.sessionId === route.params.id)))
 const blocked = computed(() => busy.value || pending.value || loading.value || !session.value || session.value.expired || session.value.current?.currentVersion !== session.value.current?.expectedVersion)
 const early = computed(() => session.value?.review && !session.value.expired && !session.value.sameDayReplay && session.value.review.dueDate > session.value.today)
 const seen = new Set(sync.items.filter(i => i.status === 'synced').map(i => i.operationId))
@@ -21,6 +22,7 @@ async function apply(value: LearningSession) {
   const current = ++generation
   if (session.value?.current?.id !== value.current?.id) { answer.value = false; hint.value = false; card.value = undefined }
   session.value = value
+  if (value.status === 'INVALIDATED') message.value = ''
   if (!value.current) { card.value = undefined; return }
   loading.value = true
   try { const detail = await cardsApi.detail(value.current.cardId); if (generation === current) card.value = detail }
@@ -28,7 +30,8 @@ async function apply(value: LearningSession) {
   finally { if (generation === current) loading.value = false }
 }
 async function load() {
-  if (!route.params.id || busy.value || pending.value) return
+  const invalidated = sync.state?.data?.learning_session?.some(s => s.id === route.params.id && s.status === 'INVALIDATED')
+  if (!route.params.id || busy.value || pending.value && !invalidated) return
   error.value = ''; loading.value = true
   const id = String(route.params.id), current = ++generation
   try { const value = await learningApi.session(id); if (current === generation) await apply(value) }
@@ -45,7 +48,7 @@ async function start() {
 async function write(action: string, rating?: string) {
   const s = session.value, item = s?.current
   if (!s || blocked.value || action !== 'UNDO' && !item || action === 'RATE' && !answer.value) return
-  if (action === 'RELEARN' && !window.confirm('确认重新学习此题？下次复习设为今日，保留历史和首次学习信息，不重复计为新题。')) return
+  if (action === 'RELEARN' && !window.confirm(`确认重新学习“${card.value?.question}”？当前复习日期：${s.review?.dueDate ?? '未学'}；执行后设为今日 ${s.today}，重新进入巩固。保留历史和首次学习信息，不重复计为新题。`)) return
   const confirmEarly = action === 'RATE' && !!early.value
   if (confirmEarly && !window.confirm('此题尚未到期。提前练习会更新复习安排，同日重练不会升级阶段。确定继续吗？')) return
   busy.value = true; error.value = ''; message.value = ''
@@ -82,7 +85,8 @@ onSyncRefresh(load)
   <section class="sources-intro"><p class="eyebrow">RECALL · 主动回忆</p><h1>先回忆，再核对答案</h1><p>三档自评按服务端上海学习日安排复习。同日重练保留评分，阶段不升级。</p></section>
   <p v-if="error" role="alert" class="form-error">{{ error }}</p>
   <p v-if="message" role="status" class="notice">{{ message }}</p>
-  <p v-if="pending" role="status">操作已保留，请等待“保存与同步”的服务端确认。确认前不会进入下一题。</p>
+  <p v-if="needsAttention" role="alert">操作未获确认，请到“保存与同步”核对并处理。失败或冲突不会自动重试，也不会进入下一题。</p>
+  <p v-else-if="pending" role="status">操作已保留，请等待“保存与同步”的服务端确认。确认前不会进入下一题。</p>
   <p v-if="loading" role="status">正在读取练习…</p>
   <section v-if="!route.params.id" class="chapter-review">
     <p v-if="selected">准备练习 {{ cardIds.length }} 题。已学题若尚未到期，评分前会提示确认。</p><p v-else>请从题库选择一道题或练习当前页。</p>
@@ -91,7 +95,8 @@ onSyncRefresh(load)
   <section v-if="session" class="chapter-review">
     <p>学习日 {{ session.learningDate }} · 本轮已处理 {{ session.items.filter(i => i.completed).length }} / {{ session.items.length }} 项（含重练）</p>
     <p v-if="session.round">本轮新学 {{ session.round.newCount }} · 复习 {{ session.round.reviewCount }} · 仍需关注 {{ session.round.attention.length }} 题</p>
-    <p v-if="session.expired" role="alert">会话已跨天，请返回今日学习重新生成计划，按新学习日核算额度和到期题，已保存的记录会保留。</p>
+    <p v-if="session.status === 'INVALIDATED'" role="alert">题库已删除或进度已重置，此会话已失效。请返回今日学习重新进入，旧会话不能继续评分。</p>
+    <p v-else-if="session.expired" role="alert">会话已跨天，请返回今日学习重新生成计划，按新学习日核算额度和到期题，已保存的记录会保留。</p>
     <p v-if="session.items.some(i => i.unavailable)" class="notice">已跳过暂停章节、已由其他会话处理或超出今日新题额度的条目。</p>
     <p v-if="session.current && session.current.currentVersion !== session.current.expectedVersion" role="alert">此题已有后续学习。请读取最新状态并返回题库重新进入练习。</p>
     <article v-if="card && session.current" class="card-detail">
@@ -110,8 +115,8 @@ onSyncRefresh(load)
       <details><summary>个人笔记与来源核对</summary><p class="prose-text">{{ card.annotation.notes }}</p><ul><li v-for="(source, index) in card.sources" :key="index"><RouterLink :to="{ path: `/sources/${source.sourceId}/read`, query: { page: source.page, bbox: source.bbox.join(','), card: card.id } }">{{ source.name }} · 物理页 {{ source.page }}</RouterLink></li></ul></details>
       <div class="sync-actions"><button v-if="session.current.isReplay" class="secondary-button" :disabled="blocked" @click="write('SKIP')">跳过重练</button><button v-if="session.review" class="secondary-button" :disabled="blocked" @click="write('RELEARN')">重新学习此题</button></div>
     </article>
-    <p v-else-if="!session.current" role="status">本轮练习结束。已保存的评分将用于后续复习安排。</p>
-    <section v-if="!session.current && session.round" aria-label="本轮回顾"><h2>本轮回顾</h2><p>本轮结束表示本批条目已处理，不代表全部题目已经掌握。首页可查看剩余到期题并开始下一轮。</p><ul><li v-for="c in session.round.attention" :key="c.id"><RouterLink :to="`/cards/${c.id}`">{{ c.question }}</RouterLink> · 最近{{ ratings[c.latestRating] }} · 遗忘 {{ c.lapseCount }} 次</li></ul><RouterLink to="/">返回今日学习，查看剩余任务</RouterLink></section>
+    <p v-else-if="!session.current && session.status !== 'INVALIDATED'" role="status">本轮练习结束。已保存的评分将用于后续复习安排。</p>
+    <section v-if="!session.current && session.round && session.status !== 'INVALIDATED'" aria-label="本轮回顾"><h2>本轮回顾</h2><p>本轮结束表示本批条目已处理，不代表全部题目已经掌握。首页可查看剩余到期题并开始下一轮。</p><ul><li v-for="c in session.round.attention" :key="c.id"><RouterLink :to="`/cards/${c.id}`">{{ c.question }}</RouterLink> · 最近{{ ratings[c.latestRating] }} · 遗忘 {{ c.lapseCount }} 次</li></ul><RouterLink to="/">返回今日学习，查看剩余任务</RouterLink></section>
     <p v-if="session.events.length && !session.canUndo" class="form-note">此记录已有后续操作，当前不能直接撤销。</p>
     <div class="sync-actions"><button v-if="session.canUndo" class="secondary-button" :disabled="blocked" @click="write('UNDO')">{{ session.events[0]?.kind === 'RELEARN' ? '撤销重新学习' : '撤销最近一次评分' }}</button><button class="secondary-button" :disabled="pending || busy" @click="load">读取最新状态</button></div>
   </section>

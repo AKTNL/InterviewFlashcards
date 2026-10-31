@@ -8,6 +8,7 @@ export interface ReviewConflict {
 }
 export interface Snapshot { dataEpoch: string; revision: number; learningDate?: string; sources: Source[]; data?: Record<string, Record<string, unknown>[]> }
 export interface WriteResult {
+  action?: string; impact?: { deckId: string }
   conflict?: ReviewConflict; duplicateScore?: boolean
   preferences?: import('../api/learning').LearningPreferences
   session?: import('../api/learning').LearningSession
@@ -22,7 +23,7 @@ export interface WriteResult {
 export type SyncStatus = 'pending' | 'syncing' | 'synced' | 'failed' | 'needs-attention'
 export interface Mutation {
   operationId: string; userId: string; dataEpoch: string; createdAt: number
-  kind: 'source.upload' | 'source.rename' | 'import.retry' | 'chapter.review' | 'card.update' | 'session.start' | 'review.write' | 'preferences.save' | 'session.daily' | 'conflict.resolve'; name: string; sourceId?: string; jobId?: string; cardId?: string; expectedVersion?: number; file?: Blob
+  kind: 'deck.data' | 'source.upload' | 'source.rename' | 'import.retry' | 'chapter.review' | 'card.update' | 'session.start' | 'review.write' | 'preferences.save' | 'session.daily' | 'conflict.resolve'; name: string; sourceId?: string; jobId?: string; cardId?: string; expectedVersion?: number; file?: Blob
   chapterId?: string; action?: string; payload?: Record<string, unknown>
   status: SyncStatus; attempts: number; nextAttemptAt: number
   error?: { code: string; message: string; details?: unknown; requestId?: string }; result?: WriteResult

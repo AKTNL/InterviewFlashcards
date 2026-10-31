@@ -5,6 +5,20 @@ import { MutationQueue, syncApi } from './queue'
 import type { Mutation, QueueStorage, Snapshot, Source, WriteResult } from './types'
 import type { LearningSession } from '../api/learning'
 
+it('recovers confirmed deck deletion after response loss without deleting again', async () => {
+  const item = await queue.enqueue('user', 'epoch', { kind: 'deck.data', name: '删除', action: 'DELETE', expectedVersion: 0, payload: { deckId: 'deck' } })
+  await storage.put({ ...item, status: 'syncing' })
+  vi.mocked(api.receipt).mockResolvedValue({ action: 'DELETE', impact: { deckId: 'deck' }, mutation: { operationId: item.operationId, dataEpoch: 'epoch', entityVersion: 0, revision: 1, serverTime: '' } })
+  await queue.run('user', active, changed, show)
+  expect(api.send).not.toHaveBeenCalled();expect(rows.get(item.operationId)?.status).toBe('synced')
+})
+it('never automatically reconfirms a stale destructive preview', async () => {
+  const item = await queue.enqueue('user', 'epoch', { kind: 'deck.data', name: '重置', action: 'RESET', expectedVersion: 0, payload: { deckId: 'deck' } })
+  vi.mocked(api.send).mockRejectedValue(new ApiError('DATA_PREVIEW_STALE', '重新预览', 409))
+  await queue.run('user', active, changed, show);await queue.run('user', active, changed, show, true)
+  expect(api.send).toHaveBeenCalledTimes(1);expect(rows.get(item.operationId)?.status).toBe('needs-attention');expect(rows.get(item.operationId)?.expectedVersion).toBe(0)
+})
+
 it('recovers a scoring receipt after response loss without submitting another score', async () => {
   const item = await queue.enqueue('user', 'epoch', { kind: 'review.write', name: '不会', action: 'RATE', expectedVersion: 0, payload: { sessionId: 'session', itemId: 'item', expectedReviewVersion: 0, rating: 'FORGOT' } })
   await storage.put({ ...item, status: 'syncing' })

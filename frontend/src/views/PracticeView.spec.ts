@@ -59,6 +59,19 @@ it('blocks scores after day rollover or a newer review version', async () => {
   const s = structuredClone(sample);s.expired = true;vi.mocked(learningApi.session).mockResolvedValue(s)
   const { wrapper, button } = await view();await button('展开完整答案').trigger('click');expect(button('记住了').attributes('disabled')).toBeDefined();expect(wrapper.text()).toContain('跨天')
 })
+it('explains invalidated sessions and hides scoring after a deck reset', async () => {
+  vi.mocked(learningApi.session).mockResolvedValue({ ...sample, status: 'INVALIDATED', expired: true, current: null, canUndo: false })
+  const { wrapper, enqueue, button } = await view()
+  expect(wrapper.text()).toContain('题库已删除或进度已重置');expect(button('记住了')).toBeUndefined();expect(enqueue).not.toHaveBeenCalled();expect(wrapper.text()).not.toContain('本轮练习结束')
+})
+it('refreshes invalidation even while an old offline score still needs attention', async () => {
+  const { wrapper, sync } = await view()
+  sync.items = [{ kind: 'review.write', name: '离线评分', operationId: 'old', userId: 'u', dataEpoch: 'epoch', createdAt: 1, status: 'needs-attention', attempts: 1, nextAttemptAt: 0, payload: { sessionId: 'session' } }]
+  vi.mocked(learningApi.session).mockResolvedValue({ ...sample, status: 'INVALIDATED', expired: true, current: null, canUndo: false })
+  sync.state = { dataEpoch: 'epoch', revision: 5, sources: [], data: { learning_session: [{ id: 'session', status: 'INVALIDATED' }] } };await flushPromises()
+  expect(wrapper.text()).toContain('此会话已失效');expect(wrapper.find('[aria-label="三档自评"]').exists()).toBe(false)
+  expect(wrapper.text()).toContain('操作未获确认');expect(wrapper.text()).not.toContain('请等待“保存与同步”')
+})
 it('requires explicit start and persists selected card IDs through the queue', async () => {
   route.params.id = undefined;route.fullPath = '/practice?cards=card'
   const { enqueue, button } = await view();expect(enqueue).not.toHaveBeenCalled();await button('开始主动回忆').trigger('click')

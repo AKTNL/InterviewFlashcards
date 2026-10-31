@@ -12,7 +12,7 @@ function sourceId(page: number) { return (props.card.sources.find(s => s.page ==
       <pre class="source-text">{{ block.textSpans.map(s => s.text).join('\n') }}</pre>
       <figure v-if="block.images.length && sourceId(block.page)">
         <p v-if="imageErrors.includes(index)" role="alert">图片加载失败，请打开来源 PDF 查看。</p>
-        <img class="source-page-image" :src="`/api/sources/${sourceId(block.page)}/pages/${block.page}/image`" :alt="`物理页 ${block.page} 原图，含本题 ${block.images.length} 个图片区域及周边内容`" loading="lazy" @error="imageErrors.push(index)" />
+        <a :href="`/api/sources/${sourceId(block.page)}/pages/${block.page}/image`" target="_blank" rel="noopener" :aria-label="`新窗口查看物理页 ${block.page} 原图，可缩放`"><img class="source-page-image" :src="`/api/sources/${sourceId(block.page)}/pages/${block.page}/image`" :alt="`物理页 ${block.page} 原图，含本题 ${block.images.length} 个图片区域及周边内容`" loading="lazy" @error="imageErrors.push(index)" /></a>
         <figcaption><RouterLink :to="`/sources/${sourceId(block.page)}/read?page=${block.page}`">查看图片来源：PDF 物理页 {{ block.page }}</RouterLink>（整页，含周边内容）</figcaption>
       </figure>
     </section>

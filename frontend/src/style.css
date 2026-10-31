@@ -214,3 +214,27 @@ button[aria-pressed=true] { outline: 2px solid #315b48; outline-offset: 2px; }
 .backup-counts { overflow-x: auto; }
 .backup-counts table { width: 100%; border-collapse: collapse; }
 .backup-counts th, .backup-counts td { padding: .5rem; text-align: left; border-bottom: 1px solid #dcded7; }
+/* Keep long evidence, names and touch controls inside the reading column. */
+main, main section, main article, .source-row > div, .sync-item-heading > strong { min-width: 0; }
+main { overflow-wrap: anywhere; }
+.site-header { gap: 1.5rem; flex-wrap: wrap; padding-block: 1rem; }
+.account-nav { flex-wrap: wrap; }
+.account-nav a, summary, .draft-link { min-height: 44px; display: inline-flex; align-items: center; }
+summary { display: list-item; cursor: pointer; padding-block: .6rem; }
+.sync-actions > a { min-height: 44px; display: inline-flex; align-items: center; }
+.sync-actions > button, .sync-actions > a { max-width: 100%; white-space: normal; flex-shrink: 1; overflow-wrap: anywhere; }
+.source-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+.data-operations select { width: 100%; max-width: 100%; min-height: 44px; padding: .6rem; font: inherit; }
+.danger-button { background: #8f3828; border-color: #8f3828; }
+.danger-button:hover { background: #722b1e; }
+.sync-item-heading strong { overflow-wrap: anywhere; }
+@media (max-width: 680px) {
+  .account-nav { width: 100%; gap: .3rem 1rem; }
+  .sync-item-heading, .list-heading { flex-wrap: wrap; }
+  .sync-item-heading strong { flex-basis: 100%; }
+  .draft-preview { padding: .8rem; }
+  .source-text { padding: .7rem; font-size: 1rem; }
+  input, textarea, select { font-size: 16px; }
+  [aria-label="三档自评"] { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  [aria-label="三档自评"] button { min-height: 48px; padding-inline: .5rem; }
+}

@@ -10,6 +10,10 @@ export const syncApi = {
   },
   source: async (id: string) => (await request<Source>(`/api/sources/${id}`)).data,
   send: async (item: Mutation): Promise<WriteResult> => {
+    if (item.kind === 'deck.data') return (await request<WriteResult>(`/api/deck-data/${item.payload?.deckId}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ operationId: item.operationId,
+        dataEpoch: item.dataEpoch, expectedRevision: item.expectedVersion, action: item.action, confirmed: true }),
+    })).data
     if (item.kind === 'conflict.resolve') return (await request<WriteResult>(`/api/sync/conflicts/${item.payload?.conflictId}/resolve`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...item.payload,
         operationId: item.operationId, dataEpoch: item.dataEpoch, expectedVersion: item.expectedVersion }),
@@ -98,7 +102,8 @@ export class MutationQueue {
             result = await this.api.send(item)
           }
           if (result.mutation?.operationId !== item.operationId || result.mutation.dataEpoch !== item.dataEpoch
-              || result.mutation.entityVersion !== (item.kind === 'conflict.resolve' ? result.conflict?.version : item.kind === 'preferences.save' ? result.preferences?.version : item.kind === 'session.daily' || item.kind === 'session.start' || item.kind === 'review.write' ? result.session?.version : item.kind === 'card.update' ? result.card?.version : item.kind === 'chapter.review' ? result.chapter?.version : item.kind === 'import.retry' ? result.job?.version : result.source?.version)
+              || result.mutation.entityVersion !== (item.kind === 'deck.data' ? 0 : item.kind === 'conflict.resolve' ? result.conflict?.version : item.kind === 'preferences.save' ? result.preferences?.version : item.kind === 'session.daily' || item.kind === 'session.start' || item.kind === 'review.write' ? result.session?.version : item.kind === 'card.update' ? result.card?.version : item.kind === 'chapter.review' ? result.chapter?.version : item.kind === 'import.retry' ? result.job?.version : result.source?.version)
+              || (item.kind === 'deck.data' && (result.action !== item.action || result.impact?.deckId !== item.payload?.deckId))
               || (item.kind === 'conflict.resolve' && (result.conflict?.id !== item.payload?.conflictId || !result.conflict?.resolved))
               || (item.kind === 'review.write' && result.session?.id !== item.payload?.sessionId)
               || (item.kind === 'card.update' && result.card?.id !== item.cardId)
@@ -113,7 +118,7 @@ export class MutationQueue {
           item.attempts++
           item.error = { code: error.code, message: error.message, details: error.details, requestId: error.requestId }
           item.status = error.retryable || error.code === 'UNAUTHENTICATED' ? 'pending'
-            : ['VERSION_CONFLICT', 'SESSION_EXPIRED', 'EARLY_REVIEW_CONFIRMATION', 'EPOCH_EXPIRED', 'OPERATION_ID_REUSED', 'NOT_FOUND', 'CSRF_INVALID'].includes(error.code) ? 'needs-attention' : 'failed'
+            : ['DATA_PREVIEW_STALE', 'VERSION_CONFLICT', 'SESSION_EXPIRED', 'EARLY_REVIEW_CONFIRMATION', 'EPOCH_EXPIRED', 'OPERATION_ID_REUSED', 'NOT_FOUND', 'CSRF_INVALID'].includes(error.code) ? 'needs-attention' : 'failed'
           item.nextAttemptAt = this.now() + Math.min(60_000, 1000 * 2 ** Math.min(item.attempts, 6))
           await this.storage.put(item); await changed()
           if (item.status === 'pending' || error.code === 'EPOCH_EXPIRED') break

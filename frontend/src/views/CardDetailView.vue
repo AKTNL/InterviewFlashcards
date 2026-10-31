@@ -19,7 +19,7 @@ async function load() {
   if (editor.value || saving.value) return
   const current = ++generation; const id = String(route.params.id); loading.value = true; error.value = ''
   try { const value = await cardsApi.detail(id); if (current === generation) card.value = value }
-  catch (cause) { if (current === generation) error.value = cause instanceof Error ? cause.message : '卡片读取失败' }
+  catch (cause) { if (current === generation) { card.value = undefined; error.value = cause instanceof Error ? cause.message : '卡片读取失败' } }
   finally { if (current === generation) loading.value = false }
 }
 async function edit(mode: string) {
@@ -93,6 +93,7 @@ onSyncRefresh(load)
     <p v-if="message" role="status">{{ message }}</p><p v-if="outstanding" class="notice">此卡片有待同步或待处理的编辑，请先在“保存与同步”核对。</p>
     <div v-if="!editor" class="sync-actions"><button class="secondary-button" :disabled="outstanding || loading" @click="edit('ANNOTATION')">编辑笔记、提示与要点</button><button class="secondary-button" :disabled="outstanding || loading" @click="edit('METADATA')">编辑技术纠错、版本与标签</button><button class="secondary-button" :disabled="outstanding || loading" @click="edit('CONTENT')">修正内容与待检查标记</button><button class="secondary-button" @click="load">读取最新卡片</button></div>
     <form v-if="editor" class="review-editor" @submit.prevent="save()">
+      <p v-if="dirty" role="status">有未保存的编辑，请保存后再离开。</p>
       <h2>{{ editor === 'ANNOTATION' ? '个人整理' : editor === 'METADATA' ? '个人技术纠错与分类' : '人工排版 / 内容修订' }}</h2>
       <fieldset :disabled="saving || outstanding">
         <template v-if="editor === 'ANNOTATION'"><label>个人笔记<textarea v-model="form.notes" maxlength="50000" rows="6" /></label><label>回忆提示<textarea v-model="form.hint" maxlength="10000" rows="3" /></label><label>记忆要点<textarea v-model="form.memoryPoints" maxlength="20000" rows="4" /></label><label><input v-model="form.favorite" type="checkbox" />收藏此题</label></template>

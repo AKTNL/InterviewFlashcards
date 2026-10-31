@@ -48,7 +48,7 @@ onSyncRefresh(load)
   <section v-if="result" class="library-results" aria-label="题库结果">
     <p>找到 {{ result.total }} 题 <small class="muted">· 学习日 {{ result.learningDate }}（上海时区）</small></p>
     <RouterLink v-if="result.items.length" class="primary-button" :to="{ path: '/practice', query: { cards: result.items.map(c => c.id).join(',') } }">练习本页 {{ result.items.length }} 题</RouterLink>
-    <p v-if="!result.items.length" class="empty-state">没有符合条件的题目。可以清除条件，或先确认导入章节。</p>
+    <div v-if="!result.items.length" class="empty-state"><p>{{ catalog.length ? '没有符合条件的题目。可以清除条件，或先确认导入章节。' : '还没有题库，从上传 PDF 并逐章检查开始。' }}</p><div class="sync-actions"><button v-if="catalog.length" class="secondary-button" @click="clear">清除搜索与筛选</button><RouterLink to="/sources">上传或继续检查章节</RouterLink></div></div>
     <ol :start="result.offset + 1"><li v-for="card in result.items" :key="card.id">
       <RouterLink :to="`/cards/${card.id}`">{{ card.question }}</RouterLink>
       <p class="form-note">{{ card.moduleName }} / {{ card.chapterName }} · {{ card.learned ? '已学' : '未学' }}{{ card.favorite ? ' · 已收藏' : '' }}{{ card.latestRating ? ` · 最近${ratings[card.latestRating]}` : '' }}{{ card.dueDate ? ` · 复习日期 ${card.dueDate}` : '' }}</p>

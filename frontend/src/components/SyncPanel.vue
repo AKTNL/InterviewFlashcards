@@ -55,10 +55,11 @@ async function resolve(conflict: ReviewConflict, choice: 'CURRENT' | 'CANDIDATE'
     </article>
     <ul class="sync-items">
       <li v-for="item in recent" :key="item.operationId">
-        <div class="sync-item-heading"><strong>{{ item.kind === 'conflict.resolve' ? '处理评分冲突' : item.kind === 'preferences.save' ? '学习设置' : item.kind === 'session.daily' ? '每日计划' : item.kind === 'review.write' ? '学习记录' : item.kind === 'session.start' ? '创建练习' : item.kind === 'card.update' ? '卡片整理' : item.kind === 'chapter.review' ? '章节检查' : item.kind === 'source.upload' ? '上传' : item.kind === 'import.retry' ? '重试解析' : '修改名称' }}：{{ item.name }}</strong>
+        <div class="sync-item-heading"><strong>{{ item.kind === 'deck.data' ? '题库数据操作' : item.kind === 'conflict.resolve' ? '处理评分冲突' : item.kind === 'preferences.save' ? '学习设置' : item.kind === 'session.daily' ? '每日计划' : item.kind === 'review.write' ? '学习记录' : item.kind === 'session.start' ? '创建练习' : item.kind === 'card.update' ? '卡片整理' : item.kind === 'chapter.review' ? '章节检查' : item.kind === 'source.upload' ? '上传' : item.kind === 'import.retry' ? '重试解析' : '修改名称' }}：{{ item.name }}</strong>
           <span role="status" :class="['sync-label', item.status]">{{ labels[item.status] }}</span>
         </div>
         <p v-if="item.error">{{ item.error.message }}</p>
+        <p v-if="item.kind === 'deck.data'">{{ item.action === 'DELETE' ? '题库删除' : '学习进度重置' }}：{{ item.status === 'synced' ? '服务端已确认' : '尚未完成，请核对状态' }}。<RouterLink v-if="item.error" to="/data">重新查看影响预览</RouterLink></p>
         <p v-if="item.error?.requestId" class="request-id">请求编号 {{ item.error.requestId }}</p>
         <p v-if="remoteName(item)">服务端名称：{{ remoteName(item) }}</p>
         <p v-if="item.result?.duplicate">相同 PDF 已存在，已关联原有资料。</p>

@@ -25,6 +25,7 @@ async function load() {
   try {
     const result = await importsApi.job(String(route.params.id))
     if (stopped || current !== generation) return
+    if (dirty.value && result.status !== 'READY') { notice.value = '服务端题库状态已变化，本地未保存的编辑仍保留。请先复制内容，再取消编辑并刷新。'; return }
     job.value = result; error.value = ''
     if (result.status === 'READY') {
       const rows = await importsApi.chapters(result.id)

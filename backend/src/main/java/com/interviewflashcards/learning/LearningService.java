@@ -81,7 +81,7 @@ public class LearningService {
     @Transactional(readOnly=true,isolation=Isolation.REPEATABLE_READ)
     public Map<String,Object> session(UUID user,UUID id) {
         var row=sessionRow(user,id); var items=queue(user,id);
-        var current=items.stream().filter(this::pending).findFirst().orElse(null);
+        var current="INVALIDATED".equals(row.get("status"))?null:items.stream().filter(this::pending).findFirst().orElse(null);
         var events=jdbc.queryForList("""
             select e.id,e.card_id as "cardId",e.kind,e.rating,e.after_state as "afterState",e.is_replay as "isReplay"
             from review_event e join session_item i on i.user_id=e.user_id and i.id=e.session_item_id
@@ -99,7 +99,7 @@ public class LearningService {
             and not exists(select 1 from review_event u where u.user_id=e.user_id and u.undo_of=e.id)
             order by e.event_order desc limit 1
             """,user);
-        boolean canUndo=!latest.isEmpty() && !"CORRECT".equals(events.isEmpty()?null:events.getFirst().get("kind")) && id.equals(latest.getFirst().get("session_id"))
+        boolean canUndo=!"INVALIDATED".equals(row.get("status")) && !latest.isEmpty() && !"CORRECT".equals(events.isEmpty()?null:events.getFirst().get("kind")) && id.equals(latest.getFirst().get("session_id"))
             && Objects.equals(row.get("version"),latest.getFirst().get("session_version_after"))
             && latest.getFirst().get("review_version").toString().equals(latest.getFirst().get("scored_version"));
         var round=jdbc.queryForMap("""
@@ -118,7 +118,7 @@ public class LearningService {
                 and not exists(select 1 from review_event u where u.user_id=e.user_id and u.undo_of=e.id)) order by c.id
             """,user,id);
         return obj("id",id,"version",row.get("version"),"mode",row.get("mode"),"status","INVALIDATED".equals(row.get("status"))?"INVALIDATED":current==null?"COMPLETED":"ACTIVE","learningDate",row.get("learning_date").toString(),
-            "today",time.today(),"expired",!row.get("learning_date").toString().equals(time.today().toString()),
+            "today",time.today(),"expired","INVALIDATED".equals(row.get("status")) || !row.get("learning_date").toString().equals(time.today().toString()),
             "items",items,"current",current,"review",state,"events",events,"canUndo",canUndo,
             "round",obj("newCount",round.get("newCount"),"reviewCount",round.get("reviewCount"),"attention",attention),
             "sameDayReplay",state!=null && LocalDate.ofInstant(state.lastReviewedAt(),time.learningZone()).equals(time.today()));
@@ -234,6 +234,7 @@ public class LearningService {
         return mutations.execute(user,new MutationService.Command(command.operationId(),command.dataEpoch()),"learning.write",
             obj("id",id,"command",command),()->{
                 var session=sessionRow(user,id);
+                if("INVALIDATED".equals(session.get("status"))) throw new ApiFailure(ErrorCode.SESSION_EXPIRED,Map.of("current",session(user,id)));
                 long sv=((Number)session.get("version")).longValue();
                 var duplicate=competingScore(user,id,command,sv);
                 if(duplicate!=null) return duplicate;

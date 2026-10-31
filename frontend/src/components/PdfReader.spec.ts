@@ -33,3 +33,14 @@ it('does not mark an unfinished or failed render as complete', async () => {
   const wrapper = await view();expect(wrapper.get('canvas').attributes('data-rendered-page')).toBe('0');expect(wrapper.find('.pdf-highlight').exists()).toBe(false)
   rejectRender(new Error('render failed'));await flushPromises();expect(wrapper.get('[role=alert]').text()).toContain('页面读取失败');expect(wrapper.get('canvas').attributes('data-rendered-page')).toBe('0')
 })
+it('redraws on width changes in the next frame and ignores its own canvas height notifications', async () => {
+  let resize = () => {}, nextFrame = () => {}
+  vi.stubGlobal('ResizeObserver', class { constructor(callback: () => void) { resize = callback } observe() {} disconnect() {} })
+  const frame = vi.fn((callback: () => void) => { nextFrame = callback;return 1 })
+  vi.stubGlobal('requestAnimationFrame', frame);vi.stubGlobal('cancelAnimationFrame', vi.fn())
+  const wrapper = await view();let readerWidth = 320
+  Object.defineProperty(wrapper.get('.pdf-reader').element, 'clientWidth', { get: () => readerWidth })
+  mocks.render.mockClear();resize();expect(mocks.render).not.toHaveBeenCalled();nextFrame();await flushPromises();expect(mocks.render).toHaveBeenCalledTimes(1)
+  resize();resize();expect(frame).toHaveBeenCalledTimes(1);expect(mocks.render).toHaveBeenCalledTimes(1)
+  readerWidth = 400;resize();expect(frame).toHaveBeenCalledTimes(2);nextFrame();await flushPromises();expect(mocks.render).toHaveBeenCalledTimes(2)
+})

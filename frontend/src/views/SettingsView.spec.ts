@@ -48,3 +48,10 @@ it('keeps unsaved settings when a remote revision arrives and refreshes pristine
   expect(learningApi.today).not.toHaveBeenCalled(); expect((wrapper.get('input[type="number"]').element as HTMLInputElement).value).toBe('0')
   expect(wrapper.text()).toContain('本地设置编辑已保留')
 })
+it('protects unsaved settings from reload and browser close', async () => {
+  const { wrapper } = await view();await wrapper.get('input[type="number"]').setValue(0)
+  const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
+  await wrapper.findAll('button').find(b => b.text() === '重新读取设置')!.trigger('click')
+  expect(confirm).toHaveBeenCalled();expect((wrapper.get('input[type="number"]').element as HTMLInputElement).value).toBe('0')
+  const event = new Event('beforeunload', { cancelable: true });window.dispatchEvent(event);expect(event.defaultPrevented).toBe(true)
+})

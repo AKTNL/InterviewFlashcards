@@ -9,6 +9,7 @@ const canvas = ref<HTMLCanvasElement>(), host = ref<HTMLElement>(), width = ref(
 const renderedPage = ref(0)
 let pdf: PDFDocumentProxy | undefined, render: RenderTask | undefined, generation = 0, mounted = false
 let loadingTask: ReturnType<typeof getDocument> | undefined, observer: ResizeObserver | undefined
+let observedWidth = 0, resizeFrame = 0
 const highlight = computed(() => {
   const b = props.bbox
   if (page.value !== props.initialPage || !b || b.length !== 4 || !b.every(Number.isFinite)) return undefined
@@ -56,8 +57,20 @@ function go(value: number) { if (!count.value) return; page.value = Math.max(1, 
 watch(() => props.sourceId, () => { if (mounted) void open() })
 watch(() => props.initialPage, value => go(value))
 watch(zoom, draw)
-onMounted(() => { mounted = true; observer = new ResizeObserver(() => { if (!busy.value) void draw() }); if (host.value) observer.observe(host.value); void open() })
-onUnmounted(() => { mounted = false; generation++; observer?.disconnect(); render?.cancel(); void loadingTask?.destroy() })
+onMounted(() => {
+  mounted = true; observedWidth = host.value?.clientWidth ?? 0
+  observer = new ResizeObserver(() => {
+    const nextWidth = host.value?.clientWidth ?? 0
+    if (nextWidth === observedWidth) return
+    observedWidth = nextWidth
+    // Canvas height changes must not recursively redraw the observed reader.
+    cancelAnimationFrame(resizeFrame)
+    resizeFrame = requestAnimationFrame(() => { void draw() })
+  })
+  if (host.value) observer.observe(host.value)
+  void open()
+})
+onUnmounted(() => { mounted = false; generation++; cancelAnimationFrame(resizeFrame); observer?.disconnect(); render?.cancel(); void loadingTask?.destroy() })
 </script>
 <template>
   <section ref="host" class="pdf-reader" aria-label="PDF 阅读器">

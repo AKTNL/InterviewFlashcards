@@ -3,6 +3,7 @@ package com.interviewflashcards.common.web;
 import org.springframework.http.HttpStatus;
 
 public enum ErrorCode {
+    DATA_PREVIEW_STALE(HttpStatus.CONFLICT, "数据已变化，请重新读取影响预览并确认"),
     RESTORE_STALE(HttpStatus.CONFLICT, "当前数据已变化，请刷新替换影响预览后重新确认"),
     BACKUP_INVALID(HttpStatus.BAD_REQUEST, "备份格式、文件校验或数据关联不合法，当前数据未替换"),
     SESSION_EXPIRED(HttpStatus.CONFLICT, "学习会话已结束或跨天，请重新进入练习"),
