@@ -18,13 +18,14 @@ public class PersonalInviteService {
         this.jdbc=jdbc; this.registration=registration; this.clock=clock;
     }
     // Shared order for registration, generation, revocation and maintenance permission changes.
-    void lock() { jdbc.queryForObject("select id from registration_guard where id=1 for update",Integer.class); }
-    void checkOpen() {
+    public void lock() { jdbc.queryForObject("select id from registration_guard where id=1 for update",Integer.class); }
+    public void checkOpen() {
         if (!registration.enabled()) throw new ApiFailure(ErrorCode.REGISTRATION_CLOSED);
-        if (jdbc.queryForObject("select count(*) from registration_use",Long.class)>=registration.maxAccounts())
+        if (jdbc.queryForObject("select (select count(*) from registration_use)+(select count(*) from admin_account_allocation)",Long.class)>=registration.maxAccounts())
             throw new ApiFailure(ErrorCode.REGISTRATION_LIMITED);
     }
     private int remaining(UUID user) {
+        if (!Boolean.TRUE.equals(jdbc.queryForObject("select enabled from app_user where id=?",Boolean.class,user))) return 0;
         var rows=jdbc.queryForList("select * from invitation_permission where user_id=?",user);
         if(rows.isEmpty() || !(Boolean)rows.getFirst().get("enabled")) return 0;
         var row=rows.getFirst();
@@ -51,7 +52,7 @@ public class PersonalInviteService {
         int total=rows.isEmpty()?0:((Number)rows.getFirst().get("total_limit")).intValue();
         var invites=jdbc.queryForList("select * from registration_invite where inviter_id=? order by created_at desc,id desc limit 1",user);
         Invite latest=invites.isEmpty()?null:view(invites.getFirst());
-        boolean full=jdbc.queryForObject("select count(*) from registration_use",Long.class)>=registration.maxAccounts();
+        boolean full=jdbc.queryForObject("select (select count(*) from registration_use)+(select count(*) from admin_account_allocation)",Long.class)>=registration.maxAccounts();
         String reason=!registration.enabled()?"注册暂未开放，请联系维护者。":!allowed?"尚无邀请权限，请联系维护者。":
             full?"全站注册名额已满，请联系维护者。":remaining(user)==0?"成功邀请额度已用尽，请联系维护者。":
             latest!=null && latest.status().equals("AVAILABLE")?"已有一枚有效邀请码。":null;

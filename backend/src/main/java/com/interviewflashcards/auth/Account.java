@@ -14,7 +14,13 @@ public class Account {
     @Column(nullable = false) private long revision;
     @Column(name = "credential_version", nullable = false) private long credentialVersion;
     private String nickname;
+    private String role;
+    private boolean enabled;
+    @Column(name="must_change_password") private boolean mustChangePassword;
     @Column(name="account_origin", nullable=false) private String accountOrigin;
+    public String getRole() { return role; }
+    public boolean getEnabled() { return enabled; }
+    public boolean getMustChangePassword() { return mustChangePassword; }
     protected Account() {}
     public UUID getId() { return id; }
     public String getUsername() { return username; }

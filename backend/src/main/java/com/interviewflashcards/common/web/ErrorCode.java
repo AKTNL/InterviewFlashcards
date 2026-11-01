@@ -3,6 +3,8 @@ package com.interviewflashcards.common.web;
 import org.springframework.http.HttpStatus;
 
 public enum ErrorCode {
+    PASSWORD_REUSED(HttpStatus.BAD_REQUEST, "新密码不能与当前密码相同"),
+    PASSWORD_CHANGE_REQUIRED(HttpStatus.FORBIDDEN, "请先到个人中心修改初始密码，再使用学习空间"),
     REGISTRATION_LIMITED(HttpStatus.FORBIDDEN, "全站注册名额已满，请联系维护者"),
     INVITATION_NOT_ALLOWED(HttpStatus.FORBIDDEN, "没有邀请权限或成功邀请额度已用尽，请联系维护者"),
     INVITE_ALREADY_ACTIVE(HttpStatus.CONFLICT, "已有有效邀请码，请先查询状态；如需新码，请明确撤销旧码后生成"),

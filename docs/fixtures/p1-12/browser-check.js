@@ -1,0 +1,55 @@
+async page => {
+  const base='http://127.0.0.1:5178';
+  const browser=page.context().browser();
+  for(const c of browser.contexts())if(c!==page.context())await c.close();
+  const friendContext=await browser.newContext({viewport:{width:390,height:844},timezoneId:'Asia/Shanghai'});
+  const friend=await friendContext.newPage();
+  const api=async(p,url,method='GET',body)=>p.evaluate(async({url,method,body})=>{
+    const headers={'Content-Type':'application/json'};
+    if(method!=='GET'){const c=(await(await fetch('/api/auth/csrf')).json()).data;headers[c.headerName]=c.token;}
+    const response=await fetch(url,{method,headers,...(body?{body:JSON.stringify(body)}:{})});return{status:response.status,body:await response.json()};
+  },{url,method,body});
+  const login=async(p,name,password)=>{await p.goto(base+'/login');await p.getByLabel('账号',{exact:true}).fill(name);await p.getByLabel('密码',{exact:true}).fill(password);await p.getByRole('button',{name:'进入学习空间',exact:true}).click();};
+  await login(friend,'p112_friend','p112-initial-password');
+  await friend.getByText('这是初始或重置密码，请先修改密码，再重新登录使用学习空间。',{exact:true}).waitFor();
+  if((await api(friend,'/api/sync/state')).status!==403)throw new Error('initial password bypass');
+  if(await friend.evaluate(()=>document.documentElement.scrollWidth>innerWidth))throw new Error('account mobile overflow');
+  await friend.screenshot({path:'docs/fixtures/p1-12/first-password-mobile.png',fullPage:true});
+  await friend.getByLabel('当前密码',{exact:true}).fill('p112-initial-password');
+  await friend.getByLabel('新密码',{exact:true}).fill('p112-friend-replacement');
+  await friend.getByLabel('确认新密码',{exact:true}).fill('p112-friend-replacement');
+  await friend.getByRole('button',{name:'修改密码并重新登录',exact:true}).click();await friend.waitForURL('**/login?passwordChanged=1');
+  await login(friend,'p112_friend','p112-friend-replacement');await friend.waitForURL('**/sources');
+  if((await api(friend,'/api/admin/users')).status!==403)throw new Error('ordinary management access');
+  await friend.getByRole('link',{name:'个人中心',exact:true}).click();
+  await friend.getByRole('button',{name:'生成邀请码',exact:true}).click();
+  const token=await friend.getByLabel('邀请码（仅本次显示，请及时复制）',{exact:true}).inputValue();
+  const recipientContext=await browser.newContext({viewport:{width:1280,height:900}});const recipient=await recipientContext.newPage();
+  await recipient.goto(base+'/register');await recipient.getByLabel('邀请码',{exact:true}).fill(token);await recipient.getByRole('button',{name:'验证邀请码',exact:true}).click();
+  await recipient.getByLabel('用户名',{exact:true}).fill('p112_invited');await recipient.getByLabel('密码',{exact:true}).fill('p112-invited-password');await recipient.getByLabel('确认密码',{exact:true}).fill('p112-invited-password');await recipient.getByRole('button',{name:'创建账号',exact:true}).click();await recipient.waitForURL('**/login?registered=1');
+  await friend.getByRole('button',{name:'刷新邀请状态（清除当前明文）',exact:true}).click();await friend.getByText('邀请权限：已授权 · 已成功 1 / 2 人 · 剩余名额 1',{exact:true}).waitFor();
+  await friend.getByRole('button',{name:'生成邀请码',exact:true}).click();
+  const unused=await friend.getByLabel('邀请码（仅本次显示，请及时复制）',{exact:true}).inputValue();
+  await page.getByLabel('用户名或昵称',{exact:true}).fill('p112_friend');await page.getByRole('button',{name:'查询 / 刷新',exact:true}).click();await page.locator('.admin-users article').first().getByRole('button',{name:'管理与审计',exact:true}).click();
+  await page.getByRole('heading',{name:'管理 p112_friend',exact:true}).waitFor();
+  await page.getByLabel('开放个人邀请',{exact:true}).uncheck();const permissionCommitted=page.waitForResponse(r=>r.url().endsWith('/permission') && r.request().method()==='POST');page.once('dialog',d=>d.accept());await page.getByRole('button',{name:'保存邀请权限',exact:true}).click();
+  if((await permissionCommitted).status()!==200)throw new Error('permission save failed');
+  if((await api(recipient,'/api/auth/invite/validate','POST',{invite:unused})).status!==400)throw new Error('revoked invitation accepted');
+  await page.getByRole('heading',{name:'管理 p112_friend',exact:true}).waitFor();
+  page.once('dialog',d=>d.accept());await page.getByRole('button',{name:'停用用户',exact:true}).click();
+  await page.getByRole('button',{name:'启用用户',exact:true}).waitFor();
+  if((await api(friend,'/api/auth/me')).status!==401)throw new Error('disabled old session active');
+  page.once('dialog',d=>d.accept());await page.getByRole('button',{name:'启用用户',exact:true}).click();await page.getByRole('button',{name:'停用用户',exact:true}).waitFor();
+  if((await api(friend,'/api/auth/me')).status!==401)throw new Error('old session resurrected');
+  await login(friend,'p112_friend','p112-friend-replacement');await friend.waitForURL('**/sources');
+  const overview=(await api(friend,'/api/account/invites')).body.data;
+  if(overview.successfulCount!==1 || overview.latest.status!=='REVOKED' || overview.allowed)throw new Error('permission/quota changed');
+  await page.getByLabel('新的临时密码',{exact:true}).fill('p112-admin-reset-password');const resetCommitted=page.waitForResponse(r=>r.url().endsWith('/password-reset') && r.request().method()==='POST');page.once('dialog',d=>d.accept());await page.getByRole('button',{name:'重置密码并撤销旧会话',exact:true}).click();
+  const resetResponse=await resetCommitted;if(resetResponse.status()!==200)throw new Error('reset failed '+resetResponse.status());
+  if((await api(friend,'/api/auth/me')).status!==401)throw new Error('reset old session active');
+  await login(friend,'p112_friend','p112-admin-reset-password');await friend.getByText('这是初始或重置密码，请先修改密码，再重新登录使用学习空间。',{exact:true}).waitFor();
+  await page.getByRole('button',{name:'查询 / 刷新',exact:true}).click();await page.locator('.admin-users article').first().getByRole('button',{name:'管理与审计',exact:true}).click();await page.getByRole('heading',{name:'管理 p112_friend',exact:true}).waitFor();
+  await page.setViewportSize({width:1280,height:900});await page.getByRole('button',{name:'用户管理',exact:true}).click();await page.screenshot({path:'docs/fixtures/p1-12/admin-desktop.png',fullPage:true});
+  await page.setViewportSize({width:390,height:844});await page.getByRole('button',{name:'权限管理',exact:true}).click();if(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth))throw new Error('mobile overflow');await page.screenshot({path:'docs/fixtures/p1-12/admin-mobile.png',fullPage:true});
+  await friendContext.close();await recipientContext.close();return {firstPassword:true,invited:1,revoked:true,disabled:true,enabled:true,reset:true,mobileWidth:390};
+}

@@ -9,10 +9,16 @@ import SyncPanel from './components/SyncPanel.vue'
 const auth = useAuthStore()
 const sync = useSyncStore()
 watch(() => auth.user, user => {
-  if (user) void sync.connect(user).catch(() => {})
+  if (user && !user.mustChangePassword) void sync.connect(user).catch(() => {})
   else sync.stop()
 }, { immediate: true, flush: 'sync' })
 const router = useRouter()
+watch(() => auth.user?.mustChangePassword, required => {
+  if (required && router.currentRoute.value.name !== 'login') void router.replace('/account')
+})
+watch(() => auth.user?.capabilities?.includes('users.manage'), allowed => {
+  if (auth.user && router.currentRoute.value.meta.requiresAdmin && !allowed) void router.replace('/account')
+})
 const epochNotice = ref('')
 watch(() => sync.state?.dataEpoch, (epoch, previous) => {
   if (epoch && previous && epoch !== previous) {
@@ -29,7 +35,7 @@ function expired() {
 }
 function activate() {
   if (document.visibilityState === 'visible' && auth.user) {
-    void auth.refresh().then(() => { if(auth.user) void sync.refresh() }).catch(() => {})
+    void auth.refresh().then(() => { if(auth.user && !auth.user.mustChangePassword) void sync.refresh() }).catch(() => {})
   }
 }
 async function signOut() {
@@ -75,6 +81,7 @@ onUnmounted(() => {
     </RouterLink>
     <nav class="account-nav" aria-label="个人空间">
       <template v-if="auth.user">
+        <RouterLink v-if="auth.user.capabilities?.includes('users.manage') && !auth.user.mustChangePassword" to="/admin">管理后台</RouterLink>
         <RouterLink to="/">今日学习</RouterLink>
         <RouterLink to="/cards">题库</RouterLink>
         <RouterLink to="/shares">题库分享</RouterLink>
@@ -93,7 +100,7 @@ onUnmounted(() => {
     <p v-if="logoutError" role="alert" class="form-error">{{ logoutError }}</p>
     <p v-if="epochNotice" role="status" class="notice">{{ epochNotice }}</p>
     <RouterView :key="`${auth.user?.id ?? 'guest'}:${sync.state?.dataEpoch ?? auth.user?.dataEpoch ?? 'initial'}`" />
-    <SyncPanel v-if="auth.user" />
+    <SyncPanel v-if="auth.user && !auth.user.mustChangePassword" />
   </main>
   <footer class="site-footer">每一次主动回忆，都让知识多留一会儿。</footer>
 </template>

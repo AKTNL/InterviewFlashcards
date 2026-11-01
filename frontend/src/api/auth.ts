@@ -4,6 +4,9 @@ export interface Profile {
   id: string
   username: string
   nickname?: string | null
+  role?: 'ADMIN' | 'USER'
+  capabilities?: string[]
+  mustChangePassword?: boolean
   learningTimezone: string
   dataEpoch: string
   revision: number

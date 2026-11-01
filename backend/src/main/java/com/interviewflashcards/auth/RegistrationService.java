@@ -46,6 +46,7 @@ public class RegistrationService {
         AccountRules.password(replacement);
         var row=jdbc.queryForMap("select password_hash from app_user where id=? for no key update",user);
         if (current==null || !passwords.matches(current,(String)row.get("password_hash"))) throw new ApiFailure(ErrorCode.BAD_CREDENTIALS);
-        jdbc.update("update app_user set password_hash=?,credential_version=credential_version+1 where id=?",passwords.encode(replacement),user);
+        if (passwords.matches(replacement,(String)row.get("password_hash"))) throw new ApiFailure(ErrorCode.PASSWORD_REUSED);
+        jdbc.update("update app_user set password_hash=?,credential_version=credential_version+1,must_change_password=false,admin_version=admin_version+1 where id=?",passwords.encode(replacement),user);
     }
 }

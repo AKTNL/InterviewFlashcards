@@ -32,3 +32,17 @@ it('shows a failed sign-out and retains the account instead of claiming success'
   const { wrapper,auth,signOut,exit } = await view();signOut.mockRejectedValueOnce(new Error('network failed'));await exit();await flushPromises()
   expect(wrapper.get('[role=alert]').text()).toContain('退出失败');expect(auth.user?.id).toBe('u')
 })
+
+
+it('keeps forced password change stable when route guards refresh the profile object', async () => {
+  const pinia=createPinia();setActivePinia(pinia);const auth=useAuthStore(),sync=useSyncStore()
+  auth.user={id:'new',username:'friend',learningTimezone:'Asia/Shanghai',dataEpoch:'e',revision:0}
+  vi.spyOn(auth,'refresh').mockResolvedValue(undefined);vi.spyOn(sync,'connect').mockResolvedValue(undefined)
+  const router=createRouter({history:createMemoryHistory(),routes:[{path:'/',name:'home',component:{template:'<p>首页</p>'}},{path:'/account',name:'account',component:{template:'<p>改密</p>'}}]});await router.push('/')
+  let navigations=0
+  router.beforeEach(()=>{navigations++;if(navigations>5)throw new Error('redirect loop');auth.user={...auth.user!}})
+  const wrapper=mount(App,{global:{plugins:[pinia,router],stubs:{SyncPanel:true}}});wrappers.push(wrapper);await flushPromises()
+  auth.user={...auth.user!,mustChangePassword:true};await flushPromises();await flushPromises()
+  expect(router.currentRoute.value.path).toBe('/account');expect(navigations).toBe(1);expect(wrapper.find('sync-panel-stub').exists()).toBe(false)
+  auth.user={...auth.user!};await flushPromises();expect(navigations).toBe(1)
+})

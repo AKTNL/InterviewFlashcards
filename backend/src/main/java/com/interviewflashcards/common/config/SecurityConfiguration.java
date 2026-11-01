@@ -30,6 +30,7 @@ public class SecurityConfiguration {
                 .requestCache(cache -> cache.disable())
                 .formLogin(login -> login.loginProcessingUrl("/api/auth/login")
                         .successHandler((request, response, authentication) -> {
+                            jdbc.update("update app_user set last_login_at=current_timestamp where id=?",((AccountPrincipal)authentication.getPrincipal()).id());
                             response.setContentType("application/json");
                             response.setCharacterEncoding("UTF-8");
                             responses.mapper().writeValue(response.getOutputStream(), responses.success(

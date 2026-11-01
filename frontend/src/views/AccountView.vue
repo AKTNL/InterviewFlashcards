@@ -26,7 +26,8 @@ async function submit() {
   <section class="auth-panel" aria-labelledby="account-title">
     <h1 id="account-title">个人中心</h1><p>登录名：{{ auth.user?.username }}</p>
     <p v-if="auth.user?.nickname">昵称：{{ auth.user.nickname }}</p>
-    <PersonalInvites />
+    <p v-if="auth.user?.mustChangePassword" role="status" class="notice">这是初始或重置密码，请先修改密码，再重新登录使用学习空间。</p>
+    <PersonalInvites v-else />
     <h2>修改密码</h2><p class="muted">修改后所有设备需要重新登录。忘记密码请联系部署维护者。</p>
     <form @submit.prevent="submit">
       <label for="current-password">当前密码</label><input id="current-password" v-model="current" type="password" autocomplete="current-password" required :disabled="busy" />

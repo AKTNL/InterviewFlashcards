@@ -40,10 +40,17 @@ public final class AuthGuardFilter extends OncePerRequestFilter {
                 if ("POST".equals(request.getMethod()) && path.equals("/api/account/invites") && !allowed("invite:user:"+user.id(),20)) {
                     responses.writeError(ErrorCode.RATE_LIMITED,request,response);return;
                 }
-                var versions=jdbc.queryForList("select credential_version from app_user where id=?",Long.class,user.id());
-                if (versions.isEmpty() || versions.getFirst()!=user.credentialVersion()) {
+                var versions=jdbc.queryForList("select credential_version,enabled,role,must_change_password from app_user where id=?",user.id());
+                if (versions.isEmpty() || !Boolean.TRUE.equals(versions.getFirst().get("enabled")) || ((Number)versions.getFirst().get("credential_version")).longValue()!=user.credentialVersion()) {
                     if (request.getSession(false)!=null) request.getSession(false).invalidate();
                     SecurityContextHolder.clearContext(); responses.writeError(ErrorCode.UNAUTHENTICATED,request,response); return;
+                }
+                var account=versions.getFirst();
+                if (Boolean.TRUE.equals(account.get("must_change_password")) && !List.of("/api/auth/me","/api/auth/csrf","/api/auth/password","/api/auth/logout").contains(path)) {
+                    responses.writeError(ErrorCode.PASSWORD_CHANGE_REQUIRED,request,response);return;
+                }
+                if (path.startsWith("/api/admin/") && !Capabilities.forRole((String)account.get("role")).contains(Capabilities.USERS)) {
+                    responses.writeError(ErrorCode.FORBIDDEN,request,response);return;
                 }
                 String expected=request.getHeader("X-Account-ID");
                 if (expected!=null && !expected.equals(user.id().toString())) { responses.writeError(ErrorCode.ACCOUNT_CHANGED,request,response); return; }

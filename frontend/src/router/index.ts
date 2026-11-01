@@ -7,6 +7,7 @@ export const router = createRouter({
     { path: '/', name: 'home', component: () => import('../views/HomeView.vue') },
     { path: '/login', name: 'login', component: () => import('../views/LoginView.vue') },
     { path: '/register', name: 'register', component: () => import('../views/RegisterView.vue') },
+    { path: '/admin', name: 'admin', meta: { requiresAuth: true, requiresAdmin: true }, component: () => import('../views/AdminView.vue') },
     { path: '/account', name: 'account', meta: { requiresAuth: true }, component: () => import('../views/AccountView.vue') },
     { path: '/sources', name: 'sources', meta: { requiresAuth: true }, component: () => import('../views/SourcesView.vue') },
     { path: '/settings', name: 'settings', meta: { requiresAuth: true }, component: () => import('../views/SettingsView.vue') },
@@ -27,8 +28,13 @@ export const router = createRouter({
 
 router.beforeEach(async to => {
   const auth = useAuthStore()
-  if (!to.meta.requiresAuth) return
+  if (!to.meta.requiresAuth) {
+    if (auth.user?.mustChangePassword && !['login', 'register'].includes(String(to.name))) return { name: 'account' }
+    return
+  }
   // The page offers retry on a connection error; only a confirmed 401 redirects to login.
-  try { await auth.refresh() } catch { return }
+  try { await auth.refresh() } catch { if (to.meta.requiresAdmin) return false; return }
   if (!auth.user) return { name: 'login' }
+  if (auth.user.mustChangePassword && to.name !== 'account') return { name: 'account' }
+  if (to.meta.requiresAdmin && !auth.user.capabilities?.includes('users.manage')) return { name: 'account' }
 })

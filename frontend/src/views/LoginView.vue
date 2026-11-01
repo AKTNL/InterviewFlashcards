@@ -18,7 +18,7 @@ async function submit() {
   error.value = null
   try {
     await auth.signIn(username.value, password.value)
-    await router.replace('/sources')
+    await router.replace(auth.user?.mustChangePassword ? '/account' : '/sources')
   } catch (cause) { error.value = cause instanceof ApiError ? cause : new ApiError('UNKNOWN', '登录失败，请重试', 0) }
   finally { password.value = ''; busy.value = false }
 }
