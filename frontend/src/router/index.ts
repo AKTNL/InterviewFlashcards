@@ -13,6 +13,7 @@ export const router = createRouter({
     { path: '/data', name: 'data', meta: { requiresAuth: true }, component: () => import('../views/DataView.vue') },
     { path: '/backups', name: 'backups', meta: { requiresAuth: true }, component: () => import('../views/BackupsView.vue') },
     { path: '/shares', name: 'shares', meta: { requiresAuth: true }, component: () => import('../views/SharesView.vue') },
+    { path: '/groups', name: 'groups', meta: { requiresAuth: true }, component: () => import('../views/GroupsView.vue') },
     { path: '/imports/:id', name: 'import', meta: { requiresAuth: true }, component: () => import('../views/ImportView.vue') },
     { path: '/chapters/:id/cards', name: 'chapter-cards', meta: { requiresAuth: true }, component: () => import('../views/CardsView.vue') },
     { path: '/cards', name: 'cards', meta: { requiresAuth: true }, component: () => import('../views/CardsView.vue') },

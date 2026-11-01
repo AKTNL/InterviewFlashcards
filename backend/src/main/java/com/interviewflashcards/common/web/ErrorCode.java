@@ -3,6 +3,8 @@ package com.interviewflashcards.common.web;
 import org.springframework.http.HttpStatus;
 
 public enum ErrorCode {
+    GROUP_LIMITED(HttpStatus.CONFLICT, "小组数量、成员或待接受邀请已达上限"),
+    GROUP_INVITE_UNAVAILABLE(HttpStatus.CONFLICT, "小组邀请已过期、撤销或小组已解散，请联系组主"),
     SHARE_UNAVAILABLE(HttpStatus.CONFLICT, "邀请已过期、撤销或领取完毕，请联系分享者"),
     SHARE_RECIPIENT_INVALID(HttpStatus.BAD_REQUEST, "接收账号不可用，请核对已注册的用户名"),
     SHARE_EMPTY(HttpStatus.CONFLICT, "题库尚无已确认的正式卡片"),

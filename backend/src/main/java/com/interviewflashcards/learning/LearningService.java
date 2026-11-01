@@ -341,16 +341,18 @@ public class LearningService {
     @Transactional(readOnly=true,isolation=Isolation.REPEATABLE_READ)
     public Map<String,Object> summary(UUID user) {
         // Effective history, never increment-only counters; compensation rows are excluded.
+        var today=time.today();
         var counts=jdbc.queryForMap("""
             with effective as (
                 select e.* from review_event e where e.user_id=? and e.kind in ('RATE','CORRECT')
                 and not exists(select 1 from review_event u where u.user_id=e.user_id and u.undo_of=e.id)
             ), firsts as (select card_id,min(learning_date) as first_day from effective group by card_id)
             select (select count(*) from review_state where user_id=?) as learned,
+            (select count(distinct learning_date) from effective where learning_date between ? and ?) as "weekLearningDays",
             (select count(*) from firsts where first_day=?) as "todayNew",
             (select count(distinct e.card_id) from effective e join firsts f on f.card_id=e.card_id where e.learning_date=? and f.first_day<?) as "todayReview"
-            """,user,user,time.today(),time.today(),time.today());
-        return obj("learningDate",time.today(),"learned",counts.get("learned"),"todayNew",counts.get("todayNew"),"todayReview",counts.get("todayReview"));
+            """,user,user,today.minusDays(6),today,today,today,today);
+        return obj("learningDate",today,"learned",counts.get("learned"),"todayNew",counts.get("todayNew"),"todayReview",counts.get("todayReview"),"weekLearningDays",counts.get("weekLearningDays"));
     }
     @Transactional(readOnly=true,isolation=Isolation.REPEATABLE_READ)
     public Map<String,Object> preferences(UUID user) {
