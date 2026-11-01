@@ -82,4 +82,4 @@ docker compose -p interview-flashcards --env-file deploy/.env.production -f depl
 
 网络中断后先按用户名查询或刷新详情核对结果，不自动重放。建号只有同一 operationId 和原始内容的显式重试返回原账号；其余操作的旧版本会被拒绝。管理请求不进入学习离线队列。页面每 30 秒及激活时刷新元数据，表单输入保留；失败清除管理数据，权限回收下次请求生效。
 
-`account_admin_audit` 记录操作者/MAINTENANCE、目标、非敏感前后值、时间和成功/失败结果。不包含密码、hash 或邀请码明文。个人学习 ZIP 不包含账号/管理数据，不能恢复权限、返还名额或解除停用。知识库和 Dashboard 当前标明 P1-13 / P1-14 待实现，时长尚未采集。完整契约见 [管理 API](../api/admin-accounts.md)，验证见 [P1-12 验收](../fixtures/p1-12/README.md)。
+`account_admin_audit` 记录操作者/MAINTENANCE、目标、非敏感前后值、时间和成功/失败结果。不包含密码、hash 或邀请码明文。个人学习 ZIP 不包含账号/管理数据，不能恢复权限、返还名额或解除停用。知识库管理已由 P1-13 实现；Dashboard 留 P1-14，时长尚未采集。完整契约见 [管理 API](../api/admin-accounts.md)，验证见 [P1-12 验收](../fixtures/p1-12/README.md)。

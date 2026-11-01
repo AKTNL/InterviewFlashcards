@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from 'vue'
+import AdminLibrary from '../components/AdminLibrary.vue'
 import { ApiError } from '../api/client'
 import { useAuthStore } from '../stores/auth'
 import { adminWrite, getAdminUsers, getAdminDetail, getAdminConfiguration, type AdminUser, type AdminDetail, type Configuration } from '../api/admin'
 const auth = useAuthStore()
+const libraryDirty = ref(false)
+function switchTab(value: string) { if (!libraryDirty.value || window.confirm('章节修改尚未保存，确认切换？')) { libraryDirty.value = false; tab.value = value } }
 const tab = ref('users'), search = ref(''), state = ref('ALL'), invitation = ref('ALL'), page = ref(0)
 const users = ref<AdminUser[]>([]), total = ref(0), detail = ref<AdminDetail | null>(null), config = ref<Configuration | null>(null)
 const busy = ref(false), loading = ref(false), error = ref(''), notice = ref('')
@@ -76,7 +79,7 @@ onUnmounted(() => { alive = false; ++serial; ++selection; initial.value = ''; re
   <section class="admin-panel" aria-labelledby="admin-title">
     <header><p class="eyebrow">管理空间</p><h1 id="admin-title">管理后台</h1><p class="muted">账号与业务权限管理 · 时间均为 Asia/Shanghai</p></header>
     <nav class="admin-tabs" aria-label="后台功能">
-      <button v-for="item in [{ id: 'users', label: '用户管理' }, { id: 'permissions', label: '权限管理' }, { id: 'library', label: '知识库管理' }, { id: 'dashboard', label: 'Dashboard' }]" :key="item.id" :aria-pressed="tab === item.id" class="secondary-button" @click="tab = item.id">{{ item.label }}</button>
+      <button v-for="item in [{ id: 'users', label: '用户管理' }, { id: 'permissions', label: '权限管理' }, { id: 'library', label: '知识库管理' }, { id: 'dashboard', label: 'Dashboard' }]" :key="item.id" :aria-pressed="tab === item.id" class="secondary-button" @click="switchTab(item.id)">{{ item.label }}</button>
     </nav>
     <p v-if="error" class="form-error" role="alert">{{ error }}</p><p v-if="notice" class="notice" role="status">{{ notice }}</p>
     <template v-if="tab === 'users' || tab === 'permissions'">
@@ -120,7 +123,7 @@ onUnmounted(() => { alive = false; ++serial; ++selection; initial.value = ''; re
         <form @submit.prevent="create"><label>用户名<input v-model="name" required maxlength="32" autocomplete="off" :disabled="busy" /></label><label>昵称（可选）<input v-model="nickname" maxlength="60" :disabled="busy" /></label><label>一次性初始密码<input v-model="initial" type="password" autocomplete="new-password" minlength="12" required :disabled="busy" /></label><p class="muted">密码至少 12 个字符，最多 72 个 UTF-8 字节。</p><button class="primary-button" :disabled="busy">创建普通用户</button></form>
       </section>
     </template>
-    <section v-else-if="tab === 'library'" class="admin-box"><h2>知识库管理</h2><p>平台知识库的导入、发布和下架将在 P1-13 实现。</p></section>
+    <AdminLibrary v-else-if="tab === 'library'" @dirty="libraryDirty = $event" />
     <section v-else class="admin-box"><h2>Dashboard 与使用汇总</h2><p>全站与逐用户使用统计将在 P1-14 实现。在线时长尚未采集。</p></section>
   </section>
 </template>

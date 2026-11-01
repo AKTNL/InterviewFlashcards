@@ -1,9 +1,11 @@
 import { mount, flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { libraryReviewApi, libraryWrite } from '../api/library'
 import { importsApi, type ChapterReview, type Draft } from '../api/imports'
 import { useSyncStore } from '../stores/sync'
 import ChapterReviewView from './ChapterReview.vue'
+vi.mock('../api/library', () => ({ libraryReviewApi: vi.fn(), libraryWrite: vi.fn() }))
 vi.mock('vue-router', () => ({ onBeforeRouteLeave: vi.fn() }))
 vi.mock('../api/imports', () => ({ importsApi: { review: vi.fn(), draft: vi.fn() } }))
 const draft: Draft = { id: 'd2', sourceId: 'source', chapterId: 'chapter', question: '跨页问题', sourceEntry: 'q2', flags: [{ kind: 'CHECK', reason: '核对原文' }], excluded: false, version: 0,
@@ -79,4 +81,15 @@ it('requires a separate abandonment choice and reason without affecting temporar
   await wrapper.get('#review-reason').setValue('当前不需要')
   await confirm.trigger('click'); await flushPromises()
   expect(enqueue).toHaveBeenCalledWith(expect.objectContaining({ action: 'ABANDON', payload: { confirmed: true, reason: '当前不需要' } }))
+})
+
+it('uses the platform review endpoint with explicit confirmation and never queues a personal mutation', async () => {
+  vi.mocked(libraryReviewApi).mockReturnValue({ review: vi.fn().mockResolvedValue(structuredClone(review)), draft: vi.fn().mockResolvedValue(structuredClone(draft)) })
+  const pinia = createPinia(); setActivePinia(pinia); const sync = useSyncStore()
+  const enqueue = vi.spyOn(sync, 'enqueue').mockResolvedValue(undefined)
+  const w = mount(ChapterReviewView, { props: { id: 'chapter', libraryId: 'platform' }, global: { plugins: [pinia], stubs: { DraftPreview: true, RouterLink: true } } }); wrappers.push(w)
+  await flushPromises(); await w.get('.chapter-confirm > button').trigger('click'); await w.get('.confirm-panel input').setValue(true)
+  await w.get('.confirm-panel .primary-button').trigger('click'); await flushPromises()
+  expect(libraryWrite).toHaveBeenCalledWith('/api/admin/library/platform/chapters/chapter/review', expect.objectContaining({ expectedVersion: 4, action: 'CONFIRM', payload: { allowFlagged: true } }))
+  expect(enqueue).not.toHaveBeenCalled(); expect(w.text()).toContain('服务端已确认保存')
 })

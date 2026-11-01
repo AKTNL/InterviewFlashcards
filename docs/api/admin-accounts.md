@@ -4,7 +4,7 @@
 
 ## 角色与身份
 
-`app_user.role` 为 `USER`（迁移及新用户默认）或 `ADMIN`。稳定能力集中定义在 `Capabilities`：`users.manage`、`invitations.manage`、`library.manage`、`dashboard.read`，未配置能力默认拒绝；首期 ADMIN 具有上述管理能力，普通用户不开放管理能力。个人邀请仍独立检查 P1-11 的权限、累计成功数及全站限制；ADMIN 不自动获得个人发码权。知识库和 Dashboard 的业务接口留 P1-13 / P1-14。
+`app_user.role` 为 `USER`（迁移及新用户默认）或 `ADMIN`。稳定能力集中定义在 `Capabilities`：`users.manage`、`invitations.manage`、`library.manage`、`dashboard.read`，未配置能力默认拒绝；首期 ADMIN 具有上述管理能力，普通用户不开放管理能力。个人邀请仍独立检查 P1-11 的权限、累计成功数及全站限制；ADMIN 不自动获得个人发码权。平台知识库业务见 [P1-13 API](platform-library.md)，Dashboard 留 P1-14；账号列表与详情排除 PLATFORM 内容命名空间。
 
 登录响应和 `GET /api/auth/me` 增加 `role`、`capabilities`、`mustChangePassword`。角色和账号状态由服务端逐请求重新读取，不能信任 Cookie 中的旧角色或客户端字段。停用/改密/维护角色变更递增 `credential_version`，旧会话下次请求 401，启用不复活旧会话。成功登录更新 `last_login_at`，升级前没有历史登录数据的账号显示“尚无记录”。
 

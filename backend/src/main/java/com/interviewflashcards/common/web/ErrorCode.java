@@ -3,6 +3,8 @@ package com.interviewflashcards.common.web;
 import org.springframework.http.HttpStatus;
 
 public enum ErrorCode {
+    LIBRARY_NOT_EDITABLE(HttpStatus.CONFLICT, "请先下架知识库再修改内容"),
+    LIBRARY_UNAVAILABLE(HttpStatus.CONFLICT, "知识库已下架或删除，请刷新目录"),
     PASSWORD_REUSED(HttpStatus.BAD_REQUEST, "新密码不能与当前密码相同"),
     PASSWORD_CHANGE_REQUIRED(HttpStatus.FORBIDDEN, "请先到个人中心修改初始密码，再使用学习空间"),
     REGISTRATION_LIMITED(HttpStatus.FORBIDDEN, "全站注册名额已满，请联系维护者"),

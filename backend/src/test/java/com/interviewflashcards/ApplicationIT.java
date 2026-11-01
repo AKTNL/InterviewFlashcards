@@ -34,7 +34,7 @@ class ApplicationIT {
                 var jdbc = app.getBean(JdbcTemplate.class);
                 installation = jdbc.queryForObject("select installation_id from application_metadata", String.class);
                 assertThat(installation).isNotBlank();
-                assertThat(jdbc.queryForObject("select count(*) from flyway_schema_history where success and version is not null", Integer.class)).isEqualTo(15);
+                assertThat(jdbc.queryForObject("select count(*) from flyway_schema_history where success and version is not null", Integer.class)).isEqualTo(16);
                 assertThat(jdbc.queryForObject("show timezone", String.class)).isEqualTo("UTC");
                 // A data change must survive a complete Spring context/pool restart.
                 jdbc.update("update application_metadata set created_at = ?::timestamptz where id = 1", "2026-01-01T00:00:00Z");
@@ -45,7 +45,7 @@ class ApplicationIT {
                 assertThat(jdbc.queryForObject("select installation_id from application_metadata", String.class)).isEqualTo(installation);
                 assertThat(jdbc.queryForObject("select created_at from application_metadata", java.sql.Timestamp.class).toInstant())
                         .isEqualTo(Instant.parse("2026-01-01T00:00:00Z"));
-                assertThat(jdbc.queryForObject("select count(*) from flyway_schema_history where version is not null", Integer.class)).isEqualTo(15);
+                assertThat(jdbc.queryForObject("select count(*) from flyway_schema_history where version is not null", Integer.class)).isEqualTo(16);
                 checkHttp(app);
             }
         } finally {

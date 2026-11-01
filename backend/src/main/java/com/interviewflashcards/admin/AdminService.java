@@ -49,7 +49,7 @@ public class AdminService {
         catch(com.fasterxml.jackson.core.JsonProcessingException e){throw new IllegalStateException(e);}
     }
     private Map<String,Object> target(UUID id,long version) {
-        var rows=jdbc.queryForList("select id,role,enabled,admin_version,must_change_password from app_user where id=? for no key update",id);
+        var rows=jdbc.queryForList("select id,role,enabled,admin_version,must_change_password from app_user where id=? and space_kind='PERSONAL' for no key update",id);
         if(rows.isEmpty()) throw new ApiFailure(ErrorCode.NOT_FOUND);
         var row=rows.getFirst();
         if(!"USER".equals(row.get("role"))) throw new ApiFailure(ErrorCode.FORBIDDEN);
@@ -60,7 +60,7 @@ public class AdminService {
     public Map<String,Object> users(UUID actor,String search,String state,String invitation,int page,int size) {
         authorize(actor);
         if(search.length()>100 || page<0 || page>100000 || size<1 || size>50 || !Set.of("ALL","ENABLED","DISABLED").contains(state) || !Set.of("ALL","ENABLED","DISABLED").contains(invitation)) throw new ApiFailure(ErrorCode.VALIDATION_ERROR);
-        String where=" from app_user u left join invitation_permission p on p.user_id=u.id where (position(lower(?) in lower(u.username))>0 or position(lower(?) in lower(coalesce(u.nickname,'')))>0) and (?='ALL' or u.enabled=(?='ENABLED')) and (?='ALL' or coalesce(p.enabled,false)=(?='ENABLED'))";
+        String where=" from app_user u left join invitation_permission p on p.user_id=u.id where u.space_kind='PERSONAL' and (position(lower(?) in lower(u.username))>0 or position(lower(?) in lower(coalesce(u.nickname,'')))>0) and (?='ALL' or u.enabled=(?='ENABLED')) and (?='ALL' or coalesce(p.enabled,false)=(?='ENABLED'))";
         Object[] args={search,search,state,state,invitation,invitation};
         long total=jdbc.queryForObject("select count(*)"+where,Long.class,args);
         var parameters=new ArrayList<Object>(Arrays.asList(args));parameters.add(size);parameters.add(page*size);
@@ -70,7 +70,7 @@ public class AdminService {
     }
     public Map<String,Object> detail(UUID actor,UUID id) {
         authorize(actor);
-        var rows=jdbc.queryForList("select "+FIELDS+" from app_user u left join invitation_permission p on p.user_id=u.id where u.id=?",id);
+        var rows=jdbc.queryForList("select "+FIELDS+" from app_user u left join invitation_permission p on p.user_id=u.id where u.id=? and u.space_kind='PERSONAL'",id);
         if(rows.isEmpty())throw new ApiFailure(ErrorCode.NOT_FOUND);
         var row=rows.getFirst();row.put("storage",capacity.usage(id));
         row.put("invites",jdbc.queryForList("select id,expires_at,used_count,max_uses,revoked,case when revoked then 'REVOKED' when used_count>=max_uses then 'USED' when expires_at<=current_timestamp then 'EXPIRED' else 'AVAILABLE' end status from registration_invite where inviter_id=? order by created_at desc limit 50",id));

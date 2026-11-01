@@ -80,6 +80,7 @@ onUnmounted(() => {
       <span>拾忆 <small>面试卡片</small></span>
     </RouterLink>
     <nav class="account-nav" aria-label="个人空间">
+      <RouterLink to="/library">平台知识库</RouterLink>
       <template v-if="auth.user">
         <RouterLink v-if="auth.user.capabilities?.includes('users.manage') && !auth.user.mustChangePassword" to="/admin">管理后台</RouterLink>
         <RouterLink to="/">今日学习</RouterLink>

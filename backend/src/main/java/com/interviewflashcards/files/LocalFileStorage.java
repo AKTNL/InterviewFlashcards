@@ -111,4 +111,13 @@ public class LocalFileStorage implements FileStorage {
         try { Files.deleteIfExists(root.resolve(key.toString())); }
         catch (IOException exception) { LoggerFactory.getLogger(getClass()).warn("storage cleanup failed"); }
     }
+    @Override public boolean reclaim(UUID key) {
+        try {
+            Files.deleteIfExists(root.resolve(key.toString()));
+            return Files.notExists(root.resolve(key.toString()), java.nio.file.LinkOption.NOFOLLOW_LINKS);
+        } catch (IOException exception) {
+            LoggerFactory.getLogger(getClass()).warn("storage reclamation failed");
+            return false;
+        }
+    }
 }

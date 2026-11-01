@@ -39,7 +39,7 @@ public class ShareService {
         jdbc.query("select (to_jsonb(t)-'user_id')::text from ("+sql+") t",(org.springframework.jdbc.core.RowCallbackHandler)r->out.add(json(r.getString(1))),args);
         return out;
     }
-    private ObjectNode capture(UUID user,UUID deck) {
+    public ObjectNode capture(UUID user,UUID deck) {
         var data=mapper.createObjectNode();
         data.set("deck",rows("select id,name,version,copy_origin from deck where user_id=? and id=?",user,deck));
         if(data.path("deck").isEmpty()) throw new ApiFailure(ErrorCode.NOT_FOUND);
@@ -66,7 +66,7 @@ public class ShareService {
         data.set("tag",rows("select id,name from tag where user_id=? and id in (select tag_id from card_tag where user_id=? and card_id in ("+cards+")) order by id",user,user,user,user,deck));
         return data;
     }
-    private ObjectNode manifest(ObjectNode data,Map<String,Object> owner) {
+    public ObjectNode manifest(ObjectNode data,Map<String,Object> owner) {
         var m=mapper.createObjectNode().put("formatVersion",1).put("name",data.at("/deck/0/name").asText())
             .put("sender",Objects.toString(owner.get("nickname"),owner.get("username").toString()))
             .put("sourceRevision",((Number)owner.get("revision")).longValue()).put("capturedAt",clock.instant().toString());
@@ -164,28 +164,33 @@ public class ShareService {
             if(rows.isEmpty())throw new ApiFailure(ErrorCode.NOT_FOUND);var r=rows.getFirst();
             if((Boolean)r.get("revoked") || ((Number)r.get("claim_count")).intValue()!=0 || !clock.instant().isBefore(((java.sql.Timestamp)r.get("expires_at")).toInstant()))throw new ApiFailure(ErrorCode.SHARE_UNAVAILABLE);
             var original=(ObjectNode)json(r.get("snapshot").toString());
-            capacity.addition(user,bytes(original),original.path("source_document").size());
-            var ids=new HashMap<String,String>();for(String t:TABLES)for(var row:original.path(t))if(row.has("id"))ids.put(row.path("id").asText(),UUID.randomUUID().toString());
-            var data=(ObjectNode)remap(original,ids);
-            for(String t:List.of("source_document","asset"))for(int i=0;i<data.path(t).size();i++) {
-                ((ObjectNode)data.path(t).get(i)).put("storage_key",copyFile(original.path(t).get(i)).toString());
-                if(t.equals("source_document"))((ObjectNode)data.path(t).get(i)).put("shared_copy",true);
-            }
-            var origin=(ObjectNode)json(r.get("manifest").toString());origin.put("claimedAt",clock.instant().toString());
-            ((ObjectNode)data.at("/deck/0")).set("copy_origin",origin);
-            // Tags are personal names. Reuse existing recipient tags without importing any associations.
-            for(var row:data.path("tag")) {
-                var found=jdbc.queryForList("select id from tag where user_id=? and name=?",UUID.class,user,row.path("name").asText());
-                if(!found.isEmpty()) {String old=row.path("id").asText();((ObjectNode)row).put("id",found.getFirst().toString());for(var link:data.path("card_tag"))if(link.path("tag_id").asText().equals(old))((ObjectNode)link).put("tag_id",found.getFirst().toString());}
-            }
-            insert(data,user);
-            // Supporting draft relations mirror the received formal content for subsequent editing.
-            jdbc.update("insert into source_span(id,user_id,source_id,draft_id,asset_id,physical_page,region,sort_order) select gen_random_uuid(),p.user_id,p.source_id,c.draft_id,p.asset_id,p.physical_page,p.region,p.sort_order from source_span p join card c on c.id=p.card_id join chapter ch on ch.id=c.chapter_id join module m on m.id=ch.module_id where p.user_id=? and m.deck_id=?",user,UUID.fromString(data.at("/deck/0/id").asText()));
-            jdbc.update("insert into follow_up(id,user_id,draft_id,content,sort_order) select gen_random_uuid(),f.user_id,c.draft_id,f.content,f.sort_order from follow_up f join card c on c.id=f.card_id join chapter ch on ch.id=c.chapter_id join module m on m.id=ch.module_id where f.user_id=? and m.deck_id=?",user,UUID.fromString(data.at("/deck/0/id").asText()));
-            validate(user);
+            var received=copyContent(user,original,(ObjectNode)json(r.get("manifest").toString()));
             jdbc.update("update deck_share set claim_count=1,snapshot='{}' where id=?",id);release(id);
-            return new MutationService.Change(Map.of("deckId",data.at("/deck/0/id").asText(),"origin",origin),0,true);
+            return new MutationService.Change(received,0,true);
         });
+    }
+    /** Caller holds its recipient mutation barrier and the source authorization row lock. */
+    public Map<String,Object> copyContent(UUID user,ObjectNode original,ObjectNode manifest) throws IOException {
+        capacity.addition(user,bytes(original),original.path("source_document").size());
+        var ids=new HashMap<String,String>();for(String t:TABLES)for(var row:original.path(t))if(row.has("id"))ids.put(row.path("id").asText(),UUID.randomUUID().toString());
+        var data=(ObjectNode)remap(original,ids);
+        for(String t:List.of("source_document","asset"))for(int i=0;i<data.path(t).size();i++) {
+            ((ObjectNode)data.path(t).get(i)).put("storage_key",copyFile(original.path(t).get(i)).toString());
+            if(t.equals("source_document"))((ObjectNode)data.path(t).get(i)).put("shared_copy",true);
+        }
+        var origin=manifest.deepCopy();origin.put("claimedAt",clock.instant().toString());
+        ((ObjectNode)data.at("/deck/0")).set("copy_origin",origin);
+        // Tags are personal names. Reuse existing recipient tags without importing any associations.
+        for(var row:data.path("tag")) {
+            var found=jdbc.queryForList("select id from tag where user_id=? and name=?",UUID.class,user,row.path("name").asText());
+            if(!found.isEmpty()) {String old=row.path("id").asText();((ObjectNode)row).put("id",found.getFirst().toString());for(var link:data.path("card_tag"))if(link.path("tag_id").asText().equals(old))((ObjectNode)link).put("tag_id",found.getFirst().toString());}
+        }
+        insert(data,user);
+        // Supporting draft relations mirror the received formal content for subsequent editing.
+        jdbc.update("insert into source_span(id,user_id,source_id,draft_id,asset_id,physical_page,region,sort_order) select gen_random_uuid(),p.user_id,p.source_id,c.draft_id,p.asset_id,p.physical_page,p.region,p.sort_order from source_span p join card c on c.id=p.card_id join chapter ch on ch.id=c.chapter_id join module m on m.id=ch.module_id where p.user_id=? and m.deck_id=?",user,UUID.fromString(data.at("/deck/0/id").asText()));
+        jdbc.update("insert into follow_up(id,user_id,draft_id,content,sort_order) select gen_random_uuid(),f.user_id,c.draft_id,f.content,f.sort_order from follow_up f join card c on c.id=f.card_id join chapter ch on ch.id=c.chapter_id join module m on m.id=ch.module_id where f.user_id=? and m.deck_id=?",user,UUID.fromString(data.at("/deck/0/id").asText()));
+        validate(user);
+        return Map.of("deckId",data.at("/deck/0/id").asText(),"origin",origin);
     }
     private JsonNode remap(JsonNode n,Map<String,String> ids) {
         if(n.isTextual() && ids.containsKey(n.asText()))return TextNode.valueOf(ids.get(n.asText()));

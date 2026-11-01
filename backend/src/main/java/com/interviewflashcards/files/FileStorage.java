@@ -12,6 +12,8 @@ public interface FileStorage {
     void publish(Staged staged, UUID key) throws IOException;
     Resource read(UUID key);
     void delete(UUID key);
+    /** Reclamation must retain its retry marker until absence is confirmed. */
+    boolean reclaim(UUID key);
     record Staged(Path path, String sha256, long size) implements AutoCloseable {
         @Override public void close() throws IOException { java.nio.file.Files.deleteIfExists(path); }
     }

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { libraryReviewApi, libraryWrite } from '../api/library'
 import { onSyncRefresh } from '../sync/refresh'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { onBeforeRouteLeave } from 'vue-router'
@@ -6,7 +7,8 @@ import { importsApi, type ChapterReview, type Draft } from '../api/imports'
 import { useSyncStore } from '../stores/sync'
 import DraftFields from './DraftFields.vue'
 import DraftPreview from './DraftPreview.vue'
-const props = defineProps<{ id: string }>()
+const props = defineProps<{ id: string; libraryId?: string; readonly?: boolean }>()
+const api = props.libraryId ? libraryReviewApi(props.libraryId) : importsApi
 const emit = defineEmits<{ changed: []; dirty: [value: boolean] }>()
 const sync = useSyncStore()
 const review = ref<ChapterReview>()
@@ -28,8 +30,8 @@ let stopped = false
 let generation = 0
 let detailGeneration = 0
 let awaitingSave = false
-const pending = computed(() => sync.items.some(i => i.kind === 'chapter.review' && i.chapterId === props.id && i.status !== 'synced'))
-const locked = computed(() => enqueuing.value || pending.value || !sync.state)
+const pending = computed(() => !props.libraryId && sync.items.some(i => i.kind === 'chapter.review' && i.chapterId === props.id && i.status !== 'synced'))
+const locked = computed(() => enqueuing.value || pending.value || props.readonly || (!props.libraryId && !sync.state))
 const imported = computed(() => review.value?.checkStatus === 'IMPORTED')
 const editable = computed(() => !review.value?.abandoned && !draft.value?.excluded)
 const names: Record<string, string> = { PENDING: '待检查', IN_PROGRESS: '检查中', IMPORTED: '已导入' }
@@ -41,7 +43,7 @@ watch(splitParts, () => { if (splitParts.value.length) dirty.value = true }, { d
 async function load() {
   const current = ++generation
   try {
-    const value = await importsApi.review(props.id)
+    const value = await api.review(props.id)
     if (stopped || current !== generation) return
     if (dirty.value) { notice.value = '有尚未保存的修改，请先保存或取消编辑，再读取服务端内容。'; return }
     review.value = value; error.value = ''
@@ -55,7 +57,7 @@ async function openDraft(id: string, savePosition = true) {
   draftId.value = id; draft.value = undefined; editing.value = false; splitParts.value = []; error.value = ''
   if (!id) return
   try {
-    const value = await importsApi.draft(id)
+    const value = await api.draft(id)
     if (stopped || current !== detailGeneration) return
     draft.value = value
     if (savePosition && !review.value?.abandoned && !locked.value) await submit('PROGRESS', { draftId: id })
@@ -65,6 +67,11 @@ async function submit(action: string, payload: Record<string, unknown>) {
   if (!review.value || locked.value) return
   error.value = ''; notice.value = ''; enqueuing.value = true; awaitingSave = action !== 'PROGRESS'
   try {
+    if (props.libraryId) {
+      await libraryWrite(`/api/admin/library/${props.libraryId}/chapters/${props.id}/review`, { expectedVersion: review.value.version, action, payload })
+      editing.value = false; splitParts.value = []; dirty.value = false; awaitingSave = false; confirmOpen.value = false; abandonOpen.value = false; selected.value = []
+      notice.value = '服务端已确认保存。'; emit('changed'); await load(); return
+    }
     await sync.enqueue({ kind: 'chapter.review', chapterId: props.id, name: `${review.value.name} · ${actions[action]}`, expectedVersion: review.value.version, action, payload })
     // IndexedDB now owns the complete operation; leaving is safe even before the server acknowledges it.
     if (action !== 'PROGRESS') { editing.value = false; splitParts.value = []; dirty.value = false }
@@ -144,7 +151,7 @@ onSyncRefresh(load)
         <fieldset v-for="(_, index) in splitParts" :key="index" :disabled="locked"><legend>拆分结果 {{ index + 1 }}</legend><DraftFields v-model="splitParts[index]!" :prefix="`split-${index}`" /></fieldset>
         <div class="sync-actions"><button class="primary-button" :disabled="locked">保存拆分为两题</button><button type="button" class="secondary-button" :disabled="locked" @click="cancel">取消拆分</button></div>
       </form>
-      <DraftPreview v-if="draftId" :key="`${draftId}-${review.version}`" :id="draftId" />
+      <DraftPreview v-if="draftId" :key="`${draftId}-${review.version}`" :id="draftId" :library-id="libraryId" />
       <section v-if="!imported && !review.abandoned" class="chapter-confirm" aria-label="章节确认">
         <h3>批量确认本章</h3><p>将导入 {{ review.activeCount }} 题，剩余 {{ review.flaggedCount }} 题待检查；其他章继续保留草稿。</p>
         <button class="primary-button" :disabled="locked || dirty || !review.activeCount" @click="confirmOpen = true; allowFlagged = false">确认本章加入正式题库</button>
@@ -158,7 +165,7 @@ onSyncRefresh(load)
             <button class="secondary-button" :disabled="locked || !abandonedChoice || !reason.trim()" @click="submit('ABANDON', { confirmed: true, reason })">确认放弃（需填写原因）</button><button class="secondary-button" @click="abandonOpen = false">取消</button></div>
         </details>
       </section>
-      <section v-if="imported" aria-label="正式题库"><h3>本章已进入正式题库（{{ review.cards.length }} 题）</h3><RouterLink :to="`/chapters/${id}/cards`" class="primary-button">查看本章正式题库</RouterLink><p>可进入题库开始主动回忆与评分；在上方修正卡片内容会保留现有学习记录。</p><p v-for="card in review.cards" :key="card.id" class="card-identity">{{ review.items.find(d => d.id === card.draftId)?.question }} · 卡片 ID {{ card.id }}</p></section>
+      <section v-if="imported" aria-label="正式题库"><h3>本章已进入正式题库（{{ review.cards.length }} 题）</h3><RouterLink v-if="!libraryId" :to="`/chapters/${id}/cards`" class="primary-button">查看本章正式题库</RouterLink><p>可进入题库开始主动回忆与评分；在上方修正卡片内容会保留现有学习记录。</p><p v-for="card in review.cards" :key="card.id" class="card-identity">{{ review.items.find(d => d.id === card.draftId)?.question }} · 卡片 ID {{ card.id }}</p></section>
       <details v-if="review.history.length"><summary>调整记录（{{ review.history.length }}）</summary><ol><li v-for="(entry, index) in review.history" :key="index">{{ actions[entry.action] }} · {{ entry.reason }} · 数量 {{ entry.countDelta > 0 ? '+' : '' }}{{ entry.countDelta }}</li></ol></details>
     </template>
   </section>
