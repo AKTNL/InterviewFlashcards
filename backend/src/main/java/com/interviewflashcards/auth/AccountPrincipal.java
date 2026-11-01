@@ -11,9 +11,14 @@ public final class AccountPrincipal implements UserDetails, CredentialsContainer
     private final UUID id;
     private final String username;
     private String password;
+    private final long credentialVersion;
     public AccountPrincipal(UUID id, String username, String password) {
-        this.id = id; this.username = username; this.password = password;
+        this(id, username, password, 0);
     }
+    public AccountPrincipal(UUID id, String username, String password, long credentialVersion) {
+        this.id = id; this.username = username; this.password = password; this.credentialVersion = credentialVersion;
+    }
+    public long credentialVersion() { return credentialVersion; }
     public UUID id() { return id; }
     @Override public void eraseCredentials() { password = null; }
     @Override public Collection<? extends GrantedAuthority> getAuthorities() { return List.of(); }

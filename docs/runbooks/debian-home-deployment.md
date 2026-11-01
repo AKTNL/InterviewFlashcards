@@ -77,3 +77,7 @@ sudo certbot renew --cert-name study.aktnl.dpdns.org --dry-run --run-deploy-hook
 ```
 
 保留已有的 Cloudflare Token 权限和凭据文件。系统 Python 插件的弃用预告已在本次演练中观察到，DNS 续期及钩子实测成功；通过 Debian 包管理维护该工具链。
+
+## P1-08 后续升级
+
+当前公网记录仍对应原发布版本。P1-08 已在仓库完成，尚未部署；下一次升级按 [发布手册](release.md) 保存完整快照并执行 V11，旧账号与密码保持。注册默认关闭；邀请码生成/撤销、交互密码重置和限额配置见 [账号维护手册](accounts.md)。不能再通过改环境 hash 并重启来改密码。

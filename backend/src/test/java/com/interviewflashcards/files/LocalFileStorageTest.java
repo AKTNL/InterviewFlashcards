@@ -33,6 +33,15 @@ class LocalFileStorageTest {
         assertThatThrownBy(() -> new LocalFileStorage(properties(3, root.resolve("files/tmp"))))
                 .isInstanceOf(IllegalStateException.class);
     }
+    @Test void globalCapacityCountsStagingAndUnreferencedFilesBeforePublishing() throws Exception {
+        Path temporary=root.resolve("tmp");var storage=new LocalFileStorage(properties(3,temporary));
+        storage.capacity(new CapacityProperties(100,20,2,2,20,8,1));
+        Files.writeString(root.resolve("files").resolve(UUID.randomUUID().toString()),"old");
+        try(var staged=storage.stage(new ByteArrayInputStream("abc".getBytes()))) {
+            assertThatThrownBy(()->storage.publish(staged,UUID.randomUUID())).isInstanceOf(ApiFailure.class).hasMessage("CAPACITY_EXCEEDED");
+        }
+        try(var files=Files.list(temporary)) {assertThat(files).isEmpty();}
+    }
     @Test void startupRemovesOnlyInterruptedPartsAndKeepsPublishedResources() throws Exception {
         Path temporary = Files.createDirectories(root.resolve("tmp"));
         Path files = Files.createDirectories(root.resolve("files"));

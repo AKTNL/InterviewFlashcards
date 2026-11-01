@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { ApiError } from '../api/client'
 
 const auth = useAuthStore()
 const router = useRouter()
+const route = useRoute()
 const username = ref('')
 const password = ref('')
 const busy = ref(false)
@@ -27,8 +28,11 @@ async function submit() {
     <p class="eyebrow">YOUR LEARNING SPACE</p>
     <h1 id="login-title">回到你的学习空间</h1>
     <p class="muted">手机与电脑，继续同一份积累。</p>
+    <p v-if="route.query.registered" role="status">注册成功，请登录后导入你的第一份资料。</p>
+    <p v-if="route.query.passwordChanged" role="status">密码已修改，请使用新密码重新登录。</p>
     <p v-if="auth.expired" role="status">登录已过期，请重新登录。</p>
-    <form @submit.prevent="submit">
+    <p v-if="auth.endingSession" role="status">正在退出原账号，请稍候…</p>
+    <form v-else @submit.prevent="submit">
       <label for="username">账号</label>
       <input id="username" v-model="username" name="username" autocomplete="username" maxlength="100" required :disabled="busy" />
       <label for="password">密码</label>
@@ -38,6 +42,7 @@ async function submit() {
       </div>
       <button class="primary-button" :disabled="busy" type="submit">{{ busy ? '登录中…' : '进入学习空间' }}</button>
     </form>
-    <p class="form-note">使用已配置的个人账号登录。</p>
+    <p><RouterLink to="/register">注册账号</RouterLink></p>
+    <p class="form-note">忘记密码请联系部署维护者重置。</p>
   </section>
 </template>

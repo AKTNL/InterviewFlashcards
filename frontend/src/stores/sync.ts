@@ -34,7 +34,8 @@ export const useSyncStore = defineStore('sync', () => {
   async function connect(profile: Profile) {
     if (user?.id !== profile.id) { stop(); user = profile }
     try { await reload() }
-    catch { error.value = '无法读取本地待同步内容，请检查浏览器存储权限后重试。'; return }
+    catch { if(user?.id === profile.id) error.value = '无法读取本地待同步内容，请检查浏览器存储权限后重试。'; return }
+    if(user?.id !== profile.id) return
     await refresh()
   }
   async function refresh(force = false) {
@@ -45,6 +46,7 @@ export const useSyncStore = defineStore('sync', () => {
     busy.value = true; error.value = ''
     try {
       await reload()
+      if(!active()) return
       const pending = items.value.some(i => i.status === 'pending' || i.status === 'syncing')
       const revision = state.value && !force && !pending ? await syncApi.revision() : null
       if (!active()) return
@@ -52,6 +54,7 @@ export const useSyncStore = defineStore('sync', () => {
         await queue.run(owner, active, reload, value => { if (active()) state.value = value }, force)
       }
       failures = 0
+      if(!active()) return
       // A conflict resolved on another device must release this browser's blocked scoring operation.
       const resolved = new Set((state.value?.data?.sync_conflict ?? []).filter(r => r.resolved).map(r => r.id))
       for (const item of items.value) if (item.error?.code === 'REVIEW_CONFLICT' && item.result?.conflict && resolved.has(item.result.conflict.id)) {

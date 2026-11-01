@@ -3,6 +3,16 @@ package com.interviewflashcards.common.web;
 import org.springframework.http.HttpStatus;
 
 public enum ErrorCode {
+    REGISTRATION_CLOSED(HttpStatus.FORBIDDEN, "注册暂未开放，请联系维护者"),
+    INVITE_INVALID(HttpStatus.BAD_REQUEST, "邀请码不可用，请联系维护者获取有效邀请码"),
+    USERNAME_TAKEN(HttpStatus.CONFLICT, "此用户名不可用，请选择其他用户名；若刚刚提交过注册，请先尝试登录"),
+    ACCOUNT_NAME_INVALID(HttpStatus.BAD_REQUEST, "用户名需为 3～32 位小写字母、数字或下划线，以字母开头，不能使用保留名"),
+    PASSWORD_INVALID(HttpStatus.BAD_REQUEST, "密码至少 12 个字符、最多 72 个 UTF-8 字节，不含控制字符"),
+    RATE_LIMITED(HttpStatus.TOO_MANY_REQUESTS, "尝试次数过多，请 15 分钟后重试"),
+    ACCOUNT_CHANGED(HttpStatus.CONFLICT, "登录账号已变化，请重新确认身份后继续"),
+    QUOTA_EXCEEDED(HttpStatus.CONFLICT, "个人存储或来源数量已达上限，请查看我的资料中的剩余额度"),
+    TASK_LIMITED(HttpStatus.TOO_MANY_REQUESTS, "正在处理的任务已达上限，请等待任务结束后再试"),
+    CAPACITY_EXCEEDED(HttpStatus.SERVICE_UNAVAILABLE, "服务存储容量不足，请联系维护者后再试"),
     DATA_PREVIEW_STALE(HttpStatus.CONFLICT, "数据已变化，请重新读取影响预览并确认"),
     RESTORE_STALE(HttpStatus.CONFLICT, "当前数据已变化，请刷新替换影响预览后重新确认"),
     BACKUP_INVALID(HttpStatus.BAD_REQUEST, "备份格式、文件校验或数据关联不合法，当前数据未替换"),

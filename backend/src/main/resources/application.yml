@@ -49,6 +49,16 @@ server:
         same-site: lax
         secure: ${SESSION_COOKIE_SECURE:false}
 app:
+  registration:
+    enabled: ${REGISTRATION_ENABLED:false}
+  capacity:
+    user-bytes: ${USER_STORAGE_MAX_BYTES:536870912}
+    sources: ${USER_SOURCE_LIMIT:20}
+    imports: ${USER_IMPORT_LIMIT:2}
+    backups: ${USER_BACKUP_LIMIT:2}
+    global-tasks: ${GLOBAL_TASK_LIMIT:20}
+    global-bytes: ${GLOBAL_STORAGE_MAX_BYTES:5368709120}
+    reserve-bytes: ${STORAGE_RESERVE_BYTES:536870912}
   learning-timezone: Asia/Shanghai
   account:
     username: ${ACCOUNT_USERNAME}

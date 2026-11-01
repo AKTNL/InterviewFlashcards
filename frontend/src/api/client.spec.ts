@@ -1,13 +1,44 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { ApiError, request, resetCsrf } from './client'
+import { ApiError, request, resetCsrf, setRequestAccount, invalidateRequests } from './client'
 
 afterEach(() => {
   resetCsrf()
+  setRequestAccount('test-cleanup'); setRequestAccount(null)
   vi.unstubAllGlobals()
   vi.useRealTimers()
 })
 
 describe('same-origin API client', () => {
+  it('binds business requests to the account and rejects a response from an old identity', async () => {
+    setRequestAccount('account-a')
+    let finish!: (response: Response) => void
+    const fetcher = vi.fn().mockImplementation(() => new Promise(resolve => { finish = resolve }))
+    vi.stubGlobal('fetch', fetcher)
+    const old = request('/api/sync/snapshot')
+    expect(fetcher.mock.calls[0]?.[1].headers['X-Account-ID']).toBe('account-a')
+    setRequestAccount('account-b')
+    finish(Response.json({ data: { private: 'account-a' }, meta: { requestId: 'id', serverTime: 'now' } }))
+    await expect(old).rejects.toMatchObject({ code: 'ACCOUNT_CHANGED' })
+  })
+  it('checks the shared identity marker even before the storage event is delivered', async () => {
+    setRequestAccount('account-a')
+    const listener = vi.fn(); window.addEventListener('identity-changed', listener)
+    const fetcher = vi.fn(); vi.stubGlobal('fetch', fetcher)
+    localStorage.setItem('flashcards.identity-change', crypto.randomUUID())
+    await expect(request('/api/cards')).rejects.toMatchObject({ code: 'ACCOUNT_CHANGED' })
+    expect(fetcher).not.toHaveBeenCalled(); expect(listener).toHaveBeenCalledOnce()
+    window.removeEventListener('identity-changed', listener)
+  })
+  it('does not continue a write if the identity changes while CSRF is being loaded', async () => {
+    let finish!: (response: Response) => void
+    const fetcher = vi.fn().mockImplementation(() => new Promise(resolve => { finish = resolve }))
+    vi.stubGlobal('fetch', fetcher)
+    const write = request('/api/sources', { method: 'POST' })
+    invalidateRequests()
+    finish(Response.json({ data: { headerName: 'X-CSRF-TOKEN', token: 'old' }, meta: { requestId: 'id', serverTime: 'now' } }))
+    await expect(write).rejects.toMatchObject({ code: 'ACCOUNT_CHANGED' })
+    expect(fetcher).toHaveBeenCalledTimes(1)
+  })
   it('fetches CSRF before writes and rotates it after login', async () => {
     const meta = { requestId: 'id', serverTime: '2026-10-31T00:00:00Z' }
     const fetcher = vi.fn()

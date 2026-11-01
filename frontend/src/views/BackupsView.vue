@@ -11,6 +11,8 @@ const pending = computed(() => sync.items.filter(i => i.status !== 'synced').len
 const active = (j: BackupJob) => ['QUEUED', 'RUNNING', 'VALIDATING', 'RESTORING'].includes(j.status)
 const labels: Record<string, string> = { QUEUED: '等待处理', RUNNING: '正在生成备份', VALIDATING: '正在校验文件与数据关联', AWAITING_CONFIRMATION: '校验通过，等待替换确认', RESTORING: '正在准备文件并恢复', READY: '已完成', FAILED: '失败，当前学习数据未替换' }
 const errors: Record<string, string> = {
+  QUOTA_EXCEEDED: '个人存储或来源数量超过限额，请查看我的资料中的剩余额度，联系维护者后再试。',
+  CAPACITY_EXCEEDED: '服务端可用存储容量不足，请联系维护者。当前学习数据未替换。',
   BACKUP_VERSION_UNSUPPORTED: '此备份的格式版本不受支持，请使用兼容版本导出。当前数据未替换。',
   BACKUP_INVALID: '备份损坏、缺少文件、格式版本不受支持或数据关联不合法。当前数据未替换。',
   BACKUP_FAILED: '备份生成失败，请检查文件存储或重新导出。', RESTORE_FAILED: '恢复未完成，原学习空间仍可使用，请重新上传预检。',

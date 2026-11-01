@@ -11,7 +11,7 @@ const sync = useSyncStore()
 watch(() => auth.user, user => {
   if (user) void sync.connect(user).catch(() => {})
   else sync.stop()
-}, { immediate: true })
+}, { immediate: true, flush: 'sync' })
 const router = useRouter()
 const epochNotice = ref('')
 watch(() => sync.state?.dataEpoch, (epoch, previous) => {
@@ -23,13 +23,13 @@ watch(() => sync.state?.dataEpoch, (epoch, previous) => {
 const logoutError = ref('')
 const signingOut = ref(false)
 function expired() {
+  sync.stop()
   auth.clearSession()
   if (router.currentRoute.value.meta.requiresAuth) void router.replace('/login')
 }
 function activate() {
   if (document.visibilityState === 'visible' && auth.user) {
-    void auth.refresh().catch(() => {})
-    void sync.refresh()
+    void auth.refresh().then(() => { if(auth.user) void sync.refresh() }).catch(() => {})
   }
 }
 async function signOut() {
@@ -39,13 +39,18 @@ async function signOut() {
   try {
     await router.push('/login')
     if (router.currentRoute.value.path !== '/login') return
+    sync.stop()
     await auth.signOut()
   }
-  catch (error) { logoutError.value = error instanceof ApiError ? error.message : '退出失败，请重试' }
+  catch (error) {
+    logoutError.value = error instanceof ApiError ? error.message : '退出失败，请重试'
+    if(auth.user) void sync.connect(auth.user).catch(() => {})
+  }
   finally { signingOut.value = false }
 }
 onMounted(() => {
   window.addEventListener('session-expired', expired)
+  window.addEventListener('identity-changed', expired)
   document.addEventListener('visibilitychange', activate)
   window.addEventListener('online', activate)
   window.addEventListener('focus', activate)
@@ -53,6 +58,7 @@ onMounted(() => {
 })
 onUnmounted(() => {
   window.removeEventListener('session-expired', expired)
+  window.removeEventListener('identity-changed', expired)
   document.removeEventListener('visibilitychange', activate)
   window.removeEventListener('online', activate)
   window.removeEventListener('focus', activate)
@@ -72,9 +78,10 @@ onUnmounted(() => {
         <RouterLink to="/">今日学习</RouterLink>
         <RouterLink to="/cards">题库</RouterLink>
         <RouterLink to="/settings">学习设置</RouterLink>
+        <RouterLink to="/account">账号安全</RouterLink>
         <RouterLink to="/backups">备份与恢复</RouterLink>
         <RouterLink to="/sources">我的资料</RouterLink>
-        <span class="account-name">{{ auth.user.username }}</span>
+        <span class="account-name">{{ auth.user.nickname || auth.user.username }}</span>
         <button class="secondary-button" :disabled="signingOut" @click="signOut">{{ signingOut ? '退出中…' : '退出' }}</button>
       </template>
       <RouterLink v-else to="/login">登录</RouterLink>
@@ -83,7 +90,7 @@ onUnmounted(() => {
   <main id="main" tabindex="-1">
     <p v-if="logoutError" role="alert" class="form-error">{{ logoutError }}</p>
     <p v-if="epochNotice" role="status" class="notice">{{ epochNotice }}</p>
-    <RouterView :key="sync.state?.dataEpoch ?? auth.user?.dataEpoch ?? 'initial'" />
+    <RouterView :key="`${auth.user?.id ?? 'guest'}:${sync.state?.dataEpoch ?? auth.user?.dataEpoch ?? 'initial'}`" />
     <SyncPanel v-if="auth.user" />
   </main>
   <footer class="site-footer">每一次主动回忆，都让知识多留一会儿。</footer>

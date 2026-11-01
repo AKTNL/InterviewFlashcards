@@ -12,6 +12,9 @@ public class Account {
     @Column(name = "learning_timezone", nullable = false, length = 60) private String learningTimezone;
     @Column(name = "data_epoch", nullable = false) private UUID dataEpoch;
     @Column(nullable = false) private long revision;
+    @Column(name = "credential_version", nullable = false) private long credentialVersion;
+    private String nickname;
+    @Column(name="account_origin", nullable=false) private String accountOrigin;
     protected Account() {}
     public UUID getId() { return id; }
     public String getUsername() { return username; }
@@ -19,4 +22,7 @@ public class Account {
     public String getLearningTimezone() { return learningTimezone; }
     public UUID getDataEpoch() { return dataEpoch; }
     public long getRevision() { return revision; }
+    public long getCredentialVersion() { return credentialVersion; }
+    public String getNickname() { return nickname; }
+    public String getAccountOrigin() { return accountOrigin; }
 }

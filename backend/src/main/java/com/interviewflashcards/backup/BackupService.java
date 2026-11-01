@@ -24,11 +24,13 @@ public class BackupService {
         "personal_annotation","learning_preference","learning_preference_chapter","review_state","learning_session",
         "session_item","review_event","review_replay_allowance","sync_conflict");
     private final JdbcTemplate jdbc;
+    private final com.interviewflashcards.files.CapacityService capacity;
     private final ObjectMapper mapper;
     private final FileStorage storage;
     private final Path temporary;
     private final TransactionTemplate tx;
-    public BackupService(JdbcTemplate jdbc, ObjectMapper mapper, FileStorage storage, AppProperties properties, PlatformTransactionManager manager) {
+    public BackupService(JdbcTemplate jdbc, ObjectMapper mapper, FileStorage storage, AppProperties properties, PlatformTransactionManager manager, com.interviewflashcards.files.CapacityService capacity) {
+        this.capacity=capacity;
         this.jdbc=jdbc; this.mapper=mapper; this.storage=storage; temporary=Path.of(properties.storage().temporaryRoot()).toAbsolutePath();
         tx=new TransactionTemplate(manager);
     }
@@ -41,6 +43,7 @@ public class BackupService {
     public JsonNode createExport(UUID user, UUID operation) {
         return tx.execute(s -> {
             jdbc.queryForMap("select id from app_user where id=? for update",user);
+            if (jdbc.queryForObject("select count(*) from backup_job where user_id=? and operation_id=?",Integer.class,user,operation)==0) capacity.check(user,0,false,"backup");
             jdbc.update("insert into backup_job(id,user_id,operation_id) values(?,?,?) on conflict(user_id,operation_id) do nothing",UUID.randomUUID(),user,operation);
             UUID id=jdbc.queryForObject("select id from backup_job where user_id=? and operation_id=?",UUID.class,user,operation);
             return job(user,id,false);
@@ -55,6 +58,7 @@ public class BackupService {
                     if (!staged.sha256().equals(existing.getFirst().get("request_digest"))) throw new ApiFailure(ErrorCode.OPERATION_ID_REUSED);
                     return job(user,(UUID)existing.getFirst().get("id"),true);
                 }
+                capacity.check(user,staged.size(),false,"backup");
                 UUID id=UUID.randomUUID(), key=UUID.randomUUID();
                 try { storage.publish(staged,key); } catch (IOException e) { throw new ApiFailure(ErrorCode.STORAGE_UNAVAILABLE); }
                 jdbc.update("insert into restore_job(id,user_id,operation_id,request_digest,storage_key) values(?,?,?,?,?)",id,user,operation,staged.sha256(),key);
@@ -113,6 +117,7 @@ public class BackupService {
     }
     /** Capture all rows and immutable file keys while holding the same lock as business writes. */
     public void export(UUID user, UUID id) throws IOException {
+        storage.checkSpace(BackupArchive.MAX_EXPANDED+BackupArchive.MAX_ZIP);
         Path dir=Files.createTempDirectory(temporary,"backup-");
         try {
             var files=new LinkedHashMap<String,Path>();
@@ -144,8 +149,15 @@ public class BackupService {
             Path zip=dir.resolve("backup.zip"); BackupArchive.write(zip,manifest,files,mapper);
             // Validate our own output, including actual file lengths/hashes against source metadata.
             Path check=Files.createDirectory(dir.resolve("check")); var opened=BackupArchive.read(zip,check,mapper); validateStructure(opened);
-            UUID key=UUID.randomUUID(); storage.publish(new FileStorage.Staged(zip,BackupArchive.hash(zip),Files.size(zip)),key);
-            jdbc.update("update backup_job set status='READY',storage_key=?,format_version=1,manifest=?::jsonb,progress=100,updated_at=current_timestamp where user_id=? and id=?",key,encode(manifest),user,id);
+            long zipSize=Files.size(zip); String zipHash=BackupArchive.hash(zip);
+            tx.executeWithoutResult(s -> {
+                jdbc.queryForMap("select id from app_user where id=? for update",user);
+                capacity.check(user,zipSize,false,null);
+                UUID key=UUID.randomUUID();
+                try { storage.publish(new FileStorage.Staged(zip,zipHash,zipSize),key); }
+                catch(IOException e) { throw new UncheckedIOException(e); }
+                jdbc.update("update backup_job set status='READY',storage_key=?,format_version=1,manifest=?::jsonb,progress=100,updated_at=current_timestamp where user_id=? and id=?",key,encode(manifest),user,id);
+            });
         } finally { BackupArchive.cleanup(dir); }
     }
     private static ObjectNode find(ArrayNode nodes, String id) {
@@ -157,6 +169,7 @@ public class BackupService {
             "assets/"+row.path("id").asText()+(row.path("media_type").asText().equals("image/png")?".png":".jpg");
     }
     private BackupArchive.Opened open(UUID user, UUID id, Path dir) throws IOException {
+        storage.checkSpace(BackupArchive.MAX_EXPANDED);
         UUID key=jdbc.queryForObject("select storage_key from restore_job where user_id=? and id=?",UUID.class,user,id);
         return BackupArchive.read(storage.read(key).getFile().toPath(),dir,mapper);
     }
@@ -338,12 +351,14 @@ public class BackupService {
             UUID epoch=UUID.randomUUID();
             // Prepare a fresh immutable namespace before the replacement transaction. Old files remain
             // available to in-flight readers and existing exports. Failed staging never clears data.
-            var data=prepare(opened,epoch,true);
             tx.executeWithoutResult(s -> {
                 var owner=jdbc.queryForMap("select data_epoch,revision from app_user where id=? for update",user);
                 var job=jdbc.queryForMap("select * from restore_job where user_id=? and id=? for update",user,id);
                 if(!job.get("status").equals("RESTORING")) return;
                 if(!owner.get("data_epoch").equals(job.get("expected_epoch")) || !owner.get("revision").equals(job.get("expected_revision"))) throw new ApiFailure(ErrorCode.RESTORE_STALE);
+                capacity.replacement(user,opened.data());
+                ObjectNode data;
+                try { data=prepare(opened,epoch,true); } catch(IOException e) { throw new UncheckedIOException(e); }
                 jdbc.update("delete from mutation_receipt where user_id=?",user);
                 for(String table:TABLES.reversed()) jdbc.update("delete from "+table+" where user_id=?",user);
                 insert(data,user); validateRelations(user);

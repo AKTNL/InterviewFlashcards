@@ -12,11 +12,13 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 @Service
 public class SourceRegistrar {
     private final MutationService mutations;
+    private final CapacityService capacity;
     private final SourceDocumentRepository sources;
     private final FileStorage storage;
     private final Clock clock;
     private final com.interviewflashcards.importing.ImportService imports;
-    public SourceRegistrar(MutationService mutations, SourceDocumentRepository sources, FileStorage storage, Clock clock, com.interviewflashcards.importing.ImportService imports) {
+    public SourceRegistrar(MutationService mutations, SourceDocumentRepository sources, FileStorage storage, Clock clock, com.interviewflashcards.importing.ImportService imports, CapacityService capacity) {
+        this.capacity=capacity;
         this.mutations = mutations; this.sources = sources; this.storage = storage; this.clock = clock; this.imports = imports;
     }
     public JsonNode register(UUID userId, MutationService.Command command, String name, FileStorage.Staged staged, int pages) throws IOException {
@@ -26,6 +28,7 @@ public class SourceRegistrar {
                 UUID job = imports.ensureJob(userId, existing.get().getId());
                 return new MutationService.Change(new SourceController.UploadView(SourceController.SourceView.of(existing.get()), true, job), existing.get().getVersion(), false);
             }
+            capacity.check(userId, staged.size(), true, null);
             var source = new SourceDocument(userId, name, staged, pages, clock.instant());
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override public void afterCompletion(int status) {

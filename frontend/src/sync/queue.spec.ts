@@ -45,6 +45,24 @@ let queue: MutationQueue
 const active = () => true
 const changed = async () => {}
 const show = () => {}
+it('keeps an interrupted note and rating with their original owner while another account is active', async () => {
+  const note = await queue.enqueue('account-a','epoch-a',{ kind:'card.update',name:'A 的笔记',cardId:'card-a',action:'ANNOTATION',payload:{notes:'A 的私人笔记'} })
+  const rating = await queue.enqueue('account-a','epoch-a',{ kind:'review.write',name:'A 的评分',action:'RATE',payload:{sessionId:'session-a',rating:'FORGOT'} })
+  let activeA = true, started!: () => void, finish!: (result: WriteResult) => void
+  const sent = new Promise<void>(resolve => { started = resolve })
+  vi.mocked(api.snapshot).mockResolvedValue({ ...snapshot,dataEpoch:'epoch-a' })
+  vi.mocked(api.send).mockImplementationOnce(() => { started(); return new Promise(resolve => { finish = resolve }) })
+  const running = queue.run('account-a',()=>activeA,changed,show)
+  await sent; activeA = false
+  finish({card:{id:'card-a',version:1},mutation:{operationId:note.operationId,dataEpoch:'epoch-a',entityVersion:1,revision:1,serverTime:''}})
+  await running
+  vi.mocked(api.send).mockClear(); vi.mocked(api.snapshot).mockResolvedValue({ ...snapshot,dataEpoch:'epoch-b' })
+  await queue.run('account-b',active,changed,show)
+  expect(api.send).not.toHaveBeenCalled(); expect(await queue.entries('account-b')).toEqual([])
+  expect((await queue.entries('account-a')).map(item=>item.operationId)).toEqual([note.operationId,rating.operationId])
+  expect(rows.get(note.operationId)?.payload?.notes).toBe('A 的私人笔记')
+  expect(rows.get(rating.operationId)?.payload?.rating).toBe('FORGOT')
+})
 it('recovers preference receipts and daily sessions without replaying confirmed writes', async () => {
   for (const kind of ['preferences.save', 'session.daily'] as const) {
     const item = await queue.enqueue('user', 'epoch', { kind, name: '学习', payload: kind === 'session.daily' ? { mode: 'REVIEW' } : { dailyNewCount: 0 }, expectedVersion: 0 })

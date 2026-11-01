@@ -19,10 +19,12 @@ public class SecurityConfiguration {
     PasswordEncoder passwordEncoder() { return new BCryptPasswordEncoder(12); }
 
     @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http, ApiResponses responses, AccountService accounts) throws Exception {
+    SecurityFilterChain securityFilterChain(HttpSecurity http, ApiResponses responses, AccountService accounts, org.springframework.jdbc.core.JdbcTemplate jdbc) throws Exception {
         return http
+                .addFilterBefore(new com.interviewflashcards.auth.AuthGuardFilter(jdbc,responses), org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter.class)
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(HttpMethod.GET, "/api/health", "/api/auth/csrf").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/health", "/api/auth/csrf", "/api/auth/registration").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/auth/register").permitAll()
                         .requestMatchers("/api/**").authenticated()
                         .anyRequest().denyAll())
                 .requestCache(cache -> cache.disable())

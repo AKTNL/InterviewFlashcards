@@ -101,6 +101,7 @@ export class MutationQueue {
             if (!active()) return
             result = await this.api.send(item)
           }
+          if (!active()) return
           if (result.mutation?.operationId !== item.operationId || result.mutation.dataEpoch !== item.dataEpoch
               || result.mutation.entityVersion !== (item.kind === 'deck.data' ? 0 : item.kind === 'conflict.resolve' ? result.conflict?.version : item.kind === 'preferences.save' ? result.preferences?.version : item.kind === 'session.daily' || item.kind === 'session.start' || item.kind === 'review.write' ? result.session?.version : item.kind === 'card.update' ? result.card?.version : item.kind === 'chapter.review' ? result.chapter?.version : item.kind === 'import.retry' ? result.job?.version : result.source?.version)
               || (item.kind === 'deck.data' && (result.action !== item.action || result.impact?.deckId !== item.payload?.deckId))
@@ -114,6 +115,7 @@ export class MutationQueue {
           item.result = result; item.file = undefined
           item.error = item.status === 'needs-attention' ? { code: 'REVIEW_CONFLICT', message: '两台设备提交了不同评分，请核对并处理；当前评分保持不变。', details: result.conflict } : undefined
         } catch (cause) {
+          if (!active()) return
           const error = cause instanceof ApiError ? cause : new ApiError('NETWORK_ERROR', '连接失败，内容已保留。', 0)
           item.attempts++
           item.error = { code: error.code, message: error.message, details: error.details, requestId: error.requestId }
@@ -126,7 +128,7 @@ export class MutationQueue {
         }
         await this.storage.put(item); await changed()
       }
-      if (active()) snapshot(await this.api.snapshot())
+      if (active()) { const final = await this.api.snapshot(); if(active()) snapshot(final) }
     } finally { this.running = false }
   }
 }

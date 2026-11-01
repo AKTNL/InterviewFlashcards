@@ -1,11 +1,15 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { onBeforeRouteLeave } from 'vue-router'
-import { ApiError } from '../api/client'
+import { ApiError, request } from '../api/client'
 import { useSyncStore } from '../stores/sync'
 import type { Source } from '../sync/types'
 import SourceImport from '../components/SourceImport.vue'
 const sync = useSyncStore()
+const usage = ref<{ usedBytes: number; maxBytes: number; sources: number; maxSources: number; maxImports: number; maxBackups: number } | null>(null)
+async function loadUsage() { try { usage.value = (await request<NonNullable<typeof usage.value>>('/api/storage/usage')).data } catch { usage.value = null } }
+onMounted(loadUsage)
+watch(() => sync.state?.revision, loadUsage)
 const sources = computed(() => sync.state?.sources ?? [])
 const loading = computed(() => sync.busy)
 const uploading = ref(false)
@@ -26,6 +30,7 @@ function fail(cause: unknown) {
 async function load() {
   error.value = null
   await sync.refresh(true)
+  await loadUsage()
 }
 function edit(source: Source) { if (canLeave()) editing.value = { id: source.id, name: source.originalFilename, version: source.version } }
 async function saveName() {
@@ -66,6 +71,7 @@ async function upload() {
   <section class="upload-panel" aria-labelledby="upload-title">
     <h2 id="upload-title">添加一份 PDF</h2>
     <p>支持未加密、可读取的 PDF，单份不超过 50 MiB。</p>
+    <p v-if="usage" class="form-note">个人存储剩余 {{ (Math.max(0, usage.maxBytes - usage.usedBytes) / 1024 / 1024).toFixed(1) }} MiB / {{ (usage.maxBytes / 1024 / 1024).toFixed(0) }} MiB；来源剩余 {{ Math.max(0, usage.maxSources - usage.sources) }} / {{ usage.maxSources }} 份。最多同时 {{ usage.maxImports }} 个导入、{{ usage.maxBackups }} 个备份或恢复任务，存储含服务端备份副本。</p>
     <label class="primary-button file-picker" :class="{ disabled: uploading || !sync.state }">
       {{ uploading ? '正在保留上传内容…' : '选择 PDF' }}
       <input ref="input" type="file" accept=".pdf,application/pdf" :disabled="uploading || !sync.state" aria-label="选择 PDF" @change="upload" />

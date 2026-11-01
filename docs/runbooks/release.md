@@ -11,7 +11,7 @@
 ```bash
 cp deploy/.env.production.example deploy/.env.production
 # 填写数据库密码、账号、BCrypt hash、域名、证书绝对目录和本次不可变镜像 tag。
-# 生成 hash 的交互工具及密码轮换说明见 local-development.md。
+# 首次初始化的 hash 工具见 local-development.md；P1-08 起改密与重置见 accounts.md。
 chmod 600 deploy/.env.production
 docker compose -p interview-flashcards --env-file deploy/.env.production -f deploy/compose.production.yml config --quiet
 docker compose -p interview-flashcards --env-file deploy/.env.production -f deploy/compose.production.yml build
@@ -99,6 +99,12 @@ COMMIT;
 
 ## 第一版限制与发布门槛
 
-仅适配当前 222 页 PDF，图表/异常字形仍需来源核对；预置单用户入口、单后端 JVM；在线应用，本地队列仅保护短时断网提交；复习间隔 `[1,3,7,14,30]` 是 `rules-v1` 候选参数，不自动判断答案正确性。无公开注册、任意 PDF/OCR、完整离线学习、自动备份和自动资源回收。
+仅适配当前 222 页 PDF，图表/异常字形仍需来源核对；邀请码独立账号、单后端 JVM；在线应用，本地队列仅保护短时断网提交；复习间隔 `[1,3,7,14,30]` 是 `rules-v1` 候选参数，不自动判断答案正确性。无公开注册、任意 PDF/OCR、完整离线学习、自动备份和自动资源回收。
 
 未解决的数据丢失、重复计数、来源缺失、恢复覆盖均阻止发布。发布前还需在用户域名上验证系统信任证书链、外网端口和续期方案，并在实体手机与电脑同一账号完成章节续检、完整阅读/来源、自评同步、导出恢复、旧设备离线重连。记录设备/系统/浏览器、时间、结果及任务编号，不用手机视口仿真代替实体手机签收。
+
+## P1-08 升级与开放邀请注册
+
+发布前完整保存数据库、files、temporary-files 和配置快照。此版本新增 V11；旧账号只在首次升级时绑定预置身份，保留 ID、密码和学习资料。此后修改环境 hash 不再更改密码。先在恢复的隔离数据库核对绑定及新旧密码行为；使用 [账号维护手册](accounts.md) 生成邀请码、重置密码、设置限额，再开启 `REGISTRATION_ENABLED`。
+
+先发布到预发布环境，按 [P1-08 验收记录](../fixtures/p1-08/README.md) 复验手机/电脑两个账号、另一标签页身份切换及旧队列重连。注册默认关闭。上线后在实体设备重新验收；本次仓库开发没有修改既有公网服务。回退须停止写入并整体恢复升级前数据库及文件快照，不能只回退到会覆盖密码的旧后端镜像。

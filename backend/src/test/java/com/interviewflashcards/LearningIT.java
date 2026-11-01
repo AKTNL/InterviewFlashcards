@@ -363,7 +363,8 @@ class LearningIT {
         mvc.perform(get("/api/sync/snapshot").with(owner)).andExpect(status().isOk()).andExpect(jsonPath("$.data.data.review_event.length()").value(1));
     }
     @Test void readOnlyRoutesAndSecurityValidationEpochAndEarlyConfirmation() throws Exception {
-        var s=session(0);var owner=user(new AccountPrincipal(user,"test",""));var outsider=user(new AccountPrincipal(UUID.randomUUID(),"other",""));
+        UUID other=UUID.randomUUID();jdbc.update("insert into app_user(id,username,password_hash) values(?,?,'unused')",other,"other-"+other);
+        var s=session(0);var owner=user(new AccountPrincipal(user,"test",""));var outsider=user(new AccountPrincipal(other,"other",""));
         mvc.perform(get("/api/learning-sessions/"+s.get("id").asText())).andExpect(status().isUnauthorized());
         mvc.perform(get("/api/learning-sessions/"+s.get("id").asText()).with(outsider)).andExpect(status().isNotFound());
         var c=command(s,"RATE","REMEMBERED");String body=mapper.writeValueAsString(c);

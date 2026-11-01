@@ -46,7 +46,7 @@ public class BackupWorker {
             } catch(Exception e) {
                 boolean stale=e instanceof ApiFailure f && f.code()==ErrorCode.RESTORE_STALE;
                 jdbc.update("update restore_job set status=?,error_code=?,expected_epoch=null,expected_revision=null,updated_at=current_timestamp where id=?",
-                    stale?"AWAITING_CONFIRMATION":"FAILED",stale?"RESTORE_STALE":e instanceof BackupArchive.UnsupportedVersion?"BACKUP_VERSION_UNSUPPORTED":restoring?"RESTORE_FAILED":"BACKUP_INVALID",id);
+                    stale?"AWAITING_CONFIRMATION":"FAILED",stale?"RESTORE_STALE":e instanceof ApiFailure f?f.code().name():e instanceof BackupArchive.UnsupportedVersion?"BACKUP_VERSION_UNSUPPORTED":restoring?"RESTORE_FAILED":"BACKUP_INVALID",id);
                 org.slf4j.LoggerFactory.getLogger(getClass()).warn("Restore job failed id={} type={}",id,e.getClass().getSimpleName());
             }
             return;
@@ -56,7 +56,7 @@ public class BackupWorker {
             var row=exports.getFirst(); UUID id=(UUID)row.get("id");
             try { jdbc.update("update backup_job set status='RUNNING',progress=10 where id=?",id); service.export((UUID)row.get("user_id"),id); }
             catch(Exception e) {
-                jdbc.update("update backup_job set status='FAILED',error_code='BACKUP_FAILED',updated_at=current_timestamp where id=?",id);
+                jdbc.update("update backup_job set status='FAILED',error_code=?,updated_at=current_timestamp where id=?",e instanceof ApiFailure f?f.code().name():"BACKUP_FAILED",id);
                 org.slf4j.LoggerFactory.getLogger(getClass()).warn("Export job failed id={} type={}",id,e.getClass().getSimpleName());
             }
         }

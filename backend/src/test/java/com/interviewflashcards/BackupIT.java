@@ -45,7 +45,7 @@ class BackupIT {
     private UUID user,epoch,card,chapter,source;
     @BeforeAll void start() {
         app=(ServletWebServerApplicationContext)new SpringApplicationBuilder(FlashcardsApplication.class,TimeOverride.class).run(
-            "--server.port=0","--app.import.poll-ms=3600000","--app.backup.poll-ms=3600000","--spring.flyway.schemas="+schema,"--spring.flyway.default-schema="+schema,
+            "--server.port=0","--app.capacity.backups=100","--app.capacity.global-tasks=1000","--app.import.poll-ms=3600000","--app.backup.poll-ms=3600000","--spring.flyway.schemas="+schema,"--spring.flyway.default-schema="+schema,
             "--spring.datasource.hikari.schema="+schema,"--app.account.username=backup-test","--app.account.password-hash="+new BCryptPasswordEncoder(10).encode("test-only-password"),
             "--app.storage.root="+directory.resolve("files"),"--app.storage.temporary-root="+directory.resolve("tmp"));
         jdbc=app.getBean(JdbcTemplate.class);mapper=app.getBean(ObjectMapper.class);backups=app.getBean(BackupService.class);storage=app.getBean(FileStorage.class);learning=app.getBean(LearningService.class);clock=app.getBean(TestClock.class);
@@ -136,13 +136,21 @@ class BackupIT {
     }
     @Test void restoreToAnotherAccountNeverChangesOwnershipOrCredentialsAndRemapsAllLinks() throws Exception {
         UUID export=export(),target=account();
+        jdbc.update("update app_user set account_origin='REGISTERED',nickname='独立昵称',credential_version=3 where id=?",target);
+        UUID invite=UUID.randomUUID();
+        jdbc.update("insert into registration_invite(id,token_digest,expires_at,max_uses,used_count) values(?,?,current_timestamp+interval '1 day',1,1)",invite,"f".repeat(64));
+        jdbc.update("insert into registration_use(invite_id,user_id) values(?,?)",invite,target);
         byte[] forgedOwnership=changed(export,d->d.elements().forEachRemaining(rows->rows.forEach(r->((ObjectNode)r).put("user_id",user.toString()))));
         UUID id=upload(target,forgedOwnership);backups.validate(target,id);confirm(target,id);backups.restore(target,id);
         assertThat(jdbc.queryForObject("select count(*) from card where user_id=?",Long.class,target)).isEqualTo(1);
         assertThat(jdbc.queryForObject("select id from card where user_id=?",UUID.class,target)).isNotEqualTo(card);
         assertThat(jdbc.queryForObject("select count(*) from card where user_id=?",Long.class,user)).isEqualTo(1);
         assertThat(jdbc.queryForObject("select password_hash from app_user where id=?",String.class,target)).isEqualTo("credential-must-not-export");
-        mvc.perform(get("/api/backups/"+export+"/download").with(user(new AccountPrincipal(target,"other","unused")))).andExpect(status().isNotFound());
+        assertThat(jdbc.queryForMap("select account_origin,nickname,credential_version from app_user where id=?",target))
+            .containsEntry("account_origin","REGISTERED").containsEntry("nickname","独立昵称").containsEntry("credential_version",3L);
+        assertThat(jdbc.queryForObject("select user_id from registration_use where invite_id=?",UUID.class,invite)).isEqualTo(target);
+        assertThat(jdbc.queryForObject("select used_count from registration_invite where id=?",Integer.class,invite)).isEqualTo(1);
+        mvc.perform(get("/api/backups/"+export+"/download").with(user(new AccountPrincipal(target,"other","unused",3)))).andExpect(status().isNotFound());
         mvc.perform(post("/api/restores/"+id+"/confirm").with(user(new AccountPrincipal(user,"original","unused"))).with(csrf()).contentType("application/json").content("{\"dataEpoch\":\""+epoch+"\",\"expectedRevision\":0,\"confirmed\":true}"))
             .andExpect(status().isNotFound());
     }

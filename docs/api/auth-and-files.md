@@ -1,6 +1,6 @@
 # P0-03 会话与文件 API
 
-所有接口同源，JSON 响应沿用 [基础信封](baseline.md)。不提供注册接口；用户身份来自服务端会话，接口不接受客户端指定的 `userId`。
+所有接口同源，JSON 响应沿用 [基础信封](baseline.md)。P1-08 新增受邀请码控制的注册与密码管理，见 [注册与密码 API](registration-and-accounts.md)；用户身份来自服务端会话，接口不接受客户端指定的 `userId`。
 
 ## 登录与 CSRF
 
@@ -8,7 +8,7 @@
 | --- | --- | --- |
 | GET | `/api/auth/csrf` | 无需登录；返回 `{headerName, token}`，创建匿名会话 |
 | POST | `/api/auth/login` | `application/x-www-form-urlencoded` 的 `username`、`password`；成功返回用户资料 |
-| GET | `/api/auth/me` | 返回 `{id, username, learningTimezone, dataEpoch, revision}`；未登录/过期返回 401 |
+| GET | `/api/auth/me` | 返回 `{id, username, nickname, learningTimezone, dataEpoch, revision}`；未登录/过期返回 401 |
 | POST | `/api/auth/logout` | 验证 CSRF、销毁当前会话并删除 Cookie，返回 `data: true` |
 
 写请求（包括登录、退出、multipart 上传）必须先获取 CSRF，并将返回的 token 放入 `headerName` 指定的请求头。使用 Spring Security 默认的会话 token 和掩码处理，不自行实现随机令牌或密码比较。登录、退出后旧 token 失效，下一次写请求重新获取；403 `CSRF_INVALID` 后清除客户端 token，下次用户主动重试重新获取，**不自动重放写入**。

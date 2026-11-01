@@ -15,15 +15,18 @@ import static com.interviewflashcards.importing.PdfEvidence.obj;
 @Service
 public class ImportService {
     private final JdbcTemplate jdbc;
+    private final com.interviewflashcards.files.CapacityService capacity;
     private final ObjectMapper mapper;
     private final MutationService mutations;
-    public ImportService(JdbcTemplate jdbc, ObjectMapper mapper, MutationService mutations) {
+    public ImportService(JdbcTemplate jdbc, ObjectMapper mapper, MutationService mutations, com.interviewflashcards.files.CapacityService capacity) {
+        this.capacity=capacity;
         this.jdbc=jdbc; this.mapper=mapper; this.mutations=mutations;
     }
     /** Called inside source.upload's owner lock and receipt transaction, including duplicates. */
     public UUID ensureJob(UUID user, UUID source) {
         var ids=jdbc.queryForList("select id from import_job where user_id=? and source_id=?",UUID.class,user,source);
         if (!ids.isEmpty()) return ids.getFirst();
+        capacity.check(user,0,false,"import");
         UUID id=UUID.randomUUID();
         jdbc.update("insert into import_job(id,user_id,source_id,stage,parser_version) values(?,?,?,'WAITING',?)",id,user,source,PdfImportParser.VERSION);
         return id;
@@ -51,6 +54,7 @@ public class ImportService {
             // A parser retry is never an editing or re-import API. Keep every existing draft/card intact.
             if (jdbc.queryForObject("select count(*) from draft_card where user_id=? and import_job_id=?",Integer.class,user,id)>0)
                 throw new ApiFailure(ErrorCode.IMPORT_CONTENT_EXISTS);
+            capacity.check(user,0,false,"import");
             jdbc.update("update import_job set status='QUEUED',stage='WAITING',error_code=null,error_message=null,attempt_token=null,version=version+1,updated_at=current_timestamp where user_id=? and id=?",user,id);
             return new MutationService.Change(Map.of("job",job(user,id)),version+1,true);
         });

@@ -7,6 +7,7 @@ import java.util.UUID;
 import org.springframework.core.io.Resource;
 
 public interface FileStorage {
+    void checkSpace(long incoming) throws IOException;
     Staged stage(InputStream input) throws IOException;
     void publish(Staged staged, UUID key) throws IOException;
     Resource read(UUID key);
