@@ -12,7 +12,17 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-public record LearningController(LearningService learning, LearningTrendsService trends, ApiResponses responses) {
+public record LearningController(LearningService learning, LearningTrendsService trends, ReviewPolicyService policies, ApiResponses responses) {
+    public record ReviewParameters(@NotNull UUID operationId,@NotNull UUID dataEpoch,@NotNull @PositiveOrZero Long expectedVersion,
+        @NotNull @Size(min=5,max=5) List<@NotNull @Min(1) @Max(365) Integer> intervals,@NotBlank @Size(max=500) String reason) {}
+    @GetMapping("/api/review-parameters")
+    public ApiResponse<?> parameters(@AuthenticationPrincipal AccountPrincipal user,@RequestParam(defaultValue="90") int days,HttpServletRequest request) {
+        return responses.success(policies.report(user.id(),days),request);
+    }
+    @PostMapping("/api/review-parameters")
+    public ApiResponse<?> parameters(@AuthenticationPrincipal AccountPrincipal user,@Valid @RequestBody ReviewParameters body,HttpServletRequest request) throws IOException {
+        return responses.success(policies.save(user.id(),body),request);
+    }
     @GetMapping("/api/learning-trends")
     public ApiResponse<?> trends(@AuthenticationPrincipal AccountPrincipal user,
         @RequestParam(defaultValue="8") int weeks,@RequestParam(defaultValue="0") int offset,

@@ -242,11 +242,30 @@ class BackupIT {
     }
     @Test void preV12FormatOneArchiveStillRestores() throws Exception {
         UUID exported=export();byte[] legacy=changed(exported,d->{
+            d.remove("review_policy");
+            for(var row:d.path("review_event"))((ObjectNode)row).remove("algorithm_parameters");
             for(var row:d.path("deck"))((ObjectNode)row).remove("copy_origin");
             for(var row:d.path("source_document"))((ObjectNode)row).remove("shared_copy");
         });
         UUID id=upload(user,legacy);backups.validate(user,id);confirm(user,id);backups.restore(user,id);
         assertThat(jdbc.queryForObject("select shared_copy from source_document where user_id=?",Boolean.class,user)).isFalse();
         assertThat(jdbc.queryForObject("select copy_origin::text from deck where user_id=?",String.class,user)).isEqualTo("{}");
+        assertThat(jdbc.queryForObject("select count(*) from review_policy where user_id=?",Integer.class,user)).isZero();
+        assertThat(jdbc.queryForObject("select algorithm_parameters::text from review_event where user_id=? limit 1",String.class,user)).isEqualTo("{}");
+    }
+    @Test void personalReviewPolicyAndSnapshotsRoundTripWithNewOwnership() throws Exception {
+        var policies=app.getBean(ReviewPolicyService.class);
+        var saved=policies.save(user,new LearningController.ReviewParameters(UUID.randomUUID(),epoch,0L,List.of(2,4,8,16,32),"缩短间隔观察"));
+        var session=learning.start(user,new LearningController.Start(UUID.randomUUID(),epoch,List.of(card))).path("session");
+        rate(session,"REMEMBERED");var original=mapper.valueToTree(policies.report(user,90));
+        UUID exported=export(),other=account(),job=preflight(other,exported);confirm(other,job);backups.restore(other,job);
+        assertThat(policies.active(other).algorithmVersion()).isEqualTo(saved.at("/current/algorithmVersion").asText());
+        assertThat(policies.active(other).reason()).isEqualTo("缩短间隔观察");
+        var restored=mapper.valueToTree(policies.report(other,90));assertThat(restored.path("outcomes")).isEqualTo(original.path("outcomes"));
+        assertThat(restored.path("activity")).isEqualTo(original.path("activity"));
+        assertThat(jdbc.queryForObject("select count(*) from review_event where user_id=? and algorithm_parameters->'intervals'='[2,4,8,16,32]'::jsonb",Integer.class,other)).isEqualTo(1);
+        byte[] invalid=changed(exported,d->((ObjectNode)d.path("review_policy").get(0)).set("intervals",mapper.valueToTree(List.of(1,3,2,4,5))));
+        UUID bad=upload(user,invalid);assertThatThrownBy(()->backups.validate(user,bad)).isInstanceOf(Exception.class);
+        assertThat(policies.active(user).version()).isEqualTo(1);
     }
 }

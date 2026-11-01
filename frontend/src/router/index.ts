@@ -4,6 +4,7 @@ import { useAuthStore } from '../stores/auth'
 export const router = createRouter({
   history: createWebHistory(),
   routes: [
+    { path: '/review-parameters', name: 'review-parameters', meta: { requiresAuth: true }, component: () => import('../views/ReviewParametersView.vue') },
     { path: '/trends', name: 'trends', meta: { requiresAuth: true }, component: () => import('../views/TrendsView.vue') },
     { path: '/', name: 'home', component: () => import('../views/HomeView.vue') },
     { path: '/library', name: 'library', component: () => import('../views/LibraryView.vue') },

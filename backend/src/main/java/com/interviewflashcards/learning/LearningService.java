@@ -19,9 +19,9 @@ public class LearningService {
     private final ObjectMapper mapper;
     private final MutationService mutations;
     private final LearningTime time;
-    private final ReviewConfiguration rules;
-    public LearningService(JdbcTemplate jdbc,ObjectMapper mapper,MutationService mutations,LearningTime time,ReviewConfiguration rules) {
-        this.jdbc=jdbc; this.mapper=mapper; this.mutations=mutations; this.time=time; this.rules=rules;
+    private final ReviewPolicyService policies;
+    public LearningService(JdbcTemplate jdbc,ObjectMapper mapper,MutationService mutations,LearningTime time,ReviewPolicyService policies) {
+        this.jdbc=jdbc; this.mapper=mapper; this.mutations=mutations; this.time=time; this.policies=policies;
     }
     public JsonNode start(UUID user,LearningController.Start command) throws IOException {
         return mutations.execute(user,new MutationService.Command(command.operationId(),command.dataEpoch()),"learning.start",command,()->{
@@ -204,14 +204,15 @@ public class LearningService {
                 if(c.expectedReviewVersion()!=version || old.version()!=version || !event.get("learning_date").toString().equals(time.today().toString()))
                     throw new ApiFailure(ErrorCode.VERSION_CONFLICT,obj("current",state(user,card),"conflict",conflictView(user,id)));
                 var rating=Rating.valueOf(local.at("/payload/rating").asText());
-                var corrected=ReviewRules.rate(before,rating,old.lastReviewedAt(),time.learningZone(),rules.intervals(),version+1);
+                var policy=policies.original(json(event.get("algorithm_parameters")),event.get("algorithm_version").toString());
+                var corrected=ReviewRules.rate(before,rating,old.lastReviewedAt(),time.learningZone(),policy.intervals(),version+1);
                 UUID item=(UUID)event.get("session_item_id");
                 var originalItem=jdbc.queryForMap("select session_id,is_replay from session_item where user_id=? and id=?",user,item);
                 UUID sessionId=(UUID)originalItem.get("session_id");
                 long sv=((Number)sessionRow(user,sessionId).get("version")).longValue();
                 var command=new LearningController.Write(c.operationId(),c.dataEpoch(),sv,"RATE",local.path("payload"));
                 UUID correction=UUID.randomUUID();
-                insertEvent(user,command,correction,card,item,before,corrected.state(),corrected.replay(),(UUID)event.get("id"),queue(user,sessionId),sv+1,"CORRECT");
+                insertEvent(user,command,correction,card,item,before,corrected.state(),corrected.replay(),(UUID)event.get("id"),queue(user,sessionId),sv+1,"CORRECT",policy.algorithmVersion(),mapper.valueToTree(policy));
                 saveState(user,card,corrected.state(),version+1);
                 // Only an unconsumed automatic replay may change; a consumed replay would have advanced review_version.
                 jdbc.update("delete from review_replay_allowance where user_id=? and event_id=?",user,event.get("id"));
@@ -261,6 +262,7 @@ public class LearningService {
                 if(!confirmed(p,"answerRevealed") && "RATE".equals(command.action())) invalid();
                 // PostgreSQL timestamps retain microseconds; event snapshots must use that same precision.
                 Instant now=time.now().truncatedTo(java.time.temporal.ChronoUnit.MICROS);
+                var policy=policies.active(user);
                 State after; boolean replay;
                 if("RELEARN".equals(command.action())) {
                     if(before==null || !confirmed(p,"confirmed")) invalid();
@@ -269,13 +271,13 @@ public class LearningService {
                 } else {
                     Rating rating;
                     try { rating=Rating.valueOf(p.path("rating").asText()); } catch(IllegalArgumentException e) { throw new ApiFailure(ErrorCode.INVALID_REQUEST); }
-                    var result=ReviewRules.rate(before,rating,now,time.learningZone(),rules.intervals(),version+1);
+                    var result=ReviewRules.rate(before,rating,now,time.learningZone(),policy.intervals(),version+1);
                     after=result.state(); replay=result.replay();
                     if(before!=null && before.dueDate().isAfter(time.today()) && !replay && !confirmed(p,"confirmEarly"))
                         throw new ApiFailure(ErrorCode.EARLY_REVIEW_CONFIRMATION,Map.of("dueDate",before.dueDate()));
                 }
                 UUID event=UUID.randomUUID();
-                insertEvent(user,command,event,card,item,before,after,replay,null,items,sv+1,command.action());
+                insertEvent(user,command,event,card,item,before,after,replay,null,items,sv+1,command.action(),policy.algorithmVersion(),mapper.valueToTree(policy));
                 saveState(user,card,after,version+1);
                 if("RATE".equals(command.action())) {
                     jdbc.update("update session_item set completed=true where user_id=? and id=?",user,item);
@@ -313,7 +315,7 @@ public class LearningService {
         if(after.version()!=version || "CORRECT".equals(event.get("kind"))) conflict(user,id);
         var oldQueue=json(event.get("before_queue"));
         UUID compensation=UUID.randomUUID();
-        insertEvent(user,command,compensation,card,(UUID)event.get("session_item_id"),after,before,true,(UUID)event.get("id"),queue(user,id),sv+1,"UNDO");
+        insertEvent(user,command,compensation,card,(UUID)event.get("session_item_id"),after,before,true,(UUID)event.get("id"),queue(user,id),sv+1,"UNDO",event.get("algorithm_version").toString(),json(event.get("algorithm_parameters")));
         jdbc.update("delete from review_replay_allowance where user_id=? and event_id=?",user,event.get("id"));
         var keep=new HashSet<UUID>(); oldQueue.forEach(i->keep.add(UUID.fromString(i.get("id").asText())));
         for(var item:queue(user,id)) if(!keep.contains(item.get("id")))
@@ -326,13 +328,13 @@ public class LearningService {
         return new MutationService.Change(obj("eventId",compensation,"session",session(user,id)),sv+1,true);
     }
     private void insertEvent(UUID user,LearningController.Write c,UUID event,UUID card,UUID item,State before,State after,boolean replay,
-                             UUID undo,List<Map<String,Object>> queue,long sv,String kind) throws IOException {
+                             UUID undo,List<Map<String,Object>> queue,long sv,String kind,String algorithmVersion,JsonNode parameters) throws IOException {
         jdbc.update("""
             insert into review_event(id,user_id,data_epoch,operation_id,card_id,session_item_id,rating,before_state,after_state,
-            algorithm_version,learning_date,is_replay,undo_of,before_queue,session_version_after,kind)
-            values(?,?,?,?,?,?,?,?::jsonb,?::jsonb,?,?,?,?,?::jsonb,?,?)
+            algorithm_version,learning_date,is_replay,undo_of,before_queue,session_version_after,kind,algorithm_parameters)
+            values(?,?,?,?,?,?,?,?::jsonb,?::jsonb,?,?,?,?,?::jsonb,?,?,?::jsonb)
             """,event,user,c.dataEpoch(),c.operationId(),card,item,(after!=null?after:before).latestRating().name(),
-            mapper.writeValueAsString(before),mapper.writeValueAsString(after),rules.version(),time.today(),replay,undo,mapper.writeValueAsString(queue),sv,kind);
+            mapper.writeValueAsString(before),mapper.writeValueAsString(after),algorithmVersion,time.today(),replay,undo,mapper.writeValueAsString(queue),sv,kind,mapper.writeValueAsString(parameters));
     }
     private void advance(UUID user,UUID id,long version) {
         jdbc.update("update learning_session set version=?,status=? where user_id=? and id=?",version,

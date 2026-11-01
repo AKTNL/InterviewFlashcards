@@ -84,6 +84,77 @@ class LearningIT {
     }
     private void prefer(int target,int batch,List<UUID> chapters) throws Exception { learning.savePreferences(user,preferenceCommand(target,batch,chapters)); }
     private JsonNode daily(String mode) throws Exception { return learning.daily(user,new LearningController.Plan(UUID.randomUUID(),epoch,mode)).get("session"); }
+    private ReviewPolicyService policies() { return app.getBean(ReviewPolicyService.class); }
+    private LearningController.ReviewParameters parameters(long version,List<Integer> intervals) {
+        return new LearningController.ReviewParameters(UUID.randomUUID(),epoch,version,intervals,"缩短间隔观察后续自评");
+    }
+    @Test void personalParametersAreImmutableVersionedIdempotentAndDoNotRescheduleExistingCards() throws Exception {
+        var s=write(session(0),"RATE","REMEMBERED").path("session");
+        var due=jdbc.queryForObject("select due_date from review_state where user_id=?",LocalDate.class,user);
+        var c=parameters(0,List.of(2,4,8,16,32));var saved=policies().save(user,c);
+        assertThat(policies().save(user,c)).isEqualTo(mapper.readTree(saved.toString()));
+        assertThat(count("review_policy")).isEqualTo(1);
+        assertThat(jdbc.queryForObject("select due_date from review_state where user_id=?",LocalDate.class,user)).isEqualTo(due);
+        assertThatThrownBy(()->policies().save(user,parameters(0,List.of(1,2,4,8,16)))).isInstanceOf(ApiFailure.class);
+        var result=write(session(1),"RATE","REMEMBERED");
+        assertThat(result.path("dueDate").asText()).isEqualTo("2026-11-02");
+        assertThat(jdbc.queryForObject("select algorithm_version from review_event where id=?",String.class,UUID.fromString(result.path("eventId").asText())))
+            .isEqualTo(saved.at("/current/algorithmVersion").asText());
+        assertThat(jdbc.queryForObject("select algorithm_parameters->'intervals' from review_event where id=?",String.class,UUID.fromString(result.path("eventId").asText())))
+            .isEqualTo("[2, 4, 8, 16, 32]");
+        write(result.path("session"),"UNDO",null);
+        assertThat(jdbc.queryForObject("select algorithm_parameters->'intervals' from review_event where user_id=? and kind='UNDO'",String.class,user)).isEqualTo("[2, 4, 8, 16, 32]");
+        assertThat(policies().active(UUID.randomUUID()).version()).isZero();
+        assertThat(policies().active(user).version()).isEqualTo(1);
+        assertThat(s.path("id").isTextual()).isTrue();
+    }
+    @Test void parametersValidateBoundsOrderReasonEpochSecurityAndReceiptRollback() throws Exception {
+        for(var values:List.of(List.of(0,2,3,4,5),List.of(1,3,2,4,5),List.of(1,2,3,4,366),List.of(1,2)))
+            assertThatThrownBy(()->policies().save(user,parameters(0,values))).isInstanceOf(ApiFailure.class);
+        assertThatThrownBy(()->policies().save(user,new LearningController.ReviewParameters(UUID.randomUUID(),epoch,0L,List.of(1,2,3,4,5)," "))).isInstanceOf(ApiFailure.class);
+        assertThatThrownBy(()->policies().save(user,new LearningController.ReviewParameters(UUID.randomUUID(),UUID.randomUUID(),0L,List.of(1,2,3,4,5),"test"))).isInstanceOf(ApiFailure.class);
+        var owner=user(new AccountPrincipal(user,"test",""));var c=parameters(0,List.of(1,2,3,4,5));
+        mvc.perform(get("/api/review-parameters")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/review-parameters?days=31").with(owner)).andExpect(status().isBadRequest());
+        mvc.perform(post("/api/review-parameters").with(owner).contentType("application/json").content(mapper.writeValueAsString(c))).andExpect(status().isForbidden());
+        mvc.perform(post("/api/review-parameters").with(owner).with(csrf()).contentType("application/json").content(mapper.writeValueAsString(parameters(0,List.of(1,2))))).andExpect(status().isBadRequest());
+        jdbc.execute("create function fail_policy_receipt() returns trigger language plpgsql as $$ begin raise exception 'failure'; end $$");
+        jdbc.execute("create trigger fail_policy_receipt before insert on mutation_receipt for each row execute function fail_policy_receipt()");
+        try { assertThatThrownBy(()->policies().save(user,c)).isInstanceOf(RuntimeException.class); }
+        finally { jdbc.execute("drop trigger fail_policy_receipt on mutation_receipt");jdbc.execute("drop function fail_policy_receipt()"); }
+        assertThat(count("review_policy")).isZero();
+        assertThat(jdbc.queryForObject("select revision from app_user where id=?",Long.class,user)).isZero();
+        mvc.perform(post("/api/review-parameters").with(owner).with(csrf()).contentType("application/json").content(mapper.writeValueAsString(c))).andExpect(status().isOk());
+    }
+    @Test void outcomesUseSchedulingPolicyAndExcludeFirstReplayEarlyUndoAndReset() throws Exception {
+        var original=write(session(0),"RATE","REMEMBERED");
+        write(session(1),"RATE","REMEMBERED");
+        write(session(2),"RATE","REMEMBERED");
+        var next=policies().save(user,parameters(0,List.of(2,4,8,16,32)));
+        write(session(0),"RATE","REMEMBERED"); // A replay that retains the due date cannot take credit for the old schedule.
+        assertThat(mapper.valueToTree(policies().report(user,90)).path("outcomes").size()).isZero();
+        clock.value=clock.value.plus(Duration.ofDays(1));
+        var result=write(session(0),"RATE","VAGUE");
+        var report=mapper.valueToTree(policies().report(user,90));var row=report.at("/outcomes/0");
+        assertThat(row.path("algorithmVersion").asText()).isEqualTo("rules-v1");
+        assertThat(row.path("observations").asInt()).isEqualTo(1);assertThat(row.path("vague").asInt()).isEqualTo(1);
+        assertThat(row.path("onTime").asInt()).isEqualTo(1);
+        write(result.path("session"),"UNDO",null);
+        assertThat(mapper.valueToTree(policies().report(user,90)).path("outcomes").size()).isZero();
+        write(session(0),"RATE","REMEMBERED");
+        // Explicit reset interrupts the observation chain.
+        var reset=write(session(1),"RELEARN",null).path("session");write(reset,"RATE","REMEMBERED");
+        clock.value=clock.value.plus(Duration.ofDays(1)); // card 2 is now one day late.
+        write(session(2),"RATE","FORGOT");
+        report=mapper.valueToTree(policies().report(user,90));row=report.at("/outcomes/0");
+        assertThat(row.path("observations").asInt()).isEqualTo(2);assertThat(row.path("late").asInt()).isEqualTo(1);
+        assertThat(row.path("forgot").asInt()).isEqualTo(1);
+        assertThat(report.path("outcomes").toString()).doesNotContain(next.at("/current/algorithmVersion").asText());
+        clock.value=clock.value.plus(Duration.ofDays(10));write(session(0),"RATE","REMEMBERED");
+        report=mapper.valueToTree(policies().report(user,90));assertThat(report.path("outcomes").size()).isEqualTo(2);
+        assertThat(mapper.valueToTree(policies().report(UUID.randomUUID(),90)).path("outcomes").size()).isZero();
+        assertThat(original.path("eventId").isTextual()).isTrue();
+    }
     @Test void preferencesAreExplicitVersionedIdempotentAndReadsDoNotWrite() throws Exception {
         long revision=jdbc.queryForObject("select revision from app_user where id=?",Long.class,user);
         assertThat(learning.preferences(user)).containsEntry("saved",false).containsEntry("dailyNewCount",5).containsEntry("reviewBatchSize",20).containsEntry("referenceMinutes",null);
@@ -292,6 +363,7 @@ class LearningIT {
     }
     @Test void candidateIsDurableAndCorrectionReplacesOneEffectiveScoreAtomically() throws Exception {
         var a=session(0);var b=session(0);var scored=write(a,"RATE","REMEMBERED");
+        policies().save(user,parameters(0,List.of(2,4,8,16,32)));
         var cmd=command(b,"RATE","FORGOT");UUID sid=UUID.fromString(b.path("id").asText());
         var candidate=learning.write(user,sid,cmd);var conflict=candidate.path("conflict");
         assertThat(learning.write(user,sid,cmd)).isEqualTo(mapper.readTree(candidate.toString()));assertThat(count("sync_conflict")).isEqualTo(1);
@@ -302,6 +374,8 @@ class LearningIT {
         assertThat(jdbc.queryForObject("select latest_rating from review_state where user_id=?",String.class,user)).isEqualTo("FORGOT");
         assertThat(jdbc.queryForObject("select stage from review_state where user_id=?",Integer.class,user)).isEqualTo(-1);
         assertThat(count("review_event")).isEqualTo(2);assertThat(count("review_replay_allowance")).isEqualTo(1);
+        assertThat(jdbc.queryForObject("select algorithm_version from review_event where user_id=? and kind='CORRECT'",String.class,user)).isEqualTo("rules-v1");
+        assertThat(jdbc.queryForObject("select algorithm_parameters->'intervals' from review_event where user_id=? and kind='CORRECT'",String.class,user)).isEqualTo("[1, 3, 7, 14, 30]");
         assertThat(learning.summary(user)).containsEntry("todayNew",1L).containsEntry("todayReview",0L);
         var latest=current(scored.path("session"));assertThat(latest.at("/round/newCount").asInt()).isEqualTo(1);
         assertThat(latest.at("/current/isReplay").asBoolean()).isTrue();assertThat(latest.path("canUndo").asBoolean()).isFalse();

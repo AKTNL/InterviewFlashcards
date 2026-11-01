@@ -21,7 +21,7 @@ public class BackupService {
     // so self references (parent cards/drafts and compensating events) are checked at statement end.
     static final List<String> TABLES = List.of("source_document","deck","module","chapter","import_job","draft_card",
         "draft_edit_operation","chapter_check_progress","card","asset","source_span","follow_up","tag","card_tag",
-        "personal_annotation","learning_preference","learning_preference_chapter","review_state","learning_session",
+        "personal_annotation","review_policy","learning_preference","learning_preference_chapter","review_state","learning_session",
         "session_item","review_event","review_replay_allowance","sync_conflict");
     private final JdbcTemplate jdbc;
     private final com.interviewflashcards.files.CapacityService capacity;
@@ -195,8 +195,13 @@ public class BackupService {
     }
     private void validateStructure(BackupArchive.Opened opened) throws IOException {
         var data=opened.data(); var names=new HashSet<String>(); data.fieldNames().forEachRemaining(names::add);
-        if(!names.equals(new HashSet<>(TABLES))) throw new IOException("Unknown or missing tables");
+        var expected=new HashSet<>(TABLES); expected.remove("review_policy");
+        if(!names.equals(new HashSet<>(TABLES)) && !names.equals(expected)) throw new IOException("Unknown or missing tables");
         var fileNames=new HashSet<>(List.of("data.json","manifest.json")); var ids=new HashSet<String>(); long total=0;
+        if(!data.has("review_policy")) {
+            ((ObjectNode)data).putArray("review_policy");
+            ((ObjectNode)opened.manifest().path("counts")).put("review_policy",0);
+        }
         for(var table:TABLES) {
             if(!data.path(table).isArray() || !opened.manifest().path("counts").path(table).isIntegralNumber()
                     || opened.manifest().path("counts").path(table).asLong()!=data.path(table).size()) throw new IOException("Count mismatch");
@@ -204,6 +209,32 @@ public class BackupService {
             var columns=new HashSet<>(columns(table)); columns.removeAll(Set.of("user_id","storage_key","attempt_token"));
             for(var row:data.path(table)) {
                 if(!row.isObject()) throw new IOException("Invalid row");
+                if(table.equals("review_policy")) {
+                    var intervals=row.path("intervals");
+                    if(!intervals.isArray() || intervals.size()!=5) throw new IOException("Invalid review policy");
+                    var values=new ArrayList<Integer>();
+                    for(var interval:intervals) {
+                        if(!interval.isIntegralNumber() || !interval.canConvertToInt()) throw new IOException("Invalid review interval");
+                        values.add(interval.intValue());
+                    }
+                    if(!com.interviewflashcards.learning.ReviewPolicyService.validIntervals(values) || row.path("algorithm_version").asText().isBlank())
+                        throw new IOException("Invalid review policy");
+                }
+                if(table.equals("review_event") && !row.has("algorithm_parameters")) ((ObjectNode)row).putObject("algorithm_parameters");
+                if(table.equals("review_event")) {
+                    var parameters=row.path("algorithm_parameters");
+                    if(!parameters.isObject()) throw new IOException("Invalid algorithm parameters");
+                    if(!parameters.isEmpty()) {
+                        var values=parameters.path("intervals");int previous=0;
+                        if(!values.isArray() || values.size()!=5 || !parameters.path("algorithmVersion").equals(row.path("algorithm_version")))
+                            throw new IOException("Invalid algorithm parameters");
+                        for(var value:values) {
+                            if(!value.isIntegralNumber() || !value.canConvertToInt() || value.intValue()<1 || value.intValue()<previous)
+                                throw new IOException("Invalid algorithm interval");
+                            previous=value.intValue();
+                        }
+                    }
+                }
                 // Additive P1-09 metadata: continue accepting pre-V12 format-1 archives.
                 if(table.equals("deck") && !row.has("copy_origin")) ((ObjectNode)row).putObject("copy_origin");
                 if(table.equals("source_document") && !row.has("shared_copy")) ((ObjectNode)row).put("shared_copy",false);

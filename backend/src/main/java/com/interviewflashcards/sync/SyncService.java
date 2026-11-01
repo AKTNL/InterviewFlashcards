@@ -37,7 +37,7 @@ public class SyncService {
             var data = new java.util.LinkedHashMap<String,Object>();
             for (String table : java.util.List.of("deck","module","chapter","draft_card","draft_edit_operation",
                     "chapter_check_progress","card","asset","source_span","follow_up","tag","card_tag",
-                    "personal_annotation","learning_preference","learning_preference_chapter","review_state",
+                    "personal_annotation","review_policy","learning_preference","learning_preference_chapter","review_state",
                     "review_event","learning_session","session_item","review_replay_allowance","import_job","sync_conflict")) {
                 data.put(table, jdbc.query("select (to_jsonb(t)-'user_id'-'storage_key'-'raw_evidence'-'attempt_token')::text from " + table + " t where user_id=?",
                     (rs,n) -> {

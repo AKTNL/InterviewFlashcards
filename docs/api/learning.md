@@ -79,3 +79,6 @@
 - 其他沿用 `NOT_FOUND`（404，含越权 ID）、`EPOCH_EXPIRED`、`OPERATION_ID_REUSED`、401、CSRF 403。
 
 读取不写入学习状态。外部返回的所有 UUID 均校验用户归属；事件、状态、条目、用户 revision、额度和幂等收据同事务回滚。旧代次请求不会执行。算法配置使用 `app.review.algorithm-version` 与 `app.review.success-intervals`，五个正整数且非递减；改变默认参数必须更换版本名，已有事件及日期不批量重算。
+
+
+P1-04 已增加[个人复习参数与效果观察](review-parameters.md)。新评分记录当前个人版本及完整参数快照；参数变更不批量重算已有日程，评分更正沿用原评分参数，撤销复制原证据。未设置个人参数时继续使用部署默认值。

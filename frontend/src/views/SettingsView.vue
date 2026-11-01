@@ -65,7 +65,7 @@ onBeforeRouteLeave(() => !dirty.value || window.confirm('还有未保存的学�
   <p v-if="error" role="alert" class="form-error">{{ error }}</p><p v-if="message" role="status" class="notice">{{ message }}</p>
   <p v-if="loading" role="status">正在读取设置…</p>
   <p v-if="dirty" role="status">有未保存的学习设置，请保存后再离开。</p>
-  <p><RouterLink to="/data">题库删除与学习进度重置</RouterLink> · <RouterLink to="/backups">备份与恢复</RouterLink></p>
+  <p><RouterLink to="/review-parameters">复习参数与效果评估</RouterLink> · <RouterLink to="/data">题库删除与学习进度重置</RouterLink> · <RouterLink to="/backups">备份与恢复</RouterLink></p>
   <form v-if="today" class="chapter-review learning-settings" @submit.prevent="save">
     <fieldset :disabled="pending || busy || loading"><legend>每日目标</legend>
       <label>每日新题量<input v-model.number="dailyNewCount" type="number" min="0" max="100" required /></label><p class="form-note">0～100，设为 0 可专注复习。今日剩余额度按目标减去今日不同新学卡片数计算。</p>
