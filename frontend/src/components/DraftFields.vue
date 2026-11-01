@@ -1,6 +1,14 @@
 <script setup lang="ts">
-import type { Draft } from '../api/imports'
+import type { CheckFlag, Draft } from '../api/imports'
 const value = defineModel<Draft>({ required: true })
+// Several glyph issues can have identical kind/reason/page. Index keys would reuse
+// an unchecked DOM input for the next unresolved flag after removal.
+const flagKeys = new WeakMap<CheckFlag, number>()
+let nextFlagKey = 0
+function flagKey(flag: CheckFlag) {
+  if (!flagKeys.has(flag)) flagKeys.set(flag, nextFlagKey++)
+  return flagKeys.get(flag)!
+}
 defineProps<{ prefix: string }>()
 </script>
 <template>
@@ -27,7 +35,7 @@ defineProps<{ prefix: string }>()
       <label>追问标题<input v-model="followup.title" /></label><label>追问全文<textarea v-model="followup.text" rows="4" /></label><label>追问物理页<input v-model.number="followup.page" type="number" min="1" /></label>
     </fieldset>
     <fieldset><legend>待检查标记（取消勾选表示已核对）</legend>
-      <label v-for="(flag, index) in value.flags" :key="index" class="flag-row"><input type="checkbox" checked @change="value.flags.splice(index, 1)" />{{ flag.reason }}</label>
+      <label v-for="(flag, index) in value.flags" :key="flagKey(flag)" class="flag-row"><input type="checkbox" checked @change="value.flags.splice(index, 1)" />{{ flag.reason }}</label>
       <button type="button" class="secondary-button" @click="value.flags.push({ kind: 'MANUAL_CHECK', reason: '人工标记：需要进一步核对' })">添加待检查标记</button>
     </fieldset>
   </div>

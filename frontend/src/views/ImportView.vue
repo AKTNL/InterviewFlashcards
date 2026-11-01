@@ -11,6 +11,8 @@ const job = ref<ImportJob>()
 const chapters = ref<Chapter[]>([])
 const chapterId = ref('')
 const dirty = ref(false)
+const onlyFlagged = ref(false)
+const visibleChapters = computed(() => chapters.value.filter(c => !onlyFlagged.value || (!c.abandoned && c.flaggedCount > 0)))
 const resume = computed(() => [...chapters.value].filter(c => c.checkStatus !== 'PENDING' && !c.abandoned).sort((a, b) => (b.checkedAt ?? '').localeCompare(a.checkedAt ?? ''))[0])
 const error = ref('')
 const notice = ref('')
@@ -82,8 +84,10 @@ onUnmounted(() => { stopped = true; generation++; clearTimeout(timer); window.re
     <section class="chapter-list" aria-label="章节草稿">
       <h2>选择章节逐章检查</h2>
       <p>已导入 {{ chapters.filter(c => c.checkStatus === 'IMPORTED').length }} 章 · 其余 {{ chapters.filter(c => c.checkStatus !== 'IMPORTED' && !c.abandoned).length }} 章仍为草稿。</p>
+      <label class="anomaly-chapters"><input v-model="onlyFlagged" type="checkbox" :disabled="dirty" />仅显示有待检查题的章节（{{ chapters.filter(c => !c.abandoned && c.flaggedCount > 0).length }} 章）</label>
+      <p v-if="onlyFlagged && !visibleChapters.length" role="status">当前没有带待检查标记的章节。</p>
       <button v-if="resume" class="primary-button" :disabled="dirty" @click="chooseChapter(resume.id)">继续上次检查：{{ resume.name }}</button>
-      <div class="chapter-buttons"><button v-for="chapter in chapters" :key="chapter.id" class="secondary-button" :aria-pressed="chapterId === chapter.id" @click="chooseChapter(chapter.id)">
+      <div class="chapter-buttons"><button v-for="chapter in visibleChapters" :key="chapter.id" class="secondary-button" :aria-pressed="chapterId === chapter.id" @click="chooseChapter(chapter.id)">
         {{ chapter.module }} / {{ chapter.name }} · {{ chapter.candidateCount }} 题 · {{ chapter.flaggedCount }} 待检查
         <span> · {{ chapter.abandoned ? '已放弃剩余草稿' : ({ PENDING: '待检查', IN_PROGRESS: '检查中', IMPORTED: '已导入' }[chapter.checkStatus] ?? chapter.checkStatus) }}</span>
         <small v-if="chapter.originalName !== chapter.name">（原名 {{ chapter.originalName }}）</small>

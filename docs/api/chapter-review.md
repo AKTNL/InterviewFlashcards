@@ -11,6 +11,8 @@
 
 章节及正式卡片组合读取使用 PostgreSQL 可重复读快照。
 
+P1-02 前端复用上述读取增加本章相似标题只读提示、异常类型/关键词筛选及来源 PDF 并排对照，无新接口或迁移。筛选不改变全章确认范围；异常导航沿用 `PROGRESS`，逐项解除标记沿用带原因的 `EDIT`。检查页展示既有章节/草稿版本、来源标识与 `history.inputIds/outputIds/createdAt`，原始证据继续保留。平台检查通过既有管理员命名空间访问相同能力。详见 [ADR 0022](../decisions/0022-p1-02-import-review-efficiency.md) 和 [验收记录](../fixtures/p1-02/README.md)。
+
 ## 写入
 
 `POST /api/chapters/{id}/review`，JSON 示例：

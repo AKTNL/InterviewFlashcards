@@ -40,6 +40,17 @@ it('keeps parsing progress visible without offering drafts before READY', async 
   expect(wrapper.text()).toContain('提取文字与来源位置'); expect(wrapper.text()).toContain('25%')
   expect(importsApi.chapters).not.toHaveBeenCalled(); expect(wrapper.find('.draft-list').exists()).toBe(false)
 })
+it('concentrates flagged chapters without including abandoned chapters or changing the current chapter', async () => {
+  const base = { name: 'Redis', originalName: 'Redis', module: 'Java', checkStatus: 'PENDING', candidateCount: 2, flaggedCount: 0 }
+  vi.mocked(importsApi.chapters).mockResolvedValue([{ ...base, id: 'normal' }, { ...base, id: 'flagged', flaggedCount: 1 }, { ...base, id: 'abandoned', abandoned: true, flaggedCount: 1 }])
+  const wrapper = view(); await flushPromises()
+  await wrapper.get('.anomaly-chapters input').setValue(true)
+  expect(wrapper.findAll('.chapter-buttons button')).toHaveLength(1)
+  expect(importsApi.review).not.toHaveBeenCalled()
+  vi.mocked(importsApi.chapters).mockResolvedValue([{ ...base, id: 'normal' }])
+  await wrapper.findAll('button').find(b => b.text() === '刷新任务')!.trigger('click'); await flushPromises()
+  expect(wrapper.text()).toContain('当前没有带待检查标记的章节')
+})
 it('shows actionable text failure and retains retry with the current task version', async () => {
   vi.mocked(importsApi.job).mockResolvedValue({ ...job, status: 'FAILED', stage: 'ANALYZING', errorCode: 'INSUFFICIENT_TEXT', errorMessage: '文本不足，请重新选择 PDF' })
   const wrapper = view(); await flushPromises()

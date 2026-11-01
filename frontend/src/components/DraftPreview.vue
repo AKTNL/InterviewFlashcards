@@ -2,16 +2,16 @@
 import { computed, ref, watch } from 'vue'
 import { libraryReviewApi } from '../api/library'
 import { importsApi, type Draft } from '../api/imports'
-const props = defineProps<{ id: string; card?: Draft; libraryId?: string }>()
+const props = defineProps<{ id: string; card?: Draft; snapshot?: Draft; libraryId?: string }>()
 const sourceBase = computed(() => props.libraryId ? `/api/admin/library/${props.libraryId}/sources` : '/api/sources')
 const draft = ref<Draft>()
 const error = ref('')
 const opened = ref<number[]>([])
 const imageErrors = ref<number[]>([])
-watch(() => [props.id, props.card] as const, async ([id, card], _, onCleanup) => {
+watch(() => [props.id, props.card, props.snapshot] as const, async ([id, card, snapshot], _, onCleanup) => {
   let stale = false; onCleanup(() => { stale = true })
   draft.value = undefined; error.value = ''; opened.value = []; imageErrors.value = []
-  try { const value = card ?? await (props.libraryId ? libraryReviewApi(props.libraryId) : importsApi).draft(id); if (!stale) draft.value = value }
+  try { const value = snapshot ?? card ?? await (props.libraryId ? libraryReviewApi(props.libraryId) : importsApi).draft(id); if (!stale) draft.value = value }
   catch (cause) { if (!stale) error.value = cause instanceof Error ? cause.message : '草稿读取失败' }
 }, { immediate: true })
 function showImage(event: Event, page: number) {
@@ -24,6 +24,7 @@ function showImage(event: Event, page: number) {
     <p v-else-if="!draft" role="status">正在读取完整草稿…</p>
     <template v-else>
       <p class="eyebrow">{{ draft.sourceEntry }} · {{ card ? '正式卡片' : '来源草稿' }}{{ draft.excluded ? ' · 已排除' : '' }}</p><h2>{{ draft.question }}</h2>
+      <p class="form-note">{{ card ? '卡片 ID' : '草稿 ID' }} {{ draft.id }} · 版本 {{ draft.version }} · 来源 ID {{ draft.sourceId }}</p>
       <p v-if="draft.parentDraftId" class="form-note">此题由原问题人工拆分，来源与调整记录保留关联。</p>
       <details class="check-flags"><summary>待检查原因（{{ draft.flags.length }} 处）</summary>
         <ul><li v-for="(flag, i) in draft.flags" :key="i">{{ flag.page ? `第 ${flag.page} 页：` : '' }}{{ flag.reason }}</li></ul>

@@ -140,6 +140,18 @@ button[aria-pressed=true] { outline: 2px solid #315b48; outline-offset: 2px; }
 .check-flags ul { max-height: 18rem; overflow-y: auto; }
 .source-page-image { display: block; width: 100%; height: auto; margin: 1rem 0; }
 .chapter-review { margin: 2rem 0; min-width: 0; }
+.review-filters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.chapter-review select { display: block; width: 100%; min-width: 0; min-height: 44px; padding: .6rem; border: 1px solid #b7c3b7; border-radius: .3rem; background: #fff; font: inherit; }
+.review-workspace, .review-content { min-width: 0; }
+.similarity-panel, .source-comparison { min-width: 0; margin-block: 1.5rem; padding: 1rem; border: 1px solid #d8ded9; border-radius: .6rem; background: #fff; }
+.similarity-panel li { margin-block: .7rem; }
+.flag-reasons { color: #74511b; font-size: .9rem; }
+.review-workspace.with-source { display: grid; gap: 1rem; align-items: start; }
+@media (min-width: 1000px) {
+  .review-workspace.with-source { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .review-workspace.with-source > .source-comparison { position: sticky; top: 1rem; max-height: calc(100dvh - 2rem); overflow-y: auto; }
+}
+@media (max-width: 599px) { .review-filters { grid-template-columns: minmax(0, 1fr); gap: 0; } }
 .review-actions, .review-editor, .chapter-confirm, .confirm-panel { margin: 1.5rem 0; padding: clamp(.8rem, 3vw, 1.5rem); background: #f2f5ef; border: 1px solid #d8ded9; border-radius: .6rem; min-width: 0; }
 .chapter-review label { display: block; margin: .8rem 0; }
 .chapter-review textarea, .chapter-review input:not([type=checkbox]) { display: block; width: 100%; min-width: 0; min-height: 44px; padding: .6rem; font: inherit; border: 1px solid #b7c3b7; border-radius: .3rem; background: #fff; }
@@ -172,6 +184,8 @@ button[aria-pressed=true] { outline: 2px solid #315b48; outline-offset: 2px; }
 .pdf-toolbar { display: flex; align-items: center; gap: .7rem; flex-wrap: wrap; margin-block: 1rem; }
 .pdf-toolbar label { display: inline-flex; gap: .4rem; align-items: center; }
 .pdf-toolbar input { width: 5rem; }
+.chapter-review .pdf-toolbar input { width: 5rem; }
+.source-comparison .pdf-toolbar label { white-space: nowrap; }
 .pdf-scroll { max-width: 100%; overflow: auto; background: #dddeda; margin-block: 1rem; }
 .pdf-sheet { position: relative; width: max-content; }
 .pdf-sheet canvas { display: block; }

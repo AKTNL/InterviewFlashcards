@@ -24,7 +24,7 @@ function mountView() {
   const pinia = createPinia(); setActivePinia(pinia)
   const sync = useSyncStore(); sync.state = { dataEpoch: 'epoch', revision: 1, sources: [] }
   const enqueue = vi.spyOn(sync, 'enqueue').mockResolvedValue(undefined)
-  const wrapper = mount(ChapterReviewView, { props: { id: 'chapter' }, global: { plugins: [pinia], stubs: { DraftPreview: true } } }); wrappers.push(wrapper)
+  const wrapper = mount(ChapterReviewView, { props: { id: 'chapter' }, global: { plugins: [pinia], stubs: { DraftPreview: true, DraftSourceComparison: true } } }); wrappers.push(wrapper)
   return { wrapper, sync, enqueue }
 }
 it('resumes the server check position without resetting it and shows independent count changes', async () => {
@@ -64,6 +64,8 @@ it('retains pending edits after remount and prevents another write based on stal
   await flushPromises()
   expect(wrapper.text()).toContain('本章有待同步或待处理操作')
   expect(wrapper.findAll('button').find(b => b.text() === '编辑问题、内容与来源')!.attributes('disabled')).toBeDefined()
+  await wrapper.findAll('button').find(b => b.text() === '原文并排对照')!.trigger('click')
+  expect(wrapper.findComponent({ name: 'DraftSourceComparison' }).props('unsaved')).toBe(true)
   expect(enqueue).not.toHaveBeenCalled()
 })
 it('lets imported chapters correct existing cards while hiding structural operations and confirmation', async () => {
@@ -92,4 +94,83 @@ it('uses the platform review endpoint with explicit confirmation and never queue
   await w.get('.confirm-panel .primary-button').trigger('click'); await flushPromises()
   expect(libraryWrite).toHaveBeenCalledWith('/api/admin/library/platform/chapters/chapter/review', expect.objectContaining({ expectedVersion: 4, action: 'CONFIRM', payload: { allowFlagged: true } }))
   expect(enqueue).not.toHaveBeenCalled(); expect(w.text()).toContain('服务端已确认保存')
+})
+
+it('concentrates anomaly reasons by type, searches and navigates only matching active rows', async () => {
+  const rows = [{ ...draft, id: 'd1', question: '正常问题', flags: [] }, { ...draft, id: 'd2', question: '跨页问题' },
+    { ...draft, id: 'd3', question: '跨页表格', flags: [{ kind: 'TABLE', reason: '表格核对', page: 11 }] }, { ...draft, id: 'excluded', question: '排除问题', excluded: true }]
+  vi.mocked(importsApi.review).mockResolvedValue({ ...structuredClone(review), items: rows, activeCount: 3, flaggedCount: 2 })
+  vi.mocked(importsApi.draft).mockImplementation(async id => ({ ...structuredClone(draft), ...rows.find(d => d.id === id)! }))
+  const { wrapper, enqueue } = mountView(); await flushPromises()
+  await wrapper.get('[aria-label="检查范围"]').setValue('FLAGGED')
+  expect(wrapper.findAll('.draft-link').map(b => b.text())).toEqual(['跨页问题', '跨页表格'])
+  expect(wrapper.get('.flag-reasons').text()).toContain('核对原文')
+  await wrapper.findAll('button').find(b => b.text() === '下一待检查题')!.trigger('click'); await flushPromises()
+  expect(importsApi.draft).toHaveBeenLastCalledWith('d3')
+  expect(enqueue).toHaveBeenCalledWith(expect.objectContaining({ action: 'PROGRESS', expectedVersion: 4, payload: { draftId: 'd3' } }))
+  await wrapper.get('[aria-label="检查范围"]').setValue('kind:TABLE')
+  expect(wrapper.findAll('.draft-link')).toHaveLength(1)
+  expect(wrapper.get('.flag-reasons').text()).toContain('物理页 11')
+  await wrapper.get('[aria-label="查找候选题目"]').setValue('无结果')
+  expect(wrapper.text()).toContain('没有匹配的题目')
+  expect(wrapper.get('.chapter-confirm').text()).toContain('将导入 3 题')
+})
+
+it('keeps similarity comparison read-only and clears hidden merge choices when filters change', async () => {
+  const rows = [{ ...draft, id: 'd1', question: 'HashMap底层原理和扩容机制' }, { ...draft, question: 'HashMap的底层原理和扩容机制' },
+    { ...draft, id: 'excluded', excluded: true, question: 'HashMap的底层原理和扩容机制' }]
+  vi.mocked(importsApi.review).mockResolvedValue({ ...structuredClone(review), items: rows })
+  const { wrapper, enqueue } = mountView(); await flushPromises()
+  expect(wrapper.get('[aria-label="相似题提示"]').text()).toContain('本章相似题提示（1）')
+  await wrapper.findAll('button').find(b => b.text() === '只读对比')!.trigger('click'); await flushPromises()
+  expect(importsApi.draft).toHaveBeenLastCalledWith('d1')
+  expect(enqueue).not.toHaveBeenCalled()
+  expect(wrapper.get('.draft-link[aria-pressed="true"]').text()).toBe(rows[1]!.question)
+  expect(wrapper.findAll('.draft-list input[type=checkbox]').every(c => !(c.element as HTMLInputElement).checked)).toBe(true)
+  await wrapper.get('.draft-list input[type=checkbox]').setValue(true)
+  await wrapper.get('[aria-label="检查范围"]').setValue('FLAGGED')
+  expect(wrapper.text()).toContain('合并选中题（0）')
+  expect(enqueue).not.toHaveBeenCalled()
+})
+
+it('keeps unsaved edits and flag removals while using comparison and requires the existing versioned save', async () => {
+  const { wrapper, enqueue } = mountView(); await flushPromises()
+  await wrapper.findAll('button').find(b => b.text() === '原文并排对照')!.trigger('click')
+  expect(wrapper.find('.review-workspace.with-source').exists()).toBe(true)
+  await wrapper.findAll('button').find(b => b.text() === '编辑问题、内容与来源')!.trigger('click')
+  await wrapper.get('#edit-question').setValue('对照后修正')
+  await wrapper.get('.flag-row input').setValue(false)
+  expect(wrapper.get('[aria-label="检查范围"]').attributes('disabled')).toBeDefined()
+  expect(wrapper.findAll('button').find(b => b.text() === '下一待检查题')!.attributes('disabled')).toBeDefined()
+  await wrapper.findAll('button').find(b => b.text() === '收起原文对照')!.trigger('click')
+  expect((wrapper.get('#edit-question').element as HTMLTextAreaElement).value).toBe('对照后修正')
+  expect(enqueue).not.toHaveBeenCalled()
+  await wrapper.get('#review-reason').setValue('已对照来源核对异常')
+  await wrapper.get('.review-editor').trigger('submit'); await flushPromises()
+  expect(enqueue).toHaveBeenCalledWith(expect.objectContaining({ action: 'EDIT', expectedVersion: 4, payload: expect.objectContaining({ value: expect.objectContaining({ flags: [], sources: draft.sources }) }) }))
+})
+
+it('ignores an old comparison response after changing the current draft', async () => {
+  const rows = [{ ...draft, id: 'd1' }, draft]
+  vi.mocked(importsApi.review).mockResolvedValue({ ...structuredClone(review), items: rows })
+  const { wrapper } = mountView(); await flushPromises()
+  let resolveComparison!: (value: Draft) => void
+  vi.mocked(importsApi.draft).mockImplementationOnce(() => new Promise(resolve => { resolveComparison = resolve }))
+  await wrapper.findAll('button').find(b => b.text() === '只读对比')!.trigger('click')
+  await wrapper.findAll('.draft-link')[0]!.trigger('click'); await flushPromises()
+  resolveComparison({ ...draft, id: 'old-comparison' }); await flushPromises()
+  expect(wrapper.find('[aria-label="相似题提示"] draft-preview-stub').exists()).toBe(false)
+})
+
+it.each([false, true])('keeps remaining anomaly checkboxes checked after resolving the first flag (duplicate reasons: %s)', async duplicate => {
+  const first = { kind: 'TABLE', reason: '核对表格', page: 10 }
+  const second = duplicate ? { ...first } : { kind: 'GLYPH', reason: '核对字形', page: 10 }
+  vi.mocked(importsApi.draft).mockResolvedValue({ ...structuredClone(draft), flags: [first, second] })
+  const { wrapper, enqueue } = mountView(); await flushPromises()
+  await wrapper.findAll('button').find(b => b.text() === '编辑问题、内容与来源')!.trigger('click')
+  await wrapper.findAll('.flag-row input')[0]!.setValue(false)
+  expect(wrapper.findAll('.flag-row')).toHaveLength(1)
+  expect(wrapper.get('.flag-row').text()).toContain(second.reason)
+  expect((wrapper.get('.flag-row input').element as HTMLInputElement).checked).toBe(true)
+  expect(enqueue).not.toHaveBeenCalled()
 })

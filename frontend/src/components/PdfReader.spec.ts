@@ -27,6 +27,14 @@ it('shows a retry and original-file fallback after load failure instead of claim
   expect(wrapper.get('a').attributes('href')).toBe('/api/sources/source/content#page=3')
   await wrapper.findAll('button').find(b => b.text() === '重试 PDF')!.trigger('click');await flushPromises();expect(wrapper.get('canvas').attributes('data-rendered-page')).toBe('3')
 })
+it('uses authenticated platform source URLs and reopens when the namespace changes', async () => {
+  const wrapper = await view()
+  await wrapper.setProps({ libraryId: 'library' }); await flushPromises()
+  expect(mocks.getDocument).toHaveBeenLastCalledWith(expect.objectContaining({ url: '/api/admin/library/library/sources/source/content', withCredentials: true }))
+  expect(wrapper.get('a').attributes('href')).toBe('/api/admin/library/library/sources/source/content#page=3')
+  await wrapper.setProps({ libraryId: undefined }); await flushPromises()
+  expect(mocks.getDocument).toHaveBeenLastCalledWith(expect.objectContaining({ url: '/api/sources/source/content' }))
+})
 it('does not mark an unfinished or failed render as complete', async () => {
   let rejectRender: (e: Error) => void = () => {}
   mocks.render.mockReturnValueOnce({ promise: new Promise((_, reject) => { rejectRender = reject }), cancel: vi.fn() })

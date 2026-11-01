@@ -1,0 +1,59 @@
+{
+  "date": "2026-11-01",
+  "mode": "local Vite + isolated mocked API + real 222-page PDF; no deployment or database writes",
+  "desktop": {
+    "columns": "532px 532px",
+    "content": {
+      "x": 180,
+      "width": 532
+    },
+    "source": {
+      "x": 728,
+      "width": 532
+    },
+    "viewport": 1440,
+    "width": 1440
+  },
+  "phone": {
+    "viewport": 390,
+    "width": 390,
+    "columns": "350px",
+    "content": 350,
+    "source": 350
+  },
+  "checks": [
+    "similar-title read-only comparison causes no writes or selections",
+    "excluded drafts omitted from suggestions and anomaly filters",
+    "flagged chapter concentration",
+    "flag-kind filter and full reason list",
+    "three source spans including two regions on the same page",
+    "desktop columns and mobile stacking without page overflow",
+    "unsaved edits block anomaly navigation and remain during PDF comparison",
+    "versioned EDIT uses existing IndexedDB queue and preserves original evidence",
+    "explicit single-flag resolution preserves remaining flags",
+    "audit input/output IDs visible",
+    "anomaly navigation saves server position and reload resumes it",
+    "platform namespace PDF renders",
+    "PDF failure fallback and retry"
+  ],
+  "writes": [
+    {
+      "action": "EDIT",
+      "expectedVersion": 4,
+      "draftId": "first",
+      "flagKinds": [
+        "GLYPH"
+      ]
+    },
+    {
+      "action": "PROGRESS",
+      "expectedVersion": 5,
+      "draftId": "second"
+    }
+  ],
+  "pdfReads": [
+    "/api/sources/33333333-3333-4333-8333-333333333333/content",
+    "/api/admin/library/library/sources/33333333-3333-4333-8333-333333333333/content"
+  ],
+  "pageErrors": []
+}

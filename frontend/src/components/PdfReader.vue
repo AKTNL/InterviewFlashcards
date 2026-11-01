@@ -3,7 +3,8 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { getDocument, GlobalWorkerOptions, type PDFDocumentProxy, type RenderTask } from 'pdfjs-dist'
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 GlobalWorkerOptions.workerSrc = workerUrl
-const props = defineProps<{ sourceId: string; initialPage: number; bbox?: number[] }>()
+const props = defineProps<{ sourceId: string; initialPage: number; bbox?: number[]; libraryId?: string }>()
+const sourceUrl = computed(() => `${props.libraryId ? `/api/admin/library/${props.libraryId}/sources` : '/api/sources'}/${props.sourceId}/content`)
 const page = ref(props.initialPage), jump = ref(props.initialPage), count = ref(0), zoom = ref(1), busy = ref(false), error = ref('')
 const canvas = ref<HTMLCanvasElement>(), host = ref<HTMLElement>(), width = ref(1), height = ref(1)
 const renderedPage = ref(0)
@@ -44,7 +45,7 @@ async function open() {
   try {
     if (previous) await previous.destroy()
     if (current !== generation || !mounted) return
-    loadingTask = getDocument({ url: `/api/sources/${props.sourceId}/content`, withCredentials: true,
+    loadingTask = getDocument({ url: sourceUrl.value, withCredentials: true,
       cMapUrl: '/pdfjs/cmaps/', cMapPacked: true, standardFontDataUrl: '/pdfjs/standard_fonts/', wasmUrl: '/pdfjs/wasm/' })
     const doc = await loadingTask.promise
     if (current !== generation || !mounted) { await doc.destroy(); return }
@@ -54,7 +55,7 @@ async function open() {
   } catch { if (current === generation) { error.value = 'PDF 加载失败，请检查登录或网络后重试。'; busy.value = false } }
 }
 function go(value: number) { if (!count.value) return; page.value = Math.max(1, Math.min(count.value, Math.trunc(value) || 1)); jump.value = page.value; void draw() }
-watch(() => props.sourceId, () => { if (mounted) void open() })
+watch(sourceUrl, () => { if (mounted) void open() })
 watch(() => props.initialPage, value => go(value))
 watch(zoom, draw)
 onMounted(() => {
@@ -78,6 +79,6 @@ onUnmounted(() => { mounted = false; generation++; cancelAnimationFrame(resizeFr
     <p v-if="busy" role="status">正在绘制物理页 {{ page }}…</p><p v-if="error" role="alert" class="form-error">{{ error }} <button class="secondary-button" @click="open">重试 PDF</button></p>
     <p v-if="highlight" class="form-note">金色框为此段来源范围；页码均为 PDF 物理页码。</p>
     <div class="pdf-scroll"><div class="pdf-sheet"><canvas ref="canvas" :aria-label="`PDF 物理页 ${page}`" :data-rendered-page="renderedPage" /><div v-if="highlight && !error && renderedPage === page" class="pdf-highlight" :style="highlight" /></div></div>
-    <a :href="`/api/sources/${sourceId}/content#page=${page}`" target="_blank" rel="noopener">打开原 PDF（新窗口）</a>
+    <a :href="`${sourceUrl}#page=${page}`" target="_blank" rel="noopener">打开原 PDF（新窗口）</a>
   </section>
 </template>

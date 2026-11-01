@@ -28,6 +28,7 @@ P1-12 已完成仓库实现与本地验收：独立管理员维护入口、管�
 - [注册、密码与容量 API](docs/api/registration-and-accounts.md)
 - [设计文档](docs/设计文档.md)
 - [P1-01 阅读设置、快捷键与返回位置验收](docs/fixtures/p1-01/README.md)
+- [P1-02 相似题提示、异常集中处理与原文并排对照验收](docs/fixtures/p1-02/README.md)（仓库实现与本地验收完成，尚未发布公网）
 - [开发文档与任务顺序](docs/开发文档.md)
 - [P0-01 验收记录与回归基线](docs/fixtures/p0-01/README.md)
 - [首版技术与数据规则决策](docs/decisions/0001-p0-01-baseline.md)

@@ -17,7 +17,7 @@ export interface Draft extends DraftSummary {
 export interface ChapterReview {
   id: string; name: string; version: number; checkStatus: string; abandoned: boolean; currentDraftId: string | null
   items: DraftSummary[]; cards: { id: string; draftId: string }[]; activeCount: number; flaggedCount: number; userCountDelta: number
-  history: { action: string; reason: string; countDelta: number; createdAt: string }[]
+  history: { action: string; reason: string; countDelta: number; createdAt: string; inputIds?: string[]; outputIds?: string[] }[]
 }
 export interface DraftPage { items: DraftSummary[]; offset: number; limit: number; total: number }
 export const importsApi = {
