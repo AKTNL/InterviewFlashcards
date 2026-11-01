@@ -33,4 +33,22 @@ class LocalFileStorageTest {
         assertThatThrownBy(() -> new LocalFileStorage(properties(3, root.resolve("files/tmp"))))
                 .isInstanceOf(IllegalStateException.class);
     }
+    @Test void startupRemovesOnlyInterruptedPartsAndKeepsPublishedResources() throws Exception {
+        Path temporary = Files.createDirectories(root.resolve("tmp"));
+        Path files = Files.createDirectories(root.resolve("files"));
+        UUID key = UUID.randomUUID();
+        Files.writeString(files.resolve(key.toString()), "committed PDF or backup");
+        Files.writeString(files.resolve(key + ".part"), "interrupted publish");
+        Files.writeString(temporary.resolve("upload-123.part"), "interrupted upload");
+        Files.writeString(temporary.resolve("keep.part"), "unrelated");
+        Files.createDirectories(temporary.resolve("upload-456.part"));
+        Files.writeString(temporary.resolve("upload-456.part/keep"), "not a staging file");
+        var storage = new LocalFileStorage(properties(100, temporary));
+        assertThat(storage.read(key).getContentAsString(java.nio.charset.StandardCharsets.UTF_8))
+                .isEqualTo("committed PDF or backup");
+        assertThat(files.resolve(key + ".part")).doesNotExist();
+        assertThat(temporary.resolve("upload-123.part")).doesNotExist();
+        assertThat(temporary.resolve("keep.part")).hasContent("unrelated");
+        assertThat(temporary.resolve("upload-456.part/keep")).hasContent("not a staging file");
+    }
 }

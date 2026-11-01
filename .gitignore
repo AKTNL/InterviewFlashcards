@@ -12,6 +12,8 @@ frontend/coverage/
 .env.*
 !.env.example
 !**/.env.example
+!deploy/.env.production.example
+deploy/tls/
 *.log
 .playwright-cli/
 playwright-report/

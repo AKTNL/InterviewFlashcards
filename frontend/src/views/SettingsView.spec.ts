@@ -13,6 +13,7 @@ beforeEach(() => { vi.clearAllMocks(); vi.mocked(learningApi.today).mockResolved
 afterEach(() => wrappers.splice(0).forEach(w => w.unmount()))
 async function view() {
   const pinia = createPinia();setActivePinia(pinia);const sync = useSyncStore(), enqueue = vi.spyOn(sync, 'enqueue').mockResolvedValue(undefined)
+  sync.state = { dataEpoch: 'epoch', revision: 1, sources: [] }
   const wrapper = mount(SettingsView, { global: { plugins: [pinia], stubs: { RouterLink: true } } });wrappers.push(wrapper);await flushPromises()
   return { wrapper, enqueue, sync }
 }
@@ -54,4 +55,16 @@ it('protects unsaved settings from reload and browser close', async () => {
   await wrapper.findAll('button').find(b => b.text() === '重新读取设置')!.trigger('click')
   expect(confirm).toHaveBeenCalled();expect((wrapper.get('input[type="number"]').element as HTMLInputElement).value).toBe('0')
   const event = new Event('beforeunload', { cancelable: true });window.dispatchEvent(event);expect(event.defaultPrevented).toBe(true)
+})
+it('waits for initial sync before saving and retains edits when the connection becomes ready', async () => {
+  const { wrapper, sync, enqueue } = await view()
+  sync.state = null; await flushPromises()
+  await wrapper.get('input[type="number"]').setValue(0)
+  expect(wrapper.get('button[type="submit"]').attributes('disabled')).toBeDefined()
+  await wrapper.get('form').trigger('submit'); expect(enqueue).not.toHaveBeenCalled()
+  sync.state = { dataEpoch: 'epoch', revision: 1, sources: [] }; await flushPromises()
+  expect((wrapper.get('input[type="number"]').element as HTMLInputElement).value).toBe('0')
+  expect(wrapper.get('button[type="submit"]').attributes('disabled')).toBeUndefined()
+  await wrapper.get('form').trigger('submit')
+  expect(enqueue).toHaveBeenCalledWith(expect.objectContaining({ payload: expect.objectContaining({ dailyNewCount: 0 }) }))
 })

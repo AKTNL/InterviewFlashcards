@@ -19,6 +19,7 @@ beforeEach(() => { vi.clearAllMocks(); route.params.id = 'session'; route.fullPa
 afterEach(() => { wrappers.splice(0).forEach(w => w.unmount()); vi.restoreAllMocks() })
 async function view() {
   const pinia = createPinia(); setActivePinia(pinia); const sync = useSyncStore(); const enqueue = vi.spyOn(sync, 'enqueue').mockResolvedValue(undefined)
+  sync.state = { dataEpoch: 'epoch', revision: 1, sources: [] }
   const wrapper = mount(PracticeView, { global: { plugins: [pinia], stubs: { RouterLink: { template: '<a><slot /></a>' } } } }); wrappers.push(wrapper); await flushPromises()
   return { wrapper, sync, enqueue, button: (text: string) => wrapper.findAll('button').find(b => b.text() === text)! }
 }
@@ -26,6 +27,16 @@ it('hides ratings and answer until revealed; viewing hints never submits', async
   const { wrapper, enqueue, button } = await view(); expect(wrapper.text()).not.toContain('完整答案尾部');expect(button('记住了')).toBeUndefined()
   await button('查看提示与要点').trigger('click');expect(wrapper.text()).toContain('隐藏提示');expect(enqueue).not.toHaveBeenCalled()
   await button('展开完整答案').trigger('click');expect(wrapper.text()).toContain('完整答案尾部');expect(button('不会')).toBeDefined();expect(wrapper.text()).toContain('待检查')
+})
+it('retains the revealed answer while waiting for the initial sync before scoring', async () => {
+  const { wrapper, sync, enqueue, button } = await view()
+  await button('展开完整答案').trigger('click')
+  sync.state = null; await flushPromises()
+  expect(button('不会').attributes('disabled')).toBeDefined()
+  await button('不会').trigger('click'); expect(enqueue).not.toHaveBeenCalled()
+  expect(wrapper.text()).toContain('完整答案尾部')
+  sync.state = { dataEpoch: 'epoch', revision: 1, sources: [] }; await flushPromises()
+  await button('不会').trigger('click'); expect(enqueue).toHaveBeenCalledOnce()
 })
 it('binds score to session/item/state versions and waits for confirmation before advancing', async () => {
   const { wrapper, sync, enqueue, button } = await view();await button('展开完整答案').trigger('click');await button('不会').trigger('click');await flushPromises()
@@ -76,6 +87,26 @@ it('requires explicit start and persists selected card IDs through the queue', a
   route.params.id = undefined;route.fullPath = '/practice?cards=card'
   const { enqueue, button } = await view();expect(enqueue).not.toHaveBeenCalled();await button('开始主动回忆').trigger('click')
   expect(enqueue).toHaveBeenCalledWith(expect.objectContaining({ kind: 'session.start', payload: { cardIds: ['card'] } }))
+})
+it('ignores historical start receipts and routes only after a newly requested practice is confirmed', async () => {
+  route.params.id = undefined; route.fullPath = '/practice?cards=card'
+  const { sync, button } = await view()
+  const old = { operationId: 'old-start', userId: 'user', dataEpoch: 'epoch', createdAt: 1, kind: 'session.start' as const,
+    name: '旧练习', payload: { cardIds: ['card'] }, status: 'synced' as const, attempts: 0, nextAttemptAt: 0,
+    result: { session: { ...sample, id: 'old-session' }, mutation: { operationId: 'old-start', dataEpoch: 'epoch', revision: 1, entityVersion: 0, serverTime: '' } } }
+  sync.items = [old]; await flushPromises(); expect(replace).not.toHaveBeenCalled()
+  await button('开始主动回忆').trigger('click')
+  sync.items = [old, { ...old, operationId: 'new-start', createdAt: Date.now(), result: { ...old.result, session: { ...sample, id: 'new-session' } } }]
+  await flushPromises(); expect(replace).toHaveBeenCalledExactlyOnceWith('/practice/new-session')
+})
+it('continues a pending start after reload when its original receipt is recovered', async () => {
+  route.params.id = undefined; route.fullPath = '/practice?cards=card'
+  const { sync } = await view()
+  const item = { operationId: 'pending-start', userId: 'user', dataEpoch: 'epoch', createdAt: 1, kind: 'session.start' as const,
+    name: '待确认练习', payload: { cardIds: ['card'] }, status: 'pending' as const, attempts: 1, nextAttemptAt: 0 }
+  sync.items = [item]; await flushPromises()
+  sync.items = [{ ...item, status: 'synced', result: { session: sample, mutation: { operationId: item.operationId, dataEpoch: 'epoch', revision: 2, entityVersion: 0, serverTime: '' } } }]
+  await flushPromises(); expect(replace).toHaveBeenCalledExactlyOnceWith('/practice/session')
 })
 
 it('refreshes remote session advancement when a server revision arrives', async () => {

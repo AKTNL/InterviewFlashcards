@@ -32,7 +32,7 @@ async function load(replaceEdits = false) {
   finally { loading.value = false }
 }
 async function save() {
-  if (!valid.value || pending.value || busy.value || !today.value) return
+  if (!valid.value || pending.value || busy.value || !today.value || !sync.state) return
   busy.value = true; error.value = ''; message.value = ''
   submittedAfter = Date.now()
   try {
@@ -76,7 +76,8 @@ onBeforeRouteLeave(() => !dirty.value || window.confirm('还有未保存的学�
       <label v-for="ch in today.chapters" :key="ch.id" class="chapter-choice"><input v-model="chapterIds" type="checkbox" :value="ch.id" /><span>{{ ch.deckName }} · {{ ch.moduleName }} / {{ ch.name }}<small>已学 {{ ch.learned }}/{{ ch.total }} · 到期 {{ ch.due }} · 薄弱 {{ ch.weak }}</small></span></label>
     </fieldset>
     <p v-if="pending" role="status">设置尚未确认，请查看“保存与同步”；冲突时保留本地与服务端内容供核对。</p>
-    <div class="sync-actions"><button class="primary-button" type="submit" :disabled="!valid || pending || busy || loading">保存学习设置</button><button class="secondary-button" type="button" :disabled="pending || busy || loading" @click="reloadSettings">重新读取设置</button></div>
+    <p v-if="!sync.state" role="status">正在连接同步服务，连接后可保存；当前输入会保留。</p>
+    <div class="sync-actions"><button class="primary-button" type="submit" :disabled="!valid || pending || busy || loading || !sync.state">保存学习设置</button><button class="secondary-button" type="button" :disabled="pending || busy || loading" @click="reloadSettings">重新读取设置</button></div>
   </form>
   <button v-else-if="!loading" class="secondary-button" @click="load()">重试读取设置</button>
 </template>

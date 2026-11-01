@@ -33,6 +33,21 @@ public class LocalFileStorage implements FileStorage {
             throw new IllegalStateException("Storage and temporary directories must be separate");
         }
         maxBytes = properties.storage().maxBytes();
+        // Single-JVM startup, before this storage bean can accept uploads. Never run
+        // periodically: an in-flight upload may legitimately own a .part file.
+        removeInterruptedParts(temporary, "upload-[0-9]+\\.part");
+        removeInterruptedParts(root, "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\.part");
+    }
+    private static void removeInterruptedParts(Path directory, String pattern) throws IOException {
+        int count = 0;
+        try (var paths = Files.list(directory)) {
+            for (var path : paths.filter(p -> p.getFileName().toString().matches(pattern)
+                    && Files.isRegularFile(p, java.nio.file.LinkOption.NOFOLLOW_LINKS)).toList()) {
+                Files.delete(path);
+                count++;
+            }
+        }
+        if (count > 0) LoggerFactory.getLogger(LocalFileStorage.class).info("Interrupted storage staging cleaned count={}", count);
     }
     @Override public Staged stage(InputStream input) throws IOException {
         Path path = Files.createTempFile(temporary, "upload-", ".part");

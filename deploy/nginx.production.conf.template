@@ -1,0 +1,27 @@
+map "${HTTPS_PORT}" $https_authority {
+    "443" "${PUBLIC_HOST}";
+    default "${PUBLIC_HOST}:${HTTPS_PORT}";
+}
+
+server {
+    listen 80;
+    server_name ${PUBLIC_HOST};
+    server_tokens off;
+    access_log off;
+    error_log /dev/stderr crit;
+    return 308 https://$https_authority$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name ${PUBLIC_HOST};
+    ssl_certificate /etc/nginx/tls/fullchain.pem;
+    ssl_certificate_key /etc/nginx/tls/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_session_cache shared:TLS:10m;
+    ssl_session_timeout 1d;
+    ssl_session_tickets off;
+    # Do not impose HTTPS on unrelated subdomains.
+    add_header Strict-Transport-Security "max-age=31536000" always;
+    include /etc/nginx/snippets/application.conf;
+}

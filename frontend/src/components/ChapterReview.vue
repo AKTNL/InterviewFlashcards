@@ -158,7 +158,7 @@ onSyncRefresh(load)
             <button class="secondary-button" :disabled="locked || !abandonedChoice || !reason.trim()" @click="submit('ABANDON', { confirmed: true, reason })">确认放弃（需填写原因）</button><button class="secondary-button" @click="abandonOpen = false">取消</button></div>
         </details>
       </section>
-      <section v-if="imported" aria-label="正式题库"><h3>本章已进入正式题库（{{ review.cards.length }} 题）</h3><RouterLink :to="`/chapters/${id}/cards`" class="primary-button">查看本章正式题库</RouterLink><p>可在上方选择并修正现有卡片；学习将在后续任务提供。</p><p v-for="card in review.cards" :key="card.id" class="card-identity">{{ review.items.find(d => d.id === card.draftId)?.question }} · 卡片 ID {{ card.id }}</p></section>
+      <section v-if="imported" aria-label="正式题库"><h3>本章已进入正式题库（{{ review.cards.length }} 题）</h3><RouterLink :to="`/chapters/${id}/cards`" class="primary-button">查看本章正式题库</RouterLink><p>可进入题库开始主动回忆与评分；在上方修正卡片内容会保留现有学习记录。</p><p v-for="card in review.cards" :key="card.id" class="card-identity">{{ review.items.find(d => d.id === card.draftId)?.question }} · 卡片 ID {{ card.id }}</p></section>
       <details v-if="review.history.length"><summary>调整记录（{{ review.history.length }}）</summary><ol><li v-for="(entry, index) in review.history" :key="index">{{ actions[entry.action] }} · {{ entry.reason }} · 数量 {{ entry.countDelta > 0 ? '+' : '' }}{{ entry.countDelta }}</li></ol></details>
     </template>
   </section>

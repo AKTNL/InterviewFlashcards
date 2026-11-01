@@ -58,6 +58,7 @@ public class ImportWorker {
         }
     }
     private void recordFailure(ImportService.Ticket ticket,String code,String message) {
+        LoggerFactory.getLogger(getClass()).warn("Import failure job={} code={}",ticket.id(),code);
         pendingFailure=new PendingFailure(ticket,code,message); flushFailure();
     }
     private void flushFailure() {

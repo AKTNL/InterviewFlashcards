@@ -44,7 +44,7 @@ docker compose --env-file deploy/.env -f deploy/compose.yml up -d --wait
 
 `down` 保留命名卷，随后启动应保留安装记录、迁移历史和文件。`database` 挂载 PostgreSQL 18 的 `/var/lib/postgresql`；`files` 与 `temporary-files` 分别挂载 `/data/files`、`/data/tmp`。不要在保留数据时使用 `down -v`。修改已有数据库的环境密码不会更改数据库内密码；更换凭据需要显式的数据库密码更新。
 
-本环境是回环地址上的 HTTP 开发环境。公网必须使用 HTTPS，并设置 `SESSION_COOKIE_SECURE=true`；生产域名、证书和完整发布仍属于 P0-13。不要将当前 HTTP 配置直接暴露公网。
+本环境是回环地址上的 HTTP 开发环境。公网必须使用 HTTPS，并设置 `SESSION_COOKIE_SECURE=true`；生产使用独立的 deploy/compose.production.yml 和证书配置，见 [HTTPS 发布、维护与回退](release.md)。不要将当前 HTTP 配置直接暴露公网。
 
 ## 3. 前后端源码开发
 

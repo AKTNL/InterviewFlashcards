@@ -1,0 +1,84 @@
+name: interview-flashcards
+# Standalone production stack: do not merge with the local HTTP compose.yml.
+services:
+  db:
+    image: postgres:18.3-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      TZ: UTC
+    volumes:
+      - database:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+    logging: &logging
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+  backend:
+    image: ${BACKEND_IMAGE:?Set an immutable BACKEND_IMAGE release tag}
+    build:
+      context: ../backend
+      args:
+        MAVEN_MIRROR_URL: ${MAVEN_MIRROR_URL:-https://repo1.maven.org/maven2}
+    environment:
+      DATABASE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB:?Set POSTGRES_DB}
+      DATABASE_USERNAME: ${POSTGRES_USER:?Set POSTGRES_USER}
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      STORAGE_ROOT: /data/files
+      STORAGE_TEMP_ROOT: /data/tmp
+      SESSION_COOKIE_SECURE: "true"
+      SERVER_FORWARD_HEADERS_STRATEGY: native
+      ACCOUNT_USERNAME: ${ACCOUNT_USERNAME:?Set ACCOUNT_USERNAME}
+      ACCOUNT_PASSWORD_HASH: ${ACCOUNT_PASSWORD_HASH:?Set ACCOUNT_PASSWORD_HASH}
+    volumes:
+      - files:/data/files
+      - temporary-files:/data/tmp
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/api/health"]
+      interval: 10s
+      timeout: 6s
+      start_period: 40s
+      retries: 10
+    stop_grace_period: 60s
+    restart: unless-stopped
+    logging: *logging
+  web:
+    image: ${WEB_IMAGE:?Set an immutable WEB_IMAGE release tag}
+    build: ../frontend
+    environment:
+      PUBLIC_HOST: ${PUBLIC_HOST:?Set PUBLIC_HOST to the certificate DNS name}
+      HTTPS_PORT: ${HTTPS_PORT:-443}
+      # Keep Nginx variables such as $uri and $scheme untouched by envsubst.
+      NGINX_ENVSUBST_FILTER: ^(PUBLIC_HOST|HTTPS_PORT)$$
+    ports:
+      - "${WEB_BIND_ADDRESS:-0.0.0.0}:${HTTP_PORT:-80}:80"
+      - "${WEB_BIND_ADDRESS:-0.0.0.0}:${HTTPS_PORT:-443}:443"
+    volumes:
+      - ./nginx.production.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - ./nginx-application.conf:/etc/nginx/snippets/application.conf:ro
+      - ${TLS_CERT_DIR:?Set TLS_CERT_DIR containing fullchain.pem and privkey.pem}:/etc/nginx/tls:ro
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      # Internal liveness only; external release checks must verify certificate trust.
+      test: ["CMD", "wget", "--no-check-certificate", "-q", "-O", "/dev/null", "https://127.0.0.1/api/health"]
+      interval: 10s
+      timeout: 6s
+      retries: 5
+    restart: unless-stopped
+    logging: *logging
+volumes:
+  database:
+  files:
+  temporary-files:

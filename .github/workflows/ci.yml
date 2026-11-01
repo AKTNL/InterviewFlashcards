@@ -91,3 +91,53 @@ jobs:
         run: |
           docker compose -f deploy/compose.yml logs --tail=100
           docker compose -f deploy/compose.yml down -v
+  release-rehearsal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.13.0'
+      - name: Prepare isolated local HTTPS configuration
+        shell: pwsh
+        run: ./docs/fixtures/p0-13/setup-local.ps1
+      - name: Build production stack with private database and Secure cookies
+        run: docker compose -p flashcards-p013-acceptance --env-file output/p0-13/.env -f deploy/compose.production.yml up --build -d --wait --wait-timeout 240
+      - name: Verify TLS, headers, private endpoints and static resources
+        run: python3 tools/release-check.py --base-url https://localhost:8443 --http-url http://localhost:8089 --cafile output/p0-13/tls/fullchain.pem
+      - name: Install browser acceptance runtime
+        run: |
+          npm install --prefix output/p0-13/runner --no-save --package-lock=false playwright@1.62.1
+          output/p0-13/runner/node_modules/.bin/playwright install --with-deps chromium
+      - name: Real PDF, two sessions, response loss and backup roundtrip
+        env:
+          PLAYWRIGHT_MODULE: ${{ github.workspace }}/output/p0-13/runner/node_modules/playwright
+          PLAYWRIGHT_BROWSER_CHANNEL: chromium
+        run: node docs/fixtures/p0-13/run-browser.cjs core
+      - name: Recreate containers while preserving the same volumes
+        run: |
+          docker compose -p flashcards-p013-acceptance --env-file output/p0-13/.env -f deploy/compose.production.yml down
+          docker compose -p flashcards-p013-acceptance --env-file output/p0-13/.env -f deploy/compose.production.yml up -d --wait --wait-timeout 180
+      - name: Verify persistence, mobile reading, failure recovery and destructive confirmations
+        env:
+          PLAYWRIGHT_MODULE: ${{ github.workspace }}/output/p0-13/runner/node_modules/playwright
+          PLAYWRIGHT_BROWSER_CHANNEL: chromium
+        run: |
+          node docs/fixtures/p0-13/run-browser.cjs persistence
+          node docs/fixtures/p0-13/run-browser.cjs destructive
+      - name: Collect redacted diagnostics
+        if: always()
+        run: docker compose -p flashcards-p013-acceptance --env-file output/p0-13/.env -f deploy/compose.production.yml logs --no-color --tail=200 > output/p0-13/compose.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: local-https-release-evidence
+          path: |
+            output/p0-13/*result.json
+            output/p0-13/*.png
+            output/p0-13/compose.log
+          retention-days: 7
+      - name: Remove disposable test stack
+        if: always()
+        run: docker compose -p flashcards-p013-acceptance --env-file output/p0-13/.env -f deploy/compose.production.yml down -v

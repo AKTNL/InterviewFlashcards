@@ -15,7 +15,7 @@
 
 Cookie 仅用于同源请求：`HttpOnly`、`SameSite=Lax`、仅 Cookie 跟踪，不允许 URL 携带会话 ID。登录成功更换会话 ID。默认闲置 30 分钟过期，`SESSION_TIMEOUT` 可配置。当前进程内会话不跨后端重启保存，重启后重新登录，用户及文件保持不变。设备各自拥有会话，退出一个设备不会退出另一设备。
 
-公网入口必须使用 HTTPS，并设置 `SESSION_COOKIE_SECURE=true`；当前 Compose 是本地 HTTP 开发环境，完整证书/域名部署仍由 P0-13 交付。密码和 token 不存入 LocalStorage、IndexedDB 或日志。密码错误统一返回 401 `BAD_CREDENTIALS`，不提示账号是否存在。
+公网入口必须使用 HTTPS，并设置 `SESSION_COOKIE_SECURE=true`；本地 `compose.yml` 是 HTTP 开发环境，独立 `compose.production.yml` 强制安全 Cookie 并启用 TLS，证书/域名配置见 [发布手册](../runbooks/release.md)。本轮已完成本地 HTTPS 演练，公网与实体设备验收尚待执行。密码和 token 不存入 LocalStorage、IndexedDB 或日志。密码错误统一返回 401 `BAD_CREDENTIALS`，不提示账号是否存在。
 
 ## 来源与图片
 

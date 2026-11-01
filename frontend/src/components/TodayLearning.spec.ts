@@ -16,6 +16,7 @@ beforeEach(() => { vi.clearAllMocks(); vi.mocked(learningApi.today).mockResolved
 afterEach(() => wrappers.splice(0).forEach(w => w.unmount()))
 async function view() {
   const pinia = createPinia(); setActivePinia(pinia); const sync = useSyncStore(), enqueue = vi.spyOn(sync, 'enqueue').mockResolvedValue(undefined)
+  sync.state = { dataEpoch: 'epoch', revision: 1, sources: [] }
   const wrapper = mount(TodayLearning, { global: { plugins: [pinia], stubs: { RouterLink: { props: ['to'], template: '<a :href="to"><slot /></a>' } } } }); wrappers.push(wrapper); await flushPromises()
   return { wrapper, sync, enqueue, button: (text: string) => wrapper.findAll('button').find(b => b.text() === text)! }
 }
@@ -46,4 +47,12 @@ it('keeps server date and refreshes actionable counts after activation, with ret
   await button('刷新今日计划').trigger('click');await flushPromises();expect(wrapper.text()).toContain('2026-10-31 · Asia/Shanghai')
   vi.mocked(learningApi.today).mockResolvedValue({ ...sample, dueTotal: 9 });window.dispatchEvent(new Event('focus'));await flushPromises()
   expect(wrapper.get('.today-metrics strong').text()).toBe('9')
+})
+it('waits for the first sync snapshot before creating a daily session', async () => {
+  const { sync, enqueue, button } = await view()
+  sync.state = null; await flushPromises()
+  expect(button('只复习').attributes('disabled')).toBeDefined()
+  await button('只复习').trigger('click'); expect(enqueue).not.toHaveBeenCalled()
+  sync.state = { dataEpoch: 'epoch', revision: 1, sources: [] }; await flushPromises()
+  await button('只复习').trigger('click'); expect(enqueue).toHaveBeenCalledOnce()
 })

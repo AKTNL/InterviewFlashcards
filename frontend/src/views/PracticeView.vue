@@ -14,9 +14,14 @@ const cardIds = computed(() => String(route.query.cards ?? '').split(',').filter
 const selected = computed(() => new Set(cardIds.value).size === cardIds.value.length && cardIds.value.length > 0 && cardIds.value.length <= 100)
 const pending = computed(() => sync.items.some(i => i.status !== 'synced' && (i.kind === 'session.start' && !route.params.id || i.kind === 'review.write' && i.payload?.sessionId === route.params.id)))
 const needsAttention = computed(() => sync.items.some(i => ['failed', 'needs-attention'].includes(i.status) && (i.kind === 'session.start' && !route.params.id || i.kind === 'review.write' && i.payload?.sessionId === route.params.id)))
-const blocked = computed(() => busy.value || pending.value || loading.value || !session.value || session.value.expired || session.value.current?.currentVersion !== session.value.current?.expectedVersion)
+const blocked = computed(() => !sync.state || busy.value || pending.value || loading.value || !session.value || session.value.expired || session.value.current?.currentVersion !== session.value.current?.expectedVersion)
 const early = computed(() => session.value?.review && !session.value.expired && !session.value.sameDayReplay && session.value.review.dueDate > session.value.today)
 const seen = new Set(sync.items.filter(i => i.status === 'synced').map(i => i.operationId))
+let requestedStartAfter = Infinity
+const recoveringStarts = new Set<string>()
+watch(() => sync.items, items => {
+  for (const item of items) if (item.kind === 'session.start' && item.status !== 'synced') recoveringStarts.add(item.operationId)
+}, { immediate: true })
 let generation = 0
 async function apply(value: LearningSession) {
   const current = ++generation
@@ -39,8 +44,9 @@ async function load() {
   finally { if (String(route.params.id) === id) loading.value = false }
 }
 async function start() {
-  if (busy.value || pending.value || !selected.value) return
+  if (!sync.state || busy.value || pending.value || !selected.value) return
   busy.value = true; error.value = ''
+  requestedStartAfter = Date.now()
   try { await sync.enqueue({ kind: 'session.start', name: `主动回忆 ${cardIds.value.length} 题`, payload: { cardIds: cardIds.value } }) }
   catch (cause) { error.value = cause instanceof Error ? cause.message : '创建练习失败' }
   finally { busy.value = false }
@@ -63,7 +69,9 @@ watch(() => sync.items.filter(i => i.status === 'synced').map(i => i.operationId
   for (const i of sync.items) {
     if (i.status !== 'synced' || seen.has(i.operationId)) continue
     seen.add(i.operationId)
-    if (i.kind === 'session.start' && !route.params.id && JSON.stringify(i.payload?.cardIds) === JSON.stringify(cardIds.value) && i.result?.session) {
+    if (i.kind === 'session.start' && !route.params.id && JSON.stringify(i.payload?.cardIds) === JSON.stringify(cardIds.value) && i.result?.session
+      && (i.createdAt >= requestedStartAfter || recoveringStarts.has(i.operationId))) {
+      requestedStartAfter = Infinity
       await router.replace(`/practice/${i.result.session.id}`)
     } else if (i.kind === 'review.write' && i.payload?.sessionId === route.params.id && i.result?.session) {
       message.value = i.action === 'UNDO' ? '已撤销，评分前的状态和队列已恢复。' : i.action === 'SKIP' ? '已跳过重练，保留复习安排。'
@@ -74,7 +82,7 @@ watch(() => sync.items.filter(i => i.status === 'synced').map(i => i.operationId
     }
   }
 })
-watch(() => route.fullPath, () => { generation++; session.value = undefined; card.value = undefined; answer.value = false; hint.value = false; void load() }, { immediate: true })
+watch(() => route.fullPath, () => { generation++; requestedStartAfter = Infinity; session.value = undefined; card.value = undefined; answer.value = false; hint.value = false; void load() }, { immediate: true })
 watch(pending, value => { if (!value && sync.items.some(i => i.kind === 'review.write' && i.payload?.sessionId === route.params.id && i.result?.conflict?.resolved)) void load() })
 onMounted(() => window.addEventListener('focus', load))
 onUnmounted(() => { generation++; window.removeEventListener('focus', load) })
@@ -90,7 +98,7 @@ onSyncRefresh(load)
   <p v-if="loading" role="status">正在读取练习…</p>
   <section v-if="!route.params.id" class="chapter-review">
     <p v-if="selected">准备练习 {{ cardIds.length }} 题。已学题若尚未到期，评分前会提示确认。</p><p v-else>请从题库选择一道题或练习当前页。</p>
-    <button class="primary-button" :disabled="!selected || busy || pending" @click="start">开始主动回忆</button>
+    <button class="primary-button" :disabled="!sync.state || !selected || busy || pending" @click="start">开始主动回忆</button>
   </section>
   <section v-if="session" class="chapter-review">
     <p>学习日 {{ session.learningDate }} · 本轮已处理 {{ session.items.filter(i => i.completed).length }} / {{ session.items.length }} 项（含重练）</p>
