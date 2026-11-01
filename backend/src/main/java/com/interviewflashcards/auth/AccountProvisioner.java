@@ -21,7 +21,7 @@ public class AccountProvisioner implements ApplicationRunner {
         }
         // Bind once. Later environment changes must never overwrite credentials or claim another identity.
         if (jdbc.queryForObject("select count(*) from preset_identity",Integer.class)>0) return;
-        var existing=jdbc.queryForList("select id,account_origin from app_user where username=? for update",account.username());
+        var existing=jdbc.queryForList("select id,account_origin from app_user where username=? for no key update",account.username());
         UUID id;
         if (!existing.isEmpty()) {
             if (!existing.getFirst().get("account_origin").equals("LEGACY")) throw new IllegalStateException("Preset identity requires explicit operator migration");

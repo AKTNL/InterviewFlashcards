@@ -99,7 +99,7 @@ public class ImportService {
     public record Ticket(UUID id,UUID user,UUID epoch,UUID token,UUID source,UUID storageKey,String filename,JsonNode raw) {}
     @Transactional
     public Ticket claim(UUID id,UUID user) {
-        var owner=jdbc.queryForMap("select data_epoch from app_user where id=? for update",user);
+        var owner=jdbc.queryForMap("select data_epoch from app_user where id=? for no key update",user);
         var job=row(user,id); if (!"QUEUED".equals(job.get("status"))) return null;
         UUID token=UUID.randomUUID();
         jdbc.update("update import_job set status='PARSING',stage=?,progress=?,attempt_token=?,parser_version=?,version=version+1,updated_at=current_timestamp where user_id=? and id=?",
@@ -109,7 +109,7 @@ public class ImportService {
         return new Ticket(id,user,(UUID)owner.get("data_epoch"),token,(UUID)job.get("source_id"),(UUID)s.get("storage_key"),(String)s.get("original_filename"),job.get("raw_evidence")==null?null:json(job.get("raw_evidence")));
     }
     private boolean active(Ticket t) {
-        var owner=jdbc.queryForMap("select data_epoch from app_user where id=? for update",t.user());
+        var owner=jdbc.queryForMap("select data_epoch from app_user where id=? for no key update",t.user());
         if (!t.epoch().equals(owner.get("data_epoch"))) return false;
         var rows=jdbc.queryForList("select status,attempt_token from import_job where user_id=? and id=?",t.user(),t.id());
         return !rows.isEmpty() && "PARSING".equals(rows.getFirst().get("status")) && t.token().equals(rows.getFirst().get("attempt_token"));
@@ -129,7 +129,7 @@ public class ImportService {
     }
     @Transactional
     public void recover(UUID id,UUID user) {
-        jdbc.queryForMap("select id from app_user where id=? for update",user);
+        jdbc.queryForMap("select id from app_user where id=? for no key update",user);
         int changed=jdbc.update("update import_job set status='FAILED',error_code='INTERRUPTED',error_message='服务在解析期间重启，已保留阶段和提取证据，请重试继续。',attempt_token=null,version=version+1,updated_at=current_timestamp where user_id=? and id=? and status='PARSING'",user,id);
         if(changed>0) jdbc.update("update app_user set revision=revision+1 where id=?",user);
     }

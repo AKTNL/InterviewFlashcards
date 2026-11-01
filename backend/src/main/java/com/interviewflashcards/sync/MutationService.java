@@ -33,7 +33,9 @@ public class MutationService {
     public JsonNode execute(UUID userId, Command command, String kind, Object payload, Work work) throws IOException {
         if (command == null || command.operationId() == null || command.dataEpoch() == null)
             throw new ApiFailure(ErrorCode.INVALID_REQUEST);
-        var owner = jdbc.queryForMap("select data_epoch, revision from app_user where id=? for update", userId);
+        // Serialize business writes/restores while permitting FK KEY SHARE checks from another
+        // account's share invitation. Account IDs never change; FOR UPDATE would deadlock peers.
+        var owner = jdbc.queryForMap("select data_epoch, revision from app_user where id=? for no key update", userId);
         if (!command.dataEpoch().equals(owner.get("data_epoch")))
             throw new ApiFailure(ErrorCode.EPOCH_EXPIRED, Map.of("dataEpoch", owner.get("data_epoch"), "revision", owner.get("revision")));
         String digest = digest(Map.of("kind", kind, "payload", payload));

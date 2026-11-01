@@ -48,7 +48,7 @@ public class RegistrationService {
     @Transactional
     public void changePassword(UUID user, String current, String replacement) {
         AccountRules.password(replacement);
-        var row=jdbc.queryForMap("select password_hash from app_user where id=? for update",user);
+        var row=jdbc.queryForMap("select password_hash from app_user where id=? for no key update",user);
         if (current==null || !passwords.matches(current,(String)row.get("password_hash"))) throw new ApiFailure(ErrorCode.BAD_CREDENTIALS);
         jdbc.update("update app_user set password_hash=?,credential_version=credential_version+1 where id=?",passwords.encode(replacement),user);
     }

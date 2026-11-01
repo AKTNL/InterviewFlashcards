@@ -15,7 +15,10 @@ public class DeckDataService {
     private final MutationService mutations;
     public DeckDataService(JdbcTemplate jdbc, MutationService mutations) { this.jdbc=jdbc; this.mutations=mutations; }
     public List<Map<String,Object>> decks(UUID user) {
-        return jdbc.queryForList("select id,name from deck where user_id=? order by name,id", user);
+        return jdbc.query("select id,name,copy_origin::text from deck where user_id=? order by name,id", (rs,n) -> {
+            try { return Map.<String,Object>of("id",rs.getObject(1),"name",rs.getString(2),"copy_origin",new com.fasterxml.jackson.databind.ObjectMapper().readTree(rs.getString(3))); }
+            catch(IOException e) { throw new IllegalStateException(e); }
+        },user);
     }
     private static final String CHAPTERS="select ch.id from chapter ch join module m on m.user_id=ch.user_id and m.id=ch.module_id where ch.user_id=? and m.deck_id=?";
     private static final String CARDS="select id from card where user_id=? and chapter_id in ("+CHAPTERS+")";

@@ -238,3 +238,4 @@ summary { display: list-item; cursor: pointer; padding-block: .6rem; }
   [aria-label="三档自评"] { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
   [aria-label="三档自评"] button { min-height: 48px; padding-inline: .5rem; }
 }
+.share-hash { overflow-wrap: anywhere; }

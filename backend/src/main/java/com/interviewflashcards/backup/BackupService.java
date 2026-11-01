@@ -29,7 +29,9 @@ public class BackupService {
     private final FileStorage storage;
     private final Path temporary;
     private final TransactionTemplate tx;
-    public BackupService(JdbcTemplate jdbc, ObjectMapper mapper, FileStorage storage, AppProperties properties, PlatformTransactionManager manager, com.interviewflashcards.files.CapacityService capacity) {
+    private final com.interviewflashcards.sharing.ShareService shares;
+    public BackupService(JdbcTemplate jdbc, ObjectMapper mapper, FileStorage storage, AppProperties properties, PlatformTransactionManager manager, com.interviewflashcards.files.CapacityService capacity, com.interviewflashcards.sharing.ShareService shares) {
+        this.shares=shares;
         this.capacity=capacity;
         this.jdbc=jdbc; this.mapper=mapper; this.storage=storage; temporary=Path.of(properties.storage().temporaryRoot()).toAbsolutePath();
         tx=new TransactionTemplate(manager);
@@ -42,7 +44,7 @@ public class BackupService {
     }
     public JsonNode createExport(UUID user, UUID operation) {
         return tx.execute(s -> {
-            jdbc.queryForMap("select id from app_user where id=? for update",user);
+            jdbc.queryForMap("select id from app_user where id=? for no key update",user);
             if (jdbc.queryForObject("select count(*) from backup_job where user_id=? and operation_id=?",Integer.class,user,operation)==0) capacity.check(user,0,false,"backup");
             jdbc.update("insert into backup_job(id,user_id,operation_id) values(?,?,?) on conflict(user_id,operation_id) do nothing",UUID.randomUUID(),user,operation);
             UUID id=jdbc.queryForObject("select id from backup_job where user_id=? and operation_id=?",UUID.class,user,operation);
@@ -52,7 +54,7 @@ public class BackupService {
     public JsonNode upload(UUID user, UUID operation, MultipartFile file) throws IOException {
         try (var input=file.getInputStream(); var staged=storage.stage(input)) {
             return tx.execute(s -> {
-                jdbc.queryForMap("select id from app_user where id=? for update",user);
+                jdbc.queryForMap("select id from app_user where id=? for no key update",user);
                 var existing=jdbc.queryForList("select id,request_digest from restore_job where user_id=? and operation_id=?",user,operation);
                 if (!existing.isEmpty()) {
                     if (!staged.sha256().equals(existing.getFirst().get("request_digest"))) throw new ApiFailure(ErrorCode.OPERATION_ID_REUSED);
@@ -87,7 +89,7 @@ public class BackupService {
     }
     public JsonNode preview(UUID user, UUID id) {
         return tx.execute(s -> {
-            var owner=jdbc.queryForMap("select data_epoch,revision from app_user where id=? for update",user);
+            var owner=jdbc.queryForMap("select data_epoch,revision from app_user where id=? for no key update",user);
             var row=job(user,id,true);
             if (!row.path("status").asText().equals("AWAITING_CONFIRMATION")) throw new ApiFailure(ErrorCode.INVALID_REQUEST);
             var result=(ObjectNode)row.path("validation_result").deepCopy();
@@ -101,7 +103,7 @@ public class BackupService {
     public JsonNode confirm(UUID user, UUID id, UUID epoch, long revision, boolean confirmed) {
         if (!confirmed) throw new ApiFailure(ErrorCode.INVALID_REQUEST);
         return tx.execute(s -> {
-            var owner=jdbc.queryForMap("select data_epoch,revision from app_user where id=? for update",user);
+            var owner=jdbc.queryForMap("select data_epoch,revision from app_user where id=? for no key update",user);
             var row=jdbc.queryForList("select * from restore_job where user_id=? and id=? for update",user,id);
             if(row.isEmpty()) throw new ApiFailure(ErrorCode.NOT_FOUND);
             var r=row.getFirst(); String status=(String)r.get("status");
@@ -151,7 +153,7 @@ public class BackupService {
             Path check=Files.createDirectory(dir.resolve("check")); var opened=BackupArchive.read(zip,check,mapper); validateStructure(opened);
             long zipSize=Files.size(zip); String zipHash=BackupArchive.hash(zip);
             tx.executeWithoutResult(s -> {
-                jdbc.queryForMap("select id from app_user where id=? for update",user);
+                jdbc.queryForMap("select id from app_user where id=? for no key update",user);
                 capacity.check(user,zipSize,false,null);
                 UUID key=UUID.randomUUID();
                 try { storage.publish(new FileStorage.Staged(zip,zipHash,zipSize),key); }
@@ -202,6 +204,9 @@ public class BackupService {
             var columns=new HashSet<>(columns(table)); columns.removeAll(Set.of("user_id","storage_key","attempt_token"));
             for(var row:data.path(table)) {
                 if(!row.isObject()) throw new IOException("Invalid row");
+                // Additive P1-09 metadata: continue accepting pre-V12 format-1 archives.
+                if(table.equals("deck") && !row.has("copy_origin")) ((ObjectNode)row).putObject("copy_origin");
+                if(table.equals("source_document") && !row.has("shared_copy")) ((ObjectNode)row).put("shared_copy",false);
                 var keys=new HashSet<String>(); row.fieldNames().forEachRemaining(keys::add);
                 // Incoming ownership is ignored; every inserted row gets the authenticated target.
                 keys.remove("user_id");
@@ -265,7 +270,7 @@ public class BackupService {
         if(node.isObject()) {
             var copy=mapper.createObjectNode();
             var textFields=Set.of("notes","hint","memory_points","question","text","title","name","original_name","original_filename","source_entry","reason","technical_correction","applicable_version");
-            node.properties().forEach(e->copy.set(e.getKey(),e.getValue().isTextual() && textFields.contains(e.getKey())?e.getValue():remap(e.getValue(),ids)));
+            node.properties().forEach(e->copy.set(e.getKey(),e.getKey().equals("copy_origin") || e.getValue().isTextual() && textFields.contains(e.getKey())?e.getValue():remap(e.getValue(),ids)));
             return copy;
         }
         if(node.isArray()) { var copy=mapper.createArrayNode(); node.forEach(e->copy.add(remap(e,ids))); return copy; }
@@ -352,10 +357,12 @@ public class BackupService {
             // Prepare a fresh immutable namespace before the replacement transaction. Old files remain
             // available to in-flight readers and existing exports. Failed staging never clears data.
             tx.executeWithoutResult(s -> {
-                var owner=jdbc.queryForMap("select data_epoch,revision from app_user where id=? for update",user);
+                var owner=jdbc.queryForMap("select data_epoch,revision from app_user where id=? for no key update",user);
                 var job=jdbc.queryForMap("select * from restore_job where user_id=? and id=? for update",user,id);
                 if(!job.get("status").equals("RESTORING")) return;
                 if(!owner.get("data_epoch").equals(job.get("expected_epoch")) || !owner.get("revision").equals(job.get("expected_revision"))) throw new ApiFailure(ErrorCode.RESTORE_STALE);
+                // Lock outgoing invitations before the capacity guard, matching claim's order.
+                shares.revokeAll(user);
                 capacity.replacement(user,opened.data());
                 ObjectNode data;
                 try { data=prepare(opened,epoch,true); } catch(IOException e) { throw new UncheckedIOException(e); }

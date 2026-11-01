@@ -18,7 +18,7 @@ public class CapacityService {
     }
     private long used(UUID user) {
         long bytes=0;
-        for(String table:List.of("source_document","asset","backup_job","restore_job"))
+        for(String table:List.of("source_document","asset","backup_job","restore_job","share_resource"))
             for(UUID key:jdbc.queryForList("select storage_key from "+table+" where user_id=? and storage_key is not null",UUID.class,user)) {
                 try { Path path=root.resolve(key.toString()); if(Files.isRegularFile(path)) bytes=Math.addExact(bytes,Files.size(path)); }
                 catch(IOException e) { throw new ApiFailure(ErrorCode.STORAGE_UNAVAILABLE); }
@@ -49,5 +49,10 @@ public class CapacityService {
         // Conservatively retain current files plus the prepared replacement until maintenance cleanup.
         check(user,bytes,false,null);
         if(data.path("source_document").size()>limits.sources()) throw new ApiFailure(ErrorCode.QUOTA_EXCEEDED);
+    }
+    public void addition(UUID user, long bytes, int sources) {
+        check(user,bytes,false,null);
+        if(count("select count(*) from source_document where user_id=?",user)+sources>limits.sources())
+            throw new ApiFailure(ErrorCode.QUOTA_EXCEEDED);
     }
 }

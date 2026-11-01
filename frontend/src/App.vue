@@ -77,6 +77,7 @@ onUnmounted(() => {
       <template v-if="auth.user">
         <RouterLink to="/">今日学习</RouterLink>
         <RouterLink to="/cards">题库</RouterLink>
+        <RouterLink to="/shares">题库分享</RouterLink>
         <RouterLink to="/settings">学习设置</RouterLink>
         <RouterLink to="/account">账号安全</RouterLink>
         <RouterLink to="/backups">备份与恢复</RouterLink>

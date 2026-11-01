@@ -3,6 +3,9 @@ package com.interviewflashcards.common.web;
 import org.springframework.http.HttpStatus;
 
 public enum ErrorCode {
+    SHARE_UNAVAILABLE(HttpStatus.CONFLICT, "邀请已过期、撤销或领取完毕，请联系分享者"),
+    SHARE_RECIPIENT_INVALID(HttpStatus.BAD_REQUEST, "接收账号不可用，请核对已注册的用户名"),
+    SHARE_EMPTY(HttpStatus.CONFLICT, "题库尚无已确认的正式卡片"),
     REGISTRATION_CLOSED(HttpStatus.FORBIDDEN, "注册暂未开放，请联系维护者"),
     INVITE_INVALID(HttpStatus.BAD_REQUEST, "邀请码不可用，请联系维护者获取有效邀请码"),
     USERNAME_TAKEN(HttpStatus.CONFLICT, "此用户名不可用，请选择其他用户名；若刚刚提交过注册，请先尝试登录"),

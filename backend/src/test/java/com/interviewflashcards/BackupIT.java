@@ -234,4 +234,13 @@ class BackupIT {
         assertThat(jdbc.queryForObject("select data_epoch from app_user where id=?",UUID.class,user)).isEqualTo(epoch);
         assertThat(jdbc.queryForObject("select notes from personal_annotation where user_id=?",String.class,user)).isEqualTo("原笔记");
     }
+    @Test void preV12FormatOneArchiveStillRestores() throws Exception {
+        UUID exported=export();byte[] legacy=changed(exported,d->{
+            for(var row:d.path("deck"))((ObjectNode)row).remove("copy_origin");
+            for(var row:d.path("source_document"))((ObjectNode)row).remove("shared_copy");
+        });
+        UUID id=upload(user,legacy);backups.validate(user,id);confirm(user,id);backups.restore(user,id);
+        assertThat(jdbc.queryForObject("select shared_copy from source_document where user_id=?",Boolean.class,user)).isFalse();
+        assertThat(jdbc.queryForObject("select copy_origin::text from deck where user_id=?",String.class,user)).isEqualTo("{}");
+    }
 }

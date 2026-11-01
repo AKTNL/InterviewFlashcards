@@ -4,6 +4,10 @@ Java 后端面试卡片学习网站。P0-01～P0-13 已完成：工程与登录�
 
 P1-08 已完成仓库实现及本地验收：邀请码注册、独立账号、密码管理、旧账号保留、跨标签页队列隔离与服务端配额。注册默认关闭；本次未更新公网部署。
 
+P1-09 已完成仓库实现及本地验收：在“题库分享”核对完整 PDF 范围后，向指定账号发送一次性内容副本邀请；双方各自编辑和复习，保留来源版本。邀请可过期或撤销，领取幂等且失败回滚。本次未更新公网部署。
+
+- [P1-09 验收记录](docs/fixtures/p1-09/README.md)
+- [题库分享 API](docs/api/deck-sharing.md)
 - [P1-08 验收记录](docs/fixtures/p1-08/README.md)
 - [账号与邀请码维护](docs/runbooks/accounts.md)
 - [注册、密码与容量 API](docs/api/registration-and-accounts.md)

@@ -4,6 +4,6 @@ export interface DeckImpact {
   counts: { cards: number; drafts: number; annotations: number; learned: number; events: number; sessions: number }
 }
 export const deckDataApi = {
-  decks: async () => (await request<{ id: string; name: string }[]>('/api/deck-data')).data,
+  decks: async () => (await request<{ id: string; name: string; copy_origin?: import('./shares').ShareManifest }[]>('/api/deck-data')).data,
   preview: async (id: string) => (await request<DeckImpact>(`/api/deck-data/${id}/preview`)).data,
 }
