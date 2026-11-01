@@ -1,6 +1,6 @@
 # 当前 Debian 公网部署的日常操作
 
-本手册对应 2026-11-01 已部署环境，实际证据及当前限制见 [公网部署记录](../fixtures/p0-13/public-deployment-2026-11-01.md)。
+本手册对应 2026-11-01 已部署环境。当前版本为 `p110-20261101-01`，已包含 P1-08～P1-10 和 V13，见 [公网升级记录](../fixtures/p1-10/public-deployment-2026-11-01.md)；首次部署与网络限制见 [原公网部署记录](../fixtures/p0-13/public-deployment-2026-11-01.md)。
 
 访问 `https://study.aktnl.dpdns.org:18443`。家中 Windows 使用 hosts 内网解析；离开家中网络时停用该行。服务器内部地址 `192.168.1.7` 当前仍是 DHCP 分配，变化后需要更新端口映射和内网解析。
 
@@ -78,6 +78,8 @@ sudo certbot renew --cert-name study.aktnl.dpdns.org --dry-run --run-deploy-hook
 
 保留已有的 Cloudflare Token 权限和凭据文件。系统 Python 插件的弃用预告已在本次演练中观察到，DNS 续期及钩子实测成功；通过 Debian 包管理维护该工具链。
 
-## P1-08 后续升级
+## 当前版本与后续升级
 
-当前公网记录仍对应原发布版本。P1-08 已在仓库完成，尚未部署；下一次升级按 [发布手册](release.md) 保存完整快照并执行 V11，旧账号与密码保持。注册默认关闭；邀请码生成/撤销、交互密码重置和限额配置见 [账号维护手册](accounts.md)。不能再通过改环境 hash 并重启来改密码。
+当前前后端镜像标签均为 `p110-20261101-01`，Flyway V11～V13 已完成。原账号、密码、业务数据及文件保留，注册保持关闭。邀请码生成/撤销、交互密码重置和限额配置见 [账号维护手册](accounts.md)。不能再通过改环境 hash 并重启来改密码。
+
+正式切换前快照为 `/srv/interview-flashcards/output/pre-p110-final-20261101-01`，本机校验副本位于 `output/release/p110-20261101-01/server-backups/pre-p110-final-20261101-01`。后续升级仍按 [发布手册](release.md) 保存新快照、先隔离恢复验证，再更新前后端镜像及部署配置。回退到旧版须整体恢复升级前快照，不能只切换旧镜像。

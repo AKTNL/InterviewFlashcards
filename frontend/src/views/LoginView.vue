@@ -7,7 +7,8 @@ import { ApiError } from '../api/client'
 const auth = useAuthStore()
 const router = useRouter()
 const route = useRoute()
-const username = ref('')
+const registeredUsername = router.options.history.state.registeredUsername
+const username = ref(typeof registeredUsername === 'string' ? registeredUsername : '')
 const password = ref('')
 const busy = ref(false)
 const error = ref<ApiError | null>(null)
@@ -42,7 +43,7 @@ async function submit() {
       </div>
       <button class="primary-button" :disabled="busy" type="submit">{{ busy ? '登录中…' : '进入学习空间' }}</button>
     </form>
-    <p><RouterLink to="/register">注册账号</RouterLink></p>
+    <p><RouterLink to="/register">使用邀请码加入</RouterLink></p>
     <p class="form-note">忘记密码请联系部署维护者重置。</p>
   </section>
 </template>

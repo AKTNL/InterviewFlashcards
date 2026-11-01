@@ -28,6 +28,21 @@ docker compose -p interview-flashcards --env-file deploy/.env.production -f depl
 
 ## 开放注册与配置
 
+P1-11 升级须同时发布 V14、后端与前端。“个人中心 → 我的邀请码”默认显示未授权，注册账号不会自动获得发码权。维护者可使用以下受控命令（替换精确登录名与成功邀请总额度）：
+
+```bash
+docker compose -p interview-flashcards --env-file deploy/.env.production -f deploy/compose.production.yml exec backend \
+  java -Dloader.main=com.interviewflashcards.tools.AccountAdmin -cp /app/app.jar org.springframework.boot.loader.launch.PropertiesLauncher permission EXACT_USERNAME true 3
+
+# 暂停发码及尚未消费的个人码，不影响已注册账号；保留历史成功计数。
+docker compose -p interview-flashcards --env-file deploy/.env.production -f deploy/compose.production.yml exec backend \
+  java -Dloader.main=com.interviewflashcards.tools.AccountAdmin -cp /app/app.jar org.springframework.boot.loader.launch.PropertiesLauncher permission EXACT_USERNAME false 3
+```
+
+总额度是累计成功人数而非新增人数，支持 0～10000；调小到低于已成功数时剩余为 0，不返还历史额度。重新授权不会重置计数。命令记录 action 与目标 UUID，不记录 token 或密码。个人码每枚 7 天、1 人，同时最多一枚有效码。丢失明文或生成响应时先刷新状态，确认撤销旧码，再单独生成；维护码的原命令继续可用。
+
+启用前明确设置 `REGISTRATION_MAX_ACCOUNTS`（正整数，默认 100），它按 `registration_use` 统计全站累计成功注册数，含已有维护邀请；与每用户成功邀请额度同时生效。预置账号不占该名额。设置 `REGISTRATION_ENABLED=false` 或上限已满会阻止预校验、发码与最终注册，已有账号仍可登录。配置变更需重建后端加载环境，不能只更新 `.env`。两份 Compose 和环境示例均提供入口，详细错误与并发规则见 [P1-11 API](../api/personal-invitations.md)。
+
 生成邀请后在 `.env.production` 设置 `REGISTRATION_ENABLED=true` 并重建后端容器以加载新环境。关闭时设 false 并重建，已注册用户仍可登录。配置示例和两份 Compose 均提供开关与配额；具体默认值、字节计量和错误码见 [API 契约](../api/registration-and-accounts.md)。按现有小范围部署默认每用户 512 MiB / 20 个来源、2 个导入和 2 个备份/恢复，全站 5 GiB / 20 个任务并保留 512 MiB 可用空间；开放邀请前核对主机、容器卷及 PostgreSQL 剩余容量，再决定是否调整。
 
 来源、个人文件、副本和全站任务限制都在服务端执行。我的资料页面显示当前剩余额度；等待确认的恢复也占任务名额，确认完成后释放，临时副本 7 天清理。容量保护包含未引用旧文件，不能通过删业务行获得虚假的全站余量。失败任务可重建；若 503 CAPACITY_EXCEEDED，先核对磁盘和旧资源，保留完整快照，不要直接删除 files 卷。

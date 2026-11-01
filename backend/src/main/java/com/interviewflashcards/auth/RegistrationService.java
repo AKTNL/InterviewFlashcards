@@ -2,7 +2,6 @@ package com.interviewflashcards.auth;
 
 import com.interviewflashcards.common.config.AppProperties;
 import com.interviewflashcards.common.web.*;
-import java.time.Clock;
 import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -13,25 +12,20 @@ import org.springframework.transaction.annotation.Transactional;
 public class RegistrationService {
     private final JdbcTemplate jdbc;
     private final PasswordEncoder passwords;
-    private final RegistrationProperties registration;
     private final AppProperties properties;
-    private final Clock clock;
-    public RegistrationService(JdbcTemplate jdbc, PasswordEncoder passwords, RegistrationProperties registration, AppProperties properties, Clock clock) {
-        this.jdbc=jdbc; this.passwords=passwords; this.registration=registration; this.properties=properties; this.clock=clock;
+    private final PersonalInviteService invites;
+    public RegistrationService(JdbcTemplate jdbc, PasswordEncoder passwords, AppProperties properties, PersonalInviteService invites) {
+        this.jdbc=jdbc; this.passwords=passwords; this.properties=properties; this.invites=invites;
     }
     @org.springframework.scheduling.annotation.Scheduled(fixedDelay=3600000)
     public void cleanupRateBuckets() { jdbc.update("delete from auth_rate_bucket where window_start<current_timestamp-interval '1 day'"); }
     @Transactional
     public void register(String token, String rawName, String password, String nickname) {
-        if (!registration.enabled()) throw new ApiFailure(ErrorCode.REGISTRATION_CLOSED);
+        invites.lock();
+        invites.checkOpen();
         String name=AccountRules.username(rawName); AccountRules.password(password);
         if (nickname!=null && (nickname.length()>60 || nickname.codePoints().anyMatch(Character::isISOControl))) throw new ApiFailure(ErrorCode.VALIDATION_ERROR);
-        if (token==null || !token.matches("[A-Za-z0-9_-]{43}")) throw new ApiFailure(ErrorCode.INVITE_INVALID);
-        var invites=jdbc.queryForList("select * from registration_invite where token_digest=? for update",AccountRules.digest(token));
-        if (invites.isEmpty()) throw new ApiFailure(ErrorCode.INVITE_INVALID);
-        var invite=invites.getFirst();
-        if ((Boolean)invite.get("revoked") || !((java.sql.Timestamp)invite.get("expires_at")).toInstant().isAfter(clock.instant())
-                || ((Number)invite.get("used_count")).intValue()>=((Number)invite.get("max_uses")).intValue()) throw new ApiFailure(ErrorCode.INVITE_INVALID);
+        var invite=invites.valid(token);
         if (name.equals(AccountRules.normalize(properties.account().username()))
                 || jdbc.queryForObject("select count(*) from account_name where normalized=?",Integer.class,name)>0) throw new ApiFailure(ErrorCode.USERNAME_TAKEN);
         UUID user=UUID.randomUUID();
@@ -44,6 +38,8 @@ public class RegistrationService {
         jdbc.update("insert into learning_preference(id,user_id) values(?,?)",UUID.randomUUID(),user);
         jdbc.update("insert into registration_use(invite_id,user_id) values(?,?)",invite.get("id"),user);
         jdbc.update("update registration_invite set used_count=used_count+1 where id=?",invite.get("id"));
+        if(invite.get("inviter_id") instanceof UUID owner)
+            jdbc.update("update invitation_permission set successful_count=successful_count+1 where user_id=?",owner);
     }
     @Transactional
     public void changePassword(UUID user, String current, String replacement) {

@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { changePassword } from '../api/auth'
 import { ApiError, announceIdentityChange } from '../api/client'
 import { useAuthStore } from '../stores/auth'
+import PersonalInvites from '../components/PersonalInvites.vue'
 const auth = useAuthStore(), router = useRouter()
 const current = ref(''), password = ref(''), confirmation = ref(''), busy = ref(false), error = ref('')
 async function submit() {
@@ -23,7 +24,9 @@ async function submit() {
 </script>
 <template>
   <section class="auth-panel" aria-labelledby="account-title">
-    <h1 id="account-title">账号安全</h1><p>登录名：{{ auth.user?.username }}</p>
+    <h1 id="account-title">个人中心</h1><p>登录名：{{ auth.user?.username }}</p>
+    <p v-if="auth.user?.nickname">昵称：{{ auth.user.nickname }}</p>
+    <PersonalInvites />
     <h2>修改密码</h2><p class="muted">修改后所有设备需要重新登录。忘记密码请联系部署维护者。</p>
     <form @submit.prevent="submit">
       <label for="current-password">当前密码</label><input id="current-password" v-model="current" type="password" autocomplete="current-password" required :disabled="busy" />

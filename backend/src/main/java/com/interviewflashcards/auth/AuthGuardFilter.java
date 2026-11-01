@@ -28,14 +28,18 @@ public final class AuthGuardFilter extends OncePerRequestFilter {
     @Override protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain) throws ServletException, IOException {
         try {
             String path=request.getRequestURI().substring(request.getContextPath().length());
-            if ("POST".equals(request.getMethod()) && List.of("/api/auth/login","/api/auth/register","/api/auth/password").contains(path)) {
+            if ("POST".equals(request.getMethod()) && List.of("/api/auth/login","/api/auth/register","/api/auth/password","/api/auth/invite/validate","/api/account/invites").contains(path)) {
                 // Never read X-Forwarded-For here: only the connector's trusted remote address.
-                boolean source=allowed(path+":ip:"+request.getRemoteAddr(),path.endsWith("login")?60:20);
+                String ratePath=path.equals("/api/auth/invite/validate")?"/api/auth/register":path;
+                boolean source=allowed(ratePath+":ip:"+request.getRemoteAddr(),path.endsWith("login")?60:20);
                 boolean account=!path.endsWith("login") || allowed("login:account:"+AccountRules.normalize(request.getParameter("username")),20);
                 if (!source || !account) { responses.writeError(ErrorCode.RATE_LIMITED,request,response); return; }
             }
             var authentication=SecurityContextHolder.getContext().getAuthentication();
             if (authentication!=null && authentication.getPrincipal() instanceof AccountPrincipal user) {
+                if ("POST".equals(request.getMethod()) && path.equals("/api/account/invites") && !allowed("invite:user:"+user.id(),20)) {
+                    responses.writeError(ErrorCode.RATE_LIMITED,request,response);return;
+                }
                 var versions=jdbc.queryForList("select credential_version from app_user where id=?",Long.class,user.id());
                 if (versions.isEmpty() || versions.getFirst()!=user.credentialVersion()) {
                     if (request.getSession(false)!=null) request.getSession(false).invalidate();

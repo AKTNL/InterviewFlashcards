@@ -3,6 +3,9 @@ package com.interviewflashcards.common.web;
 import org.springframework.http.HttpStatus;
 
 public enum ErrorCode {
+    REGISTRATION_LIMITED(HttpStatus.FORBIDDEN, "全站注册名额已满，请联系维护者"),
+    INVITATION_NOT_ALLOWED(HttpStatus.FORBIDDEN, "没有邀请权限或成功邀请额度已用尽，请联系维护者"),
+    INVITE_ALREADY_ACTIVE(HttpStatus.CONFLICT, "已有有效邀请码，请先查询状态；如需新码，请明确撤销旧码后生成"),
     GROUP_LIMITED(HttpStatus.CONFLICT, "小组数量、成员或待接受邀请已达上限"),
     GROUP_INVITE_UNAVAILABLE(HttpStatus.CONFLICT, "小组邀请已过期、撤销或小组已解散，请联系组主"),
     SHARE_UNAVAILABLE(HttpStatus.CONFLICT, "邀请已过期、撤销或领取完毕，请联系分享者"),

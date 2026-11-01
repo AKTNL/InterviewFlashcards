@@ -24,7 +24,7 @@ public class SecurityConfiguration {
                 .addFilterBefore(new com.interviewflashcards.auth.AuthGuardFilter(jdbc,responses), org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter.class)
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.GET, "/api/health", "/api/auth/csrf", "/api/auth/registration").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/auth/register").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/invite/validate").permitAll()
                         .requestMatchers("/api/**").authenticated()
                         .anyRequest().denyAll())
                 .requestCache(cache -> cache.disable())

@@ -10,7 +10,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 /** Offline maintenance entry point. Does not boot HTTP, provision accounts, or start workers. */
 public final class AccountAdmin {
     public static void main(String[] args) throws Exception {
-        if (args.length==0) throw new IllegalArgumentException("invite <days 1..365> <uses 1..100> | revoke <invite-id> | reset <exact-username>");
+        if (args.length==0) throw new IllegalArgumentException("invite <days 1..365> <uses 1..100> | revoke <invite-id> | reset <exact-username> | permission <exact-username> <enabled true|false> <total-limit>");
         String schema=System.getenv("DATABASE_SCHEMA");
         try (var c=DriverManager.getConnection(System.getenv("DATABASE_URL"),System.getenv("DATABASE_USERNAME"),System.getenv("DATABASE_PASSWORD"))) {
             if (schema!=null) { if (!schema.matches("[a-zA-Z_][a-zA-Z0-9_]*")) throw new IllegalArgumentException("Invalid schema"); c.setSchema(schema); }
@@ -33,6 +33,18 @@ public final class AccountAdmin {
                     try(var s=c.prepareStatement("update registration_invite set revoked=true where id=?")) {
                         s.setObject(1,target);if(s.executeUpdate()!=1) throw new IllegalArgumentException("Invite not found");
                     } output="Invite revoked: "+target;
+                }
+                case "permission" -> {
+                    if(args.length!=4 || !Set.of("true","false").contains(args[2])) throw new IllegalArgumentException("permission <exact-username> <true|false> <total-limit>");
+                    int limit=Integer.parseInt(args[3]);if(limit<0 || limit>10000) throw new IllegalArgumentException("Limit must be 0..10000");
+                    try(var s=c.createStatement()) { s.executeQuery("select id from registration_guard where id=1 for update").close(); }
+                    try(var s=c.prepareStatement("select id from app_user where username=?")) {
+                        s.setString(1,args[1]);try(var r=s.executeQuery()) { if(!r.next()) throw new IllegalArgumentException("Account not found");target=r.getObject(1,UUID.class); }
+                    }
+                    try(var s=c.prepareStatement("insert into invitation_permission(user_id,enabled,total_limit) values(?,?,?) on conflict(user_id) do update set enabled=excluded.enabled,total_limit=excluded.total_limit")) {
+                        s.setObject(1,target);s.setBoolean(2,Boolean.parseBoolean(args[2]));s.setInt(3,limit);s.executeUpdate();
+                    }
+                    output="Invitation permission updated: "+target+" enabled="+args[2]+" totalLimit="+limit;
                 }
                 case "reset" -> {
                     if(args.length!=2) throw new IllegalArgumentException("reset <exact-username>");

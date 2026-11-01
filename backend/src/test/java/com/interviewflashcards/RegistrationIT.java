@@ -175,7 +175,11 @@ class RegistrationIT {
         mvc.perform(post("/api/auth/password").session(desktop).with(csrf()).contentType("application/json").content(mapper.writeValueAsString(Map.of("currentPassword",original,"newPassword",replacement))))
             .andExpect(status().isOk());
         mvc.perform(get("/api/auth/me").session(mobile)).andExpect(status().isUnauthorized());
+        String validated=invite(1);app.getBean(PersonalInviteService.class).validate(validated);
         app.close();start(false);
+        mvc.perform(post("/api/auth/invite/validate").with(csrf()).contentType("application/json").content(mapper.writeValueAsString(Map.of("invite",validated))))
+            .andExpect(status().isForbidden()).andExpect(jsonPath("$.error.code").value("REGISTRATION_CLOSED"));
+        code(register(validated,"closed_after_validation"),403,"REGISTRATION_CLOSED");
         assertThat(jdbc.queryForObject("select count(*) from app_user where username='Changed.Environment'",Integer.class)).isZero();
         mvc.perform(get("/api/auth/me").session(login("Legacy.Owner",replacement))).andExpect(jsonPath("$.data.id").value(legacy.toString()));
         code(register(invite(1),"closed_account"),403,"REGISTRATION_CLOSED");
