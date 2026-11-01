@@ -35,6 +35,7 @@ function expired() {
   if (router.currentRoute.value.meta.requiresAuth) void router.replace('/login')
 }
 function activate() {
+  sync.visibilityChanged()
   if (document.visibilityState === 'visible' && auth.user) {
     void auth.refresh().then(() => { if(auth.user && !auth.user.mustChangePassword) void sync.refresh() }).catch(() => {})
   }
@@ -60,6 +61,7 @@ onMounted(() => {
   window.addEventListener('identity-changed', expired)
   document.addEventListener('visibilitychange', activate)
   window.addEventListener('online', activate)
+  window.addEventListener('offline', activate)
   window.addEventListener('focus', activate)
   void auth.refresh().catch(() => {})
 })
@@ -68,6 +70,7 @@ onUnmounted(() => {
   window.removeEventListener('identity-changed', expired)
   document.removeEventListener('visibilitychange', activate)
   window.removeEventListener('online', activate)
+  window.removeEventListener('offline', activate)
   window.removeEventListener('focus', activate)
   sync.stop()
 })

@@ -32,6 +32,8 @@ P1-12 已完成仓库实现与本地验收：独立管理员维护入口、管�
 - [P1-03 按周学习记录、遗忘排序与章节变化验收](docs/fixtures/p1-03/README.md)（仓库实现与本地验收完成，尚未发布公网）
 - [P1-04 复习参数配置与效果评估验收](docs/fixtures/p1-04/README.md)（仓库实现与本地验收完成，尚未发布公网）
 - [个人复习参数与效果观察 API](docs/api/review-parameters.md)
+- [P1-05 变更通知与修订增量验收](docs/fixtures/p1-05/README.md)（仓库实现与本地验收完成，尚未发布公网）
+- [变更通知与修订增量 API](docs/api/incremental-sync.md)
 - [个人学习趋势 API](docs/api/learning-trends.md)
 - [开发文档与任务顺序](docs/开发文档.md)
 - [P0-01 验收记录与回归基线](docs/fixtures/p0-01/README.md)

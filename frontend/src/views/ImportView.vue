@@ -51,7 +51,7 @@ async function retry() {
     notice.value = '重试请求已在本机保留，请在“保存与同步”查看确认结果。'
   } catch (cause) { error.value = cause instanceof Error ? cause.message : '重试请求保留失败' }
 }
-onSyncRefresh(load)
+onSyncRefresh(load, ['import_job', 'chapter', 'draft_card', 'draft_edit_operation', 'chapter_check_progress'])
 watch(() => route.params.id, () => { generation++; job.value = undefined; chapters.value = []; chapterId.value = ''; void load() })
 onMounted(() => { void load(); window.addEventListener('focus', load) })
 onUnmounted(() => { stopped = true; generation++; clearTimeout(timer); window.removeEventListener('focus', load) })

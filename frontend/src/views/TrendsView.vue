@@ -22,7 +22,7 @@ function activate() { if (document.visibilityState === 'visible') void load() }
 function delta(value: number) { return value > 0 ? `+${value}` : String(value) }
 onMounted(() => { void load(); window.addEventListener('focus', activate); document.addEventListener('visibilitychange', activate) })
 onUnmounted(() => { generation++; window.removeEventListener('focus', activate); document.removeEventListener('visibilitychange', activate) })
-onSyncRefresh(load)
+onSyncRefresh(load, ['review_event', 'review_state', 'card', 'chapter', 'learning_preference_chapter'])
 </script>
 
 <template>

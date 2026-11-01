@@ -18,7 +18,7 @@ async function load() {
     if (!stopped && (error.value || !job.value || ['QUEUED', 'PARSING'].includes(job.value.status))) timer = setTimeout(() => { void load() }, 2500)
   }
 }
-onSyncRefresh(load)
+onSyncRefresh(load, ['import_job'])
 onMounted(() => { void load(); window.addEventListener('focus', load) })
 onUnmounted(() => { stopped = true; clearTimeout(timer); window.removeEventListener('focus', load) })
 </script>

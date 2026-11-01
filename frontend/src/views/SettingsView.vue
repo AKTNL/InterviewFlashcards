@@ -56,7 +56,7 @@ onUnmounted(() => window.removeEventListener('beforeunload', beforeUnload))
 onSyncRefresh(() => {
   if (dirty.value || pending.value || busy.value) { message.value = '服务端数据已更新，本地设置编辑已保留。保存时将核对版本。'; return }
   return load()
-})
+}, ['learning_preference', 'learning_preference_chapter', 'chapter', 'deck', 'module', 'card', 'review_state', 'review_event'])
 onBeforeRouteLeave(() => !dirty.value || window.confirm('还有未保存的学习设置，确定离开并放弃吗？'))
 </script>
 <template>

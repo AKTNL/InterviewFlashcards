@@ -41,6 +41,7 @@ async function resolve(conflict: ReviewConflict, choice: 'CURRENT' | 'CANDIDATE'
       <button class="secondary-button" :disabled="sync.busy" @click="sync.refresh(true)">{{ sync.busy ? '同步中…' : '刷新与重试' }}</button>
     </div>
     <p v-if="sync.state" class="form-note">已连接服务端；待同步或待处理的修改仍需确认。</p>
+    <p v-if="sync.state && sync.notificationState === 'fallback'" class="form-note">变更通知暂不可用，正在定期检查；也可点击“刷新与重试”。</p>
     <p v-if="sync.error" role="alert" class="form-error">{{ sync.error }}</p>
     <p v-if="actionError" role="alert" class="form-error">{{ actionError }}</p>
     <article v-for="conflict in sync.conflicts" :key="conflict.id" class="notice">

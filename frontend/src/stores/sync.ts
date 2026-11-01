@@ -5,12 +5,14 @@ import { ApiError, request } from '../api/client'
 import { queueStorage } from '../sync/database'
 import { MutationQueue, syncApi } from '../sync/queue'
 import type { Mutation, Snapshot, ReviewConflict } from '../sync/types'
+import { applyChanges } from '../sync/incremental'
 
 export const useSyncStore = defineStore('sync', () => {
   const items = shallowRef<Mutation[]>([])
   const state = shallowRef<Snapshot | null>(null)
   const error = ref('')
   const busy = ref(false)
+  const notificationState = ref<'waiting' | 'connected' | 'fallback' | 'paused'>('paused')
   const conflicts = computed<ReviewConflict[]>(() => (state.value?.data?.sync_conflict ?? []).filter(r => !r.resolved && r.entity_type === 'REVIEW').map(r => ({
     id: String(r.id), cardId: String(r.entity_id), dataEpoch: String(r.data_epoch), operationId: String(r.operation_id), version: Number(r.version), resolved: false,
     local: r.client_content as ReviewConflict['local'], server: r.server_content as ReviewConflict['server'],
@@ -23,13 +25,63 @@ export const useSyncStore = defineStore('sync', () => {
   let timer: ReturnType<typeof setTimeout> | undefined
   let generation = 0
   let failures = 0
+  let notificationTimer: ReturnType<typeof setTimeout> | undefined
+  let notificationAbort: AbortController | undefined
+  let notificationFailures = 0
+  let refreshRequested = false
+  function pauseNotifications() {
+    clearTimeout(notificationTimer); notificationTimer = undefined
+    notificationAbort?.abort(); notificationAbort = undefined
+    notificationState.value = 'paused'
+  }
+  function watchChanges(delay = 0) {
+    if (!user || !state.value || notificationAbort || notificationTimer || document.visibilityState !== 'visible' || !navigator.onLine) return
+    const current = generation
+    notificationTimer = setTimeout(async () => {
+      notificationTimer = undefined
+      if (current !== generation || !user || !state.value) return
+      const controller = new AbortController(); notificationAbort = controller
+      notificationState.value = 'waiting'
+      let retry: number | undefined = 100
+      try {
+        const cursor = await syncApi.notifications(state.value, controller.signal)
+        if (current !== generation || controller.signal.aborted) return
+        notificationFailures = 0; notificationState.value = 'connected'
+        if (cursor.dataEpoch !== state.value?.dataEpoch || cursor.revision !== state.value?.revision || cursor.learningDate !== state.value?.learningDate) {
+          if (busy.value) refreshRequested = true
+          else await refresh()
+        }
+      } catch (cause) {
+        if (current !== generation || controller.signal.aborted) return
+        notificationState.value = 'fallback'; notificationFailures++
+        retry = Math.min(120_000, 5000 * 2 ** Math.min(notificationFailures - 1, 5))
+        if (cause instanceof ApiError && ['UNAUTHENTICATED', 'ACCOUNT_CHANGED', 'PASSWORD_CHANGE_REQUIRED'].includes(cause.code)) { retry = undefined; return }
+      } finally {
+        if (notificationAbort === controller) notificationAbort = undefined
+        if (current === generation && !controller.signal.aborted && retry !== undefined) watchChanges(retry)
+      }
+    }, delay)
+  }
+  function visibilityChanged() {
+    if (document.visibilityState !== 'visible' || !navigator.onLine) pauseNotifications()
+    else watchChanges()
+  }
+  async function loadState(full: boolean) {
+    const base = state.value
+    if (!base || full) return syncApi.snapshot()
+    const delta = await syncApi.changes(base)
+    if (delta.fullRequired) return syncApi.snapshot()
+    try { return applyChanges(base, delta) }
+    catch { return syncApi.snapshot() }
+  }
   async function reload() {
     const owner = user?.id; const current = generation
     const entries = owner ? await queue.entries(owner) : []
     if (current === generation) items.value = entries
   }
   function stop() {
-    user = null; generation++; clearTimeout(timer); items.value = []; state.value = null; error.value = ''; failures = 0
+    user = null; generation++; clearTimeout(timer); pauseNotifications(); items.value = []; state.value = null; error.value = ''; failures = 0
+    notificationFailures = 0; refreshRequested = false
   }
   async function connect(profile: Profile) {
     if (user?.id !== profile.id) { stop(); user = profile }
@@ -51,7 +103,9 @@ export const useSyncStore = defineStore('sync', () => {
       const revision = state.value && !force && !pending ? await syncApi.revision() : null
       if (!active()) return
       if (!revision || revision.dataEpoch !== state.value?.dataEpoch || revision.revision !== state.value?.revision || revision.learningDate !== state.value?.learningDate) {
-        await queue.run(owner, active, reload, value => { if (active()) state.value = value }, force)
+        let first = true
+        await queue.run(owner, active, reload, value => { if (active()) state.value = value }, force,
+          () => { const full = force && first; first = false; return loadState(full) })
       }
       failures = 0
       if(!active()) return
@@ -67,6 +121,8 @@ export const useSyncStore = defineStore('sync', () => {
     finally {
       busy.value = false
       if (active()) {
+        watchChanges()
+        if (refreshRequested) { refreshRequested = false; void refresh(); return }
         const pending = items.value.filter(item => item.status === 'pending' || item.status === 'syncing')
         const delay = failures ? Math.min(120_000, 5000 * 2 ** Math.min(failures - 1, 5))
           : pending.length ? Math.max(1000, Math.min(...pending.map(item => item.nextAttemptAt - Date.now()))) : 30_000
@@ -143,5 +199,5 @@ export const useSyncStore = defineStore('sync', () => {
     await enqueue({ kind: 'conflict.resolve', name: choice === 'CURRENT' ? '接受当前评分' : '使用候选更正评分', expectedVersion: conflict.version,
       payload: { conflictId: conflict.id, expectedReviewVersion: card.review.version, choice } })
   }
-  return { items, state, error, busy, conflicts, status, connect, stop, refresh, enqueue, discard, resubmit, retrySecurity, resolve }
+  return { items, state, error, busy, conflicts, status, notificationState, visibilityChanged, connect, stop, refresh, enqueue, discard, resubmit, retrySecurity, resolve }
 })

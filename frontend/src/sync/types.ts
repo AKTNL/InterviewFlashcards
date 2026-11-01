@@ -6,7 +6,11 @@ export interface ReviewConflict {
   local: { sessionId: string; payload: { rating: string } }
   server: { eventId: string; rating: string; learningDate: string; afterState: import('../api/learning').ReviewState }
 }
-export interface Snapshot { dataEpoch: string; revision: number; learningDate?: string; sources: Source[]; data?: Record<string, Record<string, unknown>[]> }
+export interface Snapshot { dataEpoch: string; revision: number; learningDate?: string; sources: Source[]; data?: Record<string, Record<string, unknown>[]>; changedTables?: string[] }
+export interface SyncChanges {
+  dataEpoch: string; revision: number; learningDate: string; fromRevision: number; fullRequired: boolean; reason?: string
+  changes?: { table: string; key: Record<string, string | number>; row: Record<string, unknown> | null }[]
+}
 export interface WriteResult {
   action?: string; impact?: { deckId: string }
   conflict?: ReviewConflict; duplicateScore?: boolean

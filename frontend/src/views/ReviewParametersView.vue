@@ -50,7 +50,7 @@ function unload(event: BeforeUnloadEvent) { if (dirty.value || pending.value) { 
 onMounted(() => { void load(); window.addEventListener('beforeunload', unload) })
 onUnmounted(() => { generation++; window.removeEventListener('beforeunload', unload) })
 onBeforeRouteLeave(leave)
-onSyncRefresh(() => { if (!busy.value) return load() })
+onSyncRefresh(() => { if (!busy.value) return load() }, ['review_policy', 'review_event', 'review_state', 'card'])
 </script>
 <template>
   <RouterLink to="/settings">← 返回学习设置</RouterLink>

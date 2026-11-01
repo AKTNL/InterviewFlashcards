@@ -10,7 +10,13 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/sync")
-public record SyncController(SyncService service, ApiResponses responses) {
+public record SyncController(SyncService service, ApiResponses responses, SyncNotifications notifications) {
+    @GetMapping("/notifications")
+    public org.springframework.web.context.request.async.DeferredResult<ApiResponse<?>> notifications(
+            @AuthenticationPrincipal AccountPrincipal user, @RequestParam UUID dataEpoch, @RequestParam long since,
+            @RequestParam String learningDate, HttpServletRequest request) {
+        return notifications.listen(user,dataEpoch,since,learningDate,request);
+    }
     @GetMapping("/revision")
     public ApiResponse<?> revision(@AuthenticationPrincipal AccountPrincipal user, HttpServletRequest request) {
         return responses.success(service.snapshot(user.id(), false), request);
@@ -18,6 +24,11 @@ public record SyncController(SyncService service, ApiResponses responses) {
     @GetMapping("/snapshot")
     public ApiResponse<?> snapshot(@AuthenticationPrincipal AccountPrincipal user, HttpServletRequest request) {
         return responses.success(service.snapshot(user.id(), true), request);
+    }
+    @GetMapping("/changes")
+    public ApiResponse<?> changes(@AuthenticationPrincipal AccountPrincipal user, @RequestParam UUID dataEpoch,
+                                   @RequestParam long since, HttpServletRequest request) throws java.io.IOException {
+        return responses.success(service.changes(user.id(),dataEpoch,since),request);
     }
     @GetMapping("/receipts/{operationId}")
     public ApiResponse<?> receipt(@AuthenticationPrincipal AccountPrincipal user, @PathVariable UUID operationId,

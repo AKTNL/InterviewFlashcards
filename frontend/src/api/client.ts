@@ -57,7 +57,7 @@ const identityChannel = typeof BroadcastChannel !== 'undefined' ? new BroadcastC
 identityChannel?.addEventListener('message', event => { if(event.data !== stamp) changedIdentity() })
 window.addEventListener('storage', event => { if ((event.key === identityKey || event.key === null) && identityStamp() !== stamp) changedIdentity() })
 
-export async function request<T>(path: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
+export async function request<T>(path: string, options: RequestInit = {}, timeoutMs = 10_000): Promise<ApiResponse<T>> {
   if (identityStamp() !== stamp) changedIdentity()
   if(identityBlocked && !path.startsWith('/api/auth/') && path !== '/api/health') throw new ApiError('ACCOUNT_CHANGED', '请重新登录后继续', 409)
   const current = generation
@@ -79,7 +79,7 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
   }
   assertActive()
   const timeout = new AbortController()
-  const timer = setTimeout(() => timeout.abort(), 10_000)
+  const timer = setTimeout(() => timeout.abort(), timeoutMs)
   try {
     const response = await fetch(path, {
       ...options,

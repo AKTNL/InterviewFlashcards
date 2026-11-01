@@ -1,9 +1,12 @@
 import { ApiError, request } from '../api/client'
-import type { Mutation, QueueStorage, Snapshot, Source, WriteResult } from './types'
+import type { Mutation, QueueStorage, Snapshot, Source, SyncChanges, WriteResult } from './types'
 
 export const syncApi = {
   revision: async () => (await request<Pick<Snapshot, 'dataEpoch' | 'revision' | 'learningDate'>>('/api/sync/revision')).data,
   snapshot: async () => (await request<Snapshot>('/api/sync/snapshot')).data,
+  changes: async (base: Snapshot) => (await request<SyncChanges>(`/api/sync/changes?dataEpoch=${base.dataEpoch}&since=${base.revision}`)).data,
+  notifications: async (base: Snapshot, signal: AbortSignal) => (await request<Pick<Snapshot, 'dataEpoch' | 'revision' | 'learningDate'>>(
+    `/api/sync/notifications?dataEpoch=${base.dataEpoch}&since=${base.revision}&learningDate=${base.learningDate ?? ''}`, { signal }, 27_000)).data,
   receipt: async (item: Mutation) => {
     try { return (await request<WriteResult>(`/api/sync/receipts/${item.operationId}?dataEpoch=${item.dataEpoch}`)).data }
     catch (error) { if (error instanceof ApiError && error.code === 'NOT_FOUND') return null; throw error }
@@ -55,7 +58,7 @@ export const syncApi = {
 
 export class MutationQueue {
   private running = false
-  constructor(private storage: QueueStorage, private api = syncApi, private now = Date.now) {}
+  constructor(private storage: QueueStorage, private api: Pick<typeof syncApi, 'revision' | 'snapshot' | 'receipt' | 'source' | 'send'> = syncApi, private now = Date.now) {}
 
   async entries(userId: string) {
     return (await this.storage.all()).filter(item => item.userId === userId).sort((a, b) => a.createdAt - b.createdAt)
@@ -71,13 +74,15 @@ export class MutationQueue {
   }
   async remove(id: string) { await this.storage.remove(id) }
 
-  async run(userId: string, active: () => boolean, changed: () => Promise<void>, snapshot: (value: Snapshot) => void, force = false) {
+  async run(userId: string, active: () => boolean, changed: () => Promise<void>, snapshot: (value: Snapshot) => void, force = false,
+            load: () => Promise<Snapshot> = () => this.api.snapshot()) {
     if (this.running) return
     this.running = true
     try {
-      const fresh = await this.api.snapshot()
+      const fresh = await load()
       if (!active()) return
       snapshot(fresh)
+      let attempted = false
       for (const item of await this.entries(userId)) {
         if (!active()) return
         if (item.status === 'synced') continue
@@ -88,6 +93,7 @@ export class MutationQueue {
         }
         if (item.status === 'failed' || item.status === 'needs-attention') continue
         if (!force && item.nextAttemptAt > this.now()) continue
+        attempted = true
         item.status = 'syncing'; await this.storage.put(item); await changed()
         try {
           // Resolve a lost response before checking versions: its write may already have advanced the version.
@@ -128,7 +134,7 @@ export class MutationQueue {
         }
         await this.storage.put(item); await changed()
       }
-      if (active()) { const final = await this.api.snapshot(); if(active()) snapshot(final) }
+      if (active() && attempted) { const final = await load(); if(active()) snapshot(final) }
     } finally { this.running = false }
   }
 }

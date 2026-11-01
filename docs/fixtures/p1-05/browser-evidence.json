@@ -1,0 +1,186 @@
+{
+  "mode": "two isolated browser contexts against real Spring Boot and PostgreSQL",
+  "baseRevision": 0,
+  "latencyMs": 685,
+  "initialSnapshots": 2,
+  "finalSnapshots": 2,
+  "phone": {
+    "width": 390,
+    "viewport": 390
+  },
+  "checks": [
+    "live notification refresh",
+    "dirty editor retained",
+    "offline catches up across multiple revisions",
+    "no extra full snapshot",
+    "notification failure falls back to polling"
+  ],
+  "requests": [
+    {
+      "page": "desktop",
+      "path": "/api/sync/snapshot",
+      "query": ""
+    },
+    {
+      "page": "desktop",
+      "path": "/api/sync/notifications",
+      "query": "?dataEpoch=dff19e6c-8119-40d5-b2ee-c53b59ce251c&since=0&learningDate=2026-11-01"
+    },
+    {
+      "page": "desktop",
+      "path": "/api/sync/revision",
+      "query": ""
+    },
+    {
+      "page": "phone",
+      "path": "/api/sync/snapshot",
+      "query": ""
+    },
+    {
+      "page": "phone",
+      "path": "/api/sync/notifications",
+      "query": "?dataEpoch=dff19e6c-8119-40d5-b2ee-c53b59ce251c&since=0&learningDate=2026-11-01"
+    },
+    {
+      "page": "phone",
+      "path": "/api/sync/revision",
+      "query": ""
+    },
+    {
+      "page": "desktop",
+      "path": "/api/sync/changes",
+      "query": "?dataEpoch=dff19e6c-8119-40d5-b2ee-c53b59ce251c&since=0"
+    },
+    {
+      "page": "desktop",
+      "path": "/api/sync/receipts/4bc81854-2a1e-498d-8b8b-7c4517cd5107",
+      "query": "?dataEpoch=dff19e6c-8119-40d5-b2ee-c53b59ce251c"
+    },
+    {
+      "page": "desktop",
+      "path": "/api/sync/changes",
+      "query": "?dataEpoch=dff19e6c-8119-40d5-b2ee-c53b59ce251c&since=0"
+    },
+    {
+      "page": "phone",
+      "path": "/api/sync/revision",
+      "query": ""
+    },
+    {
+      "page": "phone",
+      "path": "/api/sync/changes",
+      "query": "?dataEpoch=dff19e6c-8119-40d5-b2ee-c53b59ce251c&since=0"
+    },
+    {
+      "page": "desktop",
+      "path": "/api/sync/changes",
+      "query": "?dataEpoch=dff19e6c-8119-40d5-b2ee-c53b59ce251c&since=1"
+    },
+    {
+      "page": "desktop",
+      "path": "/api/sync/notifications",
+      "query": "?dataEpoch=dff19e6c-8119-40d5-b2ee-c53b59ce251c&since=1&learningDate=2026-11-01"
+    },
+    {
+      "page": "desktop",
+      "path": "/api/sync/receipts/3b34a8c5-db60-4d90-a336-8d835cec3ad5",
+      "query": "?dataEpoch=dff19e6c-8119-40d5-b2ee-c53b59ce251c"
+    },
+    {
+      "page": "phone",
+      "path": "/api/sync/notifications",
+      "query": "?dataEpoch=dff19e6c-8119-40d5-b2ee-c53b59ce251c&since=1&learningDate=2026-11-01"
+    },
+    {
+      "page": "desktop",
+      "path": "/api/sync/changes",
+      "query": "?dataEpoch=dff19e6c-8119-40d5-b2ee-c53b59ce251c&since=1"
+    },
+    {
+      "page": "phone",
+      "path": "/api/sync/revision",
+      "query": ""
+    },
+    {
+      "page": "phone",
+      "path": "/api/sync/changes",
+      "query": "?dataEpoch=dff19e6c-8119-40d5-b2ee-c53b59ce251c&since=1"
+    },
+    {
+      "page": "desktop",
+      "path": "/api/sync/notifications",
+      "query": "?dataEpoch=dff19e6c-8119-40d5-b2ee-c53b59ce251c&since=2&learningDate=2026-11-01"
+    },
+    {
+      "page": "phone",
+      "path": "/api/sync/notifications",
+      "query": "?dataEpoch=dff19e6c-8119-40d5-b2ee-c53b59ce251c&since=2&learningDate=2026-11-01"
+    },
+    {
+      "page": "desktop",
+      "path": "/api/sync/changes",
+      "query": "?dataEpoch=dff19e6c-8119-40d5-b2ee-c53b59ce251c&since=2"
+    },
+    {
+      "page": "desktop",
+      "path": "/api/sync/receipts/c9cf852c-1e51-413d-8806-ff3bc7306f66",
+      "query": "?dataEpoch=dff19e6c-8119-40d5-b2ee-c53b59ce251c"
+    },
+    {
+      "page": "desktop",
+      "path": "/api/sync/changes",
+      "query": "?dataEpoch=dff19e6c-8119-40d5-b2ee-c53b59ce251c&since=2"
+    },
+    {
+      "page": "desktop",
+      "path": "/api/sync/changes",
+      "query": "?dataEpoch=dff19e6c-8119-40d5-b2ee-c53b59ce251c&since=3"
+    },
+    {
+      "page": "desktop",
+      "path": "/api/sync/receipts/9e4e2580-5009-48d4-b7ae-0ef3c53a7711",
+      "query": "?dataEpoch=dff19e6c-8119-40d5-b2ee-c53b59ce251c"
+    },
+    {
+      "page": "desktop",
+      "path": "/api/sync/changes",
+      "query": "?dataEpoch=dff19e6c-8119-40d5-b2ee-c53b59ce251c&since=3"
+    },
+    {
+      "page": "phone",
+      "path": "/api/sync/notifications",
+      "query": "?dataEpoch=dff19e6c-8119-40d5-b2ee-c53b59ce251c&since=2&learningDate=2026-11-01"
+    },
+    {
+      "page": "phone",
+      "path": "/api/sync/revision",
+      "query": ""
+    },
+    {
+      "page": "phone",
+      "path": "/api/sync/changes",
+      "query": "?dataEpoch=dff19e6c-8119-40d5-b2ee-c53b59ce251c&since=2"
+    },
+    {
+      "page": "phone",
+      "path": "/api/sync/notifications",
+      "query": "?dataEpoch=dff19e6c-8119-40d5-b2ee-c53b59ce251c&since=4&learningDate=2026-11-01"
+    },
+    {
+      "page": "desktop",
+      "path": "/api/sync/notifications",
+      "query": "?dataEpoch=dff19e6c-8119-40d5-b2ee-c53b59ce251c&since=4&learningDate=2026-11-01"
+    },
+    {
+      "page": "desktop",
+      "path": "/api/sync/notifications",
+      "query": "?dataEpoch=dff19e6c-8119-40d5-b2ee-c53b59ce251c&since=4&learningDate=2026-11-01"
+    },
+    {
+      "page": "phone",
+      "path": "/api/sync/notifications",
+      "query": "?dataEpoch=dff19e6c-8119-40d5-b2ee-c53b59ce251c&since=4&learningDate=2026-11-01"
+    }
+  ],
+  "pageErrors": []
+}

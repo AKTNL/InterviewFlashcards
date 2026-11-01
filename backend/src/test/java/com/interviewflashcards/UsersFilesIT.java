@@ -189,7 +189,7 @@ class UsersFilesIT {
         var login = login("owner");
         mvc.perform(get("/api/sources/" + savedId + "/content").session(login.session()))
                 .andExpect(status().isOk()).andExpect(content().bytes(pdf));
-        assertThat(jdbc.queryForObject("select count(*) from flyway_schema_history where version is not null", Integer.class)).isEqualTo(18);
+        assertThat(jdbc.queryForObject("select count(*) from flyway_schema_history where version is not null", Integer.class)).isEqualTo(19);
         assertThat(app.getBean(jakarta.servlet.MultipartConfigElement.class).getLocation())
                 .isEqualTo(directory.resolve("tmp").toAbsolutePath().normalize().toString());
     }

@@ -88,6 +88,41 @@ class LearningIT {
     private LearningController.ReviewParameters parameters(long version,List<Integer> intervals) {
         return new LearningController.ReviewParameters(UUID.randomUUID(),epoch,version,intervals,"缩短间隔观察后续自评");
     }
+    @Test void incrementalScoringParametersReplayAndUndoMatchFullSnapshots() throws Exception {
+        var sync=app.getBean(com.interviewflashcards.sync.SyncService.class);
+        JsonNode before=mapper.valueToTree(sync.snapshot(user,true));
+        var s=session(0);
+        before=assertDeltaMatches(sync,before);
+        policies().save(user,parameters(0,List.of(2,4,8,16,32)));
+        before=assertDeltaMatches(sync,before);
+        var result=write(s,"RATE","FORGOT");
+        before=assertDeltaMatches(sync,before);
+        write(result.path("session"),"UNDO",null);
+        assertDeltaMatches(sync,before);
+    }
+    private JsonNode assertDeltaMatches(com.interviewflashcards.sync.SyncService sync,JsonNode before) throws Exception {
+        JsonNode delta=mapper.valueToTree(sync.changes(user,epoch,before.path("revision").asLong()));
+        assertThat(delta.path("fullRequired").asBoolean()).isFalse();
+        var rebuilt=(com.fasterxml.jackson.databind.node.ObjectNode)before.deepCopy();
+        for(var change:delta.path("changes")) {
+            String table=change.path("table").asText();
+            var rows=(com.fasterxml.jackson.databind.node.ArrayNode)(table.equals("source_document")?rebuilt.path("sources"):rebuilt.path("data").path(table));
+            for(int i=rows.size()-1;i>=0;i--) {
+                JsonNode candidate=rows.get(i);
+                if(change.path("key").properties().stream().allMatch(e->e.getValue().equals(candidate.path(e.getKey())))) rows.remove(i);
+            }
+            if(!change.path("row").isNull())rows.add(change.path("row"));
+        }
+        JsonNode after=mapper.valueToTree(sync.snapshot(user,true));
+        assertThat(delta.path("revision")).isEqualTo(after.path("revision"));
+        after.path("data").properties().forEach(e->{
+            var actual=new HashSet<JsonNode>();rebuilt.path("data").path(e.getKey()).forEach(actual::add);
+            var expected=new HashSet<JsonNode>();e.getValue().forEach(expected::add);
+            assertThat(actual).as("incremental %s",e.getKey()).isEqualTo(expected);
+        });
+        assertThat(rebuilt.path("sources")).isEqualTo(after.path("sources"));
+        return after;
+    }
     @Test void personalParametersAreImmutableVersionedIdempotentAndDoNotRescheduleExistingCards() throws Exception {
         var s=write(session(0),"RATE","REMEMBERED").path("session");
         var due=jdbc.queryForObject("select due_date from review_state where user_id=?",LocalDate.class,user);

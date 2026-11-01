@@ -39,7 +39,7 @@ const source: Source = { id: 'source', originalFilename: '远端.pdf', version: 
 const snapshot: Snapshot = { dataEpoch: 'epoch', revision: 0, sources: [source] }
 let rows: Map<string, Mutation>
 let storage: QueueStorage
-let api: typeof syncApi
+let api: Pick<typeof syncApi, 'revision' | 'snapshot' | 'receipt' | 'source' | 'send'>
 let now: number
 let queue: MutationQueue
 const active = () => true

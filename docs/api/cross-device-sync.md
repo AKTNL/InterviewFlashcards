@@ -1,6 +1,6 @@
 # P0-10 跨设备同步与评分冲突
 
-继承[写入协议](mutations-and-sync.md)、[学习评分](learning.md)及[每日计划](daily-learning.md)。所有接口需登录；写请求校验 CSRF。归属、代次、版本、操作摘要、业务变更和收据仍在用户锁与同一事务中处理。
+继承[写入协议](mutations-and-sync.md)、[学习评分](learning.md)及[每日计划](daily-learning.md)。所有接口需登录；写请求校验 CSRF。归属、代次、版本、操作摘要、业务变更和收据仍在用户锁与同一事务中处理。P1-05 已增加[变更通知与修订增量](incremental-sync.md)，以下全量接口和冲突规则继续作为兼容兜底。
 
 ## 修订与快照
 
@@ -12,7 +12,7 @@
 - 导入：`import_job/draft_card/draft_edit_operation/chapter_check_progress`。
 - 整理：`personal_annotation`，正式卡片中的纠错和待检查字段。
 - 学习：`review_state/review_event/learning_session/session_item/review_replay_allowance`。
-- 偏好：`learning_preference/learning_preference_chapter`。
+- 偏好：`learning_preference/learning_preference_chapter/review_policy`。
 - 冲突：`sync_conflict`，包含已解决记录及其版本与解决方式。
 
 不包含账号/密码、Cookie、存储键、解析器 attempt token、内部 raw evidence 或文件二进制。来源 PDF、图片与页面原图继续通过已有鉴权接口按需读取。全部查询持有用户共享锁，与 revision 一致；后台导入原有写入也推进用户修订。

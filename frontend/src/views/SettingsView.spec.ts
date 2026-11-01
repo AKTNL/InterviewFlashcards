@@ -49,6 +49,15 @@ it('keeps unsaved settings when a remote revision arrives and refreshes pristine
   expect(learningApi.today).not.toHaveBeenCalled(); expect((wrapper.get('input[type="number"]').element as HTMLInputElement).value).toBe('0')
   expect(wrapper.text()).toContain('本地设置编辑已保留')
 })
+it('skips unrelated source changes but refreshes chapter statistics after a remote score', async () => {
+  const { wrapper, sync } = await view()
+  vi.mocked(learningApi.today).mockClear()
+  sync.state = { ...sync.state!, revision: 2, changedTables: ['source_document'] }; await flushPromises()
+  expect(learningApi.today).not.toHaveBeenCalled()
+  vi.mocked(learningApi.today).mockResolvedValue({ ...sample, chapters: [{ ...sample.chapters[0]!, learned: 1, due: 1 }] })
+  sync.state = { ...sync.state!, revision: 3, changedTables: ['review_state'] }; await flushPromises()
+  expect(wrapper.text()).toContain('已学 1/2 · 到期 1')
+})
 it('protects unsaved settings from reload and browser close', async () => {
   const { wrapper } = await view();await wrapper.get('input[type="number"]').setValue(0)
   const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
