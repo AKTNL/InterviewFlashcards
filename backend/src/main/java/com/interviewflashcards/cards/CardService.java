@@ -59,12 +59,13 @@ public class CardService {
             case "WEAK" -> " and r.latest_rating in ('FORGOT','VAGUE')";
             case "FAVORITE" -> " and a.favorite=true";
             case "CHECK" -> " and c.needs_check=true";
+            case "DUPLICATE" -> " and "+DeckManagementService.DUPLICATE;
             default -> throw new ApiFailure(ErrorCode.INVALID_REQUEST);
         });
         long total=jdbc.queryForObject("select count(*) "+JOINS+where,Long.class,args.toArray());
         args.add(limit);args.add(offset);
         var items=jdbc.queryForList("""
-            select c.id,c.question,c.needs_check as "needsCheck",ch.name as "chapterName",m.name as "moduleName",
+            select c.id,c.question,d.id as "deckId",d.name as "deckName",c.needs_check as "needsCheck",ch.name as "chapterName",m.name as "moduleName",
             coalesce(a.favorite,false) as favorite,(r.id is not null) as learned,r.due_date as "dueDate",r.latest_rating as "latestRating"
             """+JOINS+where+" order by d.id,m.sort_order,m.id,ch.sort_order,ch.id,dc.sort_order,dc.id,c.id limit ? offset ?",args.toArray());
         return obj("items",items,"total",total,"offset",offset,"limit",limit,"learningDate",time.today());

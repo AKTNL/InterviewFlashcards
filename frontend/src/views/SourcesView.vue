@@ -67,6 +67,7 @@ async function upload() {
     <p class="eyebrow">YOUR SOURCE LIBRARY</p>
     <h1>我的资料</h1>
     <p class="muted">保存面试资料，随时回到原文。</p>
+    <p><RouterLink to="/decks">管理多个题库、独立进度与重复内容</RouterLink></p>
   </section>
   <section class="upload-panel" aria-labelledby="upload-title">
     <h2 id="upload-title">添加一份 PDF</h2>

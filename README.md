@@ -67,6 +67,8 @@ P1-12 已完成仓库实现与本地验收：独立管理员维护入口、管�
 - [2026-11-01 公网 ZIP 恢复与旧设备重连验收](docs/fixtures/p0-13/public-restore-2026-11-01.md)
 - [当前 Debian 部署的日常操作](docs/runbooks/debian-home-deployment.md)
 
+P1-06 多题库管理已完成仓库实现与本地验收，尚未发布公网：[验收记录](docs/fixtures/p1-06/README.md) · [API](docs/api/deck-management.md) · [ADR 0026](docs/decisions/0026-p1-06-independent-deck-management.md)。
+
 快速启动（Docker Compose v2，在仓库根目录）：
 
 ```powershell

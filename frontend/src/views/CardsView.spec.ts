@@ -12,7 +12,7 @@ beforeEach(() => {
   setActivePinia(createPinia())
   vi.clearAllMocks();mocks.route.query = {};mocks.route.params = {}
   vi.mocked(cardsApi.catalog).mockResolvedValue([{ deckId: 'deck', deckName: '面试', moduleId: 'java', moduleName: 'Java', chapterId: 'chapter', chapterName: '集合', checkStatus: 'IMPORTED', cardCount: 21 }])
-  vi.mocked(cardsApi.list).mockResolvedValue({ items: [{ id: 'card', question: 'HashMap', moduleName: 'Java', chapterName: '集合', needsCheck: true, favorite: true, learned: false, dueDate: null, latestRating: null }], total: 21, offset: 0, limit: 20, learningDate: '2026-10-31' })
+  vi.mocked(cardsApi.list).mockResolvedValue({ items: [{ id: 'card', question: 'HashMap', deckId: 'deck', deckName: '面试', moduleName: 'Java', chapterName: '集合', needsCheck: true, favorite: true, learned: false, dueDate: null, latestRating: null }], total: 21, offset: 0, limit: 20, learningDate: '2026-10-31' })
 })
 afterEach(() => wrappers.splice(0).forEach(w => w.unmount()))
 async function view() { const wrapper = mount(CardsView, { global: { stubs: { RouterLink: true } } });wrappers.push(wrapper);await flushPromises();return wrapper }
@@ -30,4 +30,16 @@ it('offers clear conditions for no results and resets scope and offset', async (
 it('keeps chapter entry compatible and displays a retryable service failure', async () => {
   mocks.route.params = { id: 'chapter' };vi.mocked(cardsApi.list).mockRejectedValue(new Error('服务不可用'))
   const wrapper = await view();expect(vi.mocked(cardsApi.list).mock.calls[0]![0].get('chapterId')).toBe('chapter');expect(wrapper.get('[role=alert]').text()).toContain('服务不可用')
+})
+it('switches decks immediately, clears old chapter scope and pagination, and retains duplicate hints', async () => {
+  mocks.route.query = { deckId: 'deck', moduleId: 'java', chapterId: 'chapter', offset: '20', filter: 'DUPLICATE' }
+  vi.mocked(cardsApi.catalog).mockResolvedValue([
+    { deckId: 'deck', deckName: '同名', moduleId: 'java', moduleName: 'Java', chapterId: 'chapter', chapterName: '集合', checkStatus: 'IMPORTED', cardCount: 21 },
+    { deckId: 'copy', deckName: '同名', moduleId: 'm2', moduleName: 'Java', chapterId: 'c2', chapterName: '集合', checkStatus: 'PENDING', cardCount: 0 },
+  ])
+  const wrapper = await view()
+  expect(wrapper.text()).toContain('已导入 1 章 · 0 章待确认')
+  expect(wrapper.text()).toContain('答案和学习进度各自独立')
+  await wrapper.findAll('select')[0]!.setValue('copy')
+  expect(mocks.push).toHaveBeenLastCalledWith({ path: '/cards', query: { deckId: 'copy', filter: 'DUPLICATE', offset: '0' } })
 })

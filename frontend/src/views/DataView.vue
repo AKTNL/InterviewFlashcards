@@ -3,7 +3,9 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { deckDataApi, type DeckImpact } from '../api/deckData'
 import { useSyncStore } from '../stores/sync'
 import { onSyncRefresh } from '../sync/refresh'
-const sync = useSyncStore(), decks = ref<{ id: string; name: string }[]>([]), selected = ref(''), action = ref('RESET')
+import { useRoute } from 'vue-router'
+const route = useRoute()
+const sync = useSyncStore(), decks = ref<{ id: string; name: string }[]>([]), selected = ref(String(route.query.deckId ?? '')), action = ref('RESET')
 const impact = ref<DeckImpact>(), confirmed = ref(false), loading = ref(false), busy = ref(false), error = ref(''), message = ref('')
 const pending = computed(() => sync.items.some(i => i.status !== 'synced'))
 const stale = computed(() => !impact.value || impact.value.dataEpoch !== sync.state?.dataEpoch || impact.value.revision !== sync.state?.revision)
@@ -11,6 +13,7 @@ let generation = 0
 const seen = new Set(sync.items.filter(i => i.status === 'synced').map(i => i.operationId))
 function clear() { generation++; impact.value = undefined; confirmed.value = false; error.value = ''; message.value = '' }
 watch([selected, action], clear)
+watch(() => route.query.deckId, value => { selected.value = String(value ?? '') })
 async function load() {
   try { decks.value = await deckDataApi.decks() }
   catch (cause) { error.value = cause instanceof Error ? cause.message : '读取题库失败，请重试' }
@@ -53,11 +56,12 @@ onUnmounted(() => { generation++ })
   <p v-if="pending" class="notice">有尚未同步或待处理的操作，请先到“保存与同步”核对；预览过期的操作需放弃后重新预览。</p>
   <section class="chapter-review data-operations">
     <p v-if="!decks.length">还没有题库。<RouterLink to="/sources">上传 PDF 并检查章节</RouterLink></p>
-    <label>操作题库<select v-model="selected" :disabled="busy || loading"><option value="">请选择题库</option><option v-for="d in decks" :key="d.id" :value="d.id">{{ d.name }}</option></select></label>
+    <label>操作题库<select v-model="selected" :disabled="busy || loading"><option value="">请选择题库</option><option v-for="d in decks" :key="d.id" :value="d.id">{{ d.name }} · {{ d.id }}</option></select></label>
     <label>操作类型<select v-model="action" :disabled="busy || loading"><option value="RESET">重置学习进度</option><option value="DELETE">删除题库内容</option></select></label>
     <button class="secondary-button" :disabled="!selected || loading || busy" @click="preview">{{ loading ? '正在读取影响…' : '读取影响预览' }}</button>
     <section v-if="impact" class="confirm-panel" aria-label="数据操作影响预览">
       <h2>{{ action === 'DELETE' ? '删除题库' : '重置进度' }}：{{ impact.name }}</h2>
+      <p class="form-note">题库 ID：{{ impact.deckId }}</p>
       <p>本题库有 {{ impact.counts.cards }} 张正式卡片、{{ impact.counts.drafts }} 张草稿、{{ impact.counts.annotations }} 份笔记/提示/收藏、{{ impact.counts.learned }} 张已学卡片、{{ impact.counts.events }} 条学习事件。涉及 {{ impact.counts.sessions }} 个学习会话。</p>
       <p v-if="action === 'DELETE'">将删除本题库全部正式卡片、草稿、检查记录、笔记、提示、收藏及学习历史，移出学习范围。原 PDF 和图片资源保留在我的资料，可显式重试解析重新导入。此操作不能直接撤销。</p>
       <p v-else>将清除本题库全部评分、撤销、更正、重练历史及复习日期，卡片回到未学，之后学习会重新计为新题。卡片内容、草稿、笔记、提示、收藏和学习设置保留。此操作不能直接撤销。</p>

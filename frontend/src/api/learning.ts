@@ -19,7 +19,7 @@ export interface LearningPreferences {
 export interface TodayLearning {
   learningDate: string; learningTimezone: string; dueTotal: number; remainingNew: number; availableNew: number
   preferences: LearningPreferences; summary: { learned: number; todayNew: number; todayReview: number }
-  chapters: { id: string; name: string; moduleName: string; deckName: string; selected: boolean; total: number; learned: number; due: number; weak: number }[]
+  chapters: { id: string; name: string; moduleName: string; deckId: string; deckName: string; selected: boolean; total: number; learned: number; due: number; weak: number }[]
   continuing: { id: string; mode: string; remaining: number }[]
 }
 export const learningModes: Record<string, string> = { MIXED: '混合学习', REVIEW: '只复习', NEW: '只学新题', MANUAL: '自主练习' }

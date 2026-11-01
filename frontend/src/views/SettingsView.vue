@@ -3,10 +3,18 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { learningApi, type TodayLearning } from '../api/learning'
 import { useSyncStore } from '../stores/sync'
 import { onSyncRefresh } from '../sync/refresh'
-import { onBeforeRouteLeave } from 'vue-router'
+import { onBeforeRouteLeave, useRoute } from 'vue-router'
+const route = useRoute(), deckFilter = ref(String(route.query.deckId ?? ''))
 const sync = useSyncStore(), today = ref<TodayLearning>(), loading = ref(false), busy = ref(false), error = ref(''), message = ref('')
 const dailyNewCount = ref(5), reviewBatchSize = ref(20), referenceMinutes = ref<number | ''>(''), chapterIds = ref<string[]>([])
 const baseline = ref('')
+const decks = computed(() => [...new Map(today.value?.chapters.map(ch => [ch.deckId, { id: ch.deckId, name: ch.deckName }]) ?? []).values()])
+const visibleChapters = computed(() => today.value?.chapters.filter(ch => !deckFilter.value || ch.deckId === deckFilter.value) ?? [])
+function selectVisible(selected: boolean) {
+  const ids = new Set(visibleChapters.value.map(ch => ch.id))
+  chapterIds.value = selected ? [...new Set([...chapterIds.value, ...ids])] : chapterIds.value.filter(id => !ids.has(id))
+}
+watch(() => route.query.deckId, value => { deckFilter.value = String(value ?? '') })
 const formValue = () => JSON.stringify([dailyNewCount.value, reviewBatchSize.value, referenceMinutes.value, chapterIds.value])
 const dirty = computed(() => !!baseline.value && baseline.value !== formValue())
 const pending = computed(() => sync.items.some(i => i.kind === 'preferences.save' && i.status !== 'synced'))
@@ -73,7 +81,11 @@ onBeforeRouteLeave(() => !dirty.value || window.confirm('还有未保存的学�
       <label>每日参考时长（分钟，可选）<input v-model.number="referenceMinutes" type="number" min="1" max="1440" /></label><p class="form-note">留空表示不设置；不会强制计时或到时结束。</p>
     </fieldset>
     <fieldset :disabled="pending || busy || loading"><legend>参与学习的章节</legend><p v-if="!today.chapters.length">还没有已确认的章节，请先到我的资料完成逐章检查。</p>
-      <label v-for="ch in today.chapters" :key="ch.id" class="chapter-choice"><input v-model="chapterIds" type="checkbox" :value="ch.id" /><span>{{ ch.deckName }} · {{ ch.moduleName }} / {{ ch.name }}<small>已学 {{ ch.learned }}/{{ ch.total }} · 到期 {{ ch.due }} · 薄弱 {{ ch.weak }}</small></span></label>
+      <label>按题库查看学习范围<select v-model="deckFilter"><option value="">全部题库</option><option v-for="d in decks" :key="d.id" :value="d.id">{{ d.name }} · {{ d.id }}</option></select></label>
+      <p>共选中 {{ chapterIds.length }} 章。切换查看保留其他题库的选择；每日目标由全部选中章节共用。</p>
+      <p v-if="deckFilter && !visibleChapters.length">该题库不存在或暂无已确认章节，请返回题库管理核对。</p>
+      <div class="sync-actions"><button type="button" class="secondary-button" :disabled="!visibleChapters.length" @click="selectVisible(true)">选中当前显示章节</button><button type="button" class="secondary-button" :disabled="!visibleChapters.length" @click="selectVisible(false)">暂停当前显示章节</button></div>
+      <label v-for="ch in visibleChapters" :key="ch.id" class="chapter-choice"><input v-model="chapterIds" type="checkbox" :value="ch.id" /><span>{{ ch.deckName }} · {{ ch.deckId }} · {{ ch.moduleName }} / {{ ch.name }}<small>已学 {{ ch.learned }}/{{ ch.total }} · 到期 {{ ch.due }} · 薄弱 {{ ch.weak }}</small></span></label>
     </fieldset>
     <p v-if="pending" role="status">设置尚未确认，请查看“保存与同步”；冲突时保留本地与服务端内容供核对。</p>
     <p v-if="!sync.state" role="status">正在连接同步服务，连接后可保存；当前输入会保留。</p>

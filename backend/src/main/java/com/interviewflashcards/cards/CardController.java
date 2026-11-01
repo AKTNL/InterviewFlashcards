@@ -12,7 +12,11 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-public record CardController(CardService cards, ApiResponses responses) {
+public record CardController(CardService cards, DeckManagementService decks, ApiResponses responses) {
+    @GetMapping("/api/cards/decks")
+    public ApiResponse<?> decks(@AuthenticationPrincipal AccountPrincipal user, HttpServletRequest request) {
+        return responses.success(decks.overview(user.id()), request);
+    }
     @GetMapping("/api/cards/catalog")
     public ApiResponse<?> catalog(@AuthenticationPrincipal AccountPrincipal user, HttpServletRequest request) {
         return responses.success(cards.catalog(user.id()), request);
@@ -21,7 +25,7 @@ public record CardController(CardService cards, ApiResponses responses) {
     public ApiResponse<?> list(@AuthenticationPrincipal AccountPrincipal user,
             @RequestParam(required=false) UUID deckId, @RequestParam(required=false) UUID moduleId,
             @RequestParam(required=false) UUID chapterId, @RequestParam(defaultValue="") @Size(max=200) String q,
-            @RequestParam(defaultValue="ALL") @Pattern(regexp="ALL|UNLEARNED|LEARNED|DUE|WEAK|FAVORITE|CHECK") String filter,
+            @RequestParam(defaultValue="ALL") @Pattern(regexp="ALL|UNLEARNED|LEARNED|DUE|WEAK|FAVORITE|CHECK|DUPLICATE") String filter,
             @RequestParam(defaultValue="0") @Min(0) int offset, @RequestParam(defaultValue="20") @Min(1) @Max(100) int limit,
             HttpServletRequest request) {
         return responses.success(cards.list(user.id(), deckId, moduleId, chapterId, q, filter, offset, limit), request);

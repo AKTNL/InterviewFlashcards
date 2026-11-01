@@ -67,6 +67,65 @@ class CardLibraryIT {
     private Map<String,Object> annotation(String notes,boolean favorite) { return Map.of("notes",notes,"hint","提示","memoryPoints","要点","favorite",favorite); }
     private CardController.Write command(String action,Object payload,long version) { return new CardController.Write(UUID.randomUUID(),epoch,version,action,mapper.valueToTree(payload)); }
     private JsonNode write(int index,String action,Object payload,long version) throws Exception { return cards.write(user,ids.get(index),command(action,payload,version)); }
+    private UUID copyDeck(UUID owner,String title) {
+        UUID copy=UUID.randomUUID(),m=UUID.randomUUID(),ch=UUID.randomUUID(),s=UUID.randomUUID(),j=UUID.randomUUID(),draft=UUID.randomUUID(),card=UUID.randomUUID();
+        jdbc.update("insert into deck(id,user_id,name) values(?,?,'面试')",copy,owner);
+        jdbc.update("insert into module(id,user_id,deck_id,name,original_name) values(?,?,?,'Java','Java')",m,owner,copy);
+        jdbc.update("insert into chapter(id,user_id,module_id,name,original_name,check_status) values(?,?,?,'Java 基础','Java','IMPORTED')",ch,owner,m);
+        jdbc.update("insert into source_document(id,user_id,original_filename,sha256,page_count,byte_size,storage_key,shared_copy) values(?,?,'copy.pdf',?,3,10,?,true)",s,owner,"a".repeat(64),UUID.randomUUID());
+        jdbc.update("insert into import_job(id,user_id,source_id,status,deck_id) values(?,?,?,'READY',?)",j,owner,s,copy);
+        jdbc.update("insert into draft_card(id,user_id,chapter_id,import_job_id,source_entry,question) values(?,?,?,?,'copy',?)",draft,owner,ch,j,title);
+        jdbc.update("insert into card(id,user_id,chapter_id,draft_id,question) values(?,?,?,?,?)",card,owner,ch,draft,title);
+        return copy;
+    }
+    @Test void independentDeckOverviewIncludesEmptyDecksSameFileHintsAndScopedProgress() throws Exception {
+        UUID copy=copyDeck(user,"  HASHMAP\t100%_! "),empty=UUID.randomUUID();
+        jdbc.update("insert into deck(id,user_id,name) values(?,?,'空题库')",empty,user);
+        var today=app.getBean(LearningTime.class).today();
+        jdbc.update("insert into review_state(id,user_id,card_id,first_learned_at,last_reviewed_at,due_date,latest_rating) values(?,?,?,now(),now(),?,'VAGUE')",UUID.randomUUID(),user,ids.getFirst(),today);
+        long revision=jdbc.queryForObject("select revision from app_user where id=?",Long.class,user);
+        var value=mapper.valueToTree(app.getBean(DeckManagementService.class).overview(user));
+        assertThat(value.path("decks").size()).isEqualTo(3);
+        var byId=new HashMap<String,JsonNode>();value.path("decks").forEach(d->byId.put(d.path("id").asText(),d));
+        assertThat(byId.get(deck.toString()).path("learned").asInt()).isEqualTo(1);
+        assertThat(byId.get(deck.toString()).path("due").asInt()).isEqualTo(1);
+        assertThat(byId.get(deck.toString()).path("weak").asInt()).isEqualTo(1);
+        assertThat(byId.get(copy.toString()).path("learned").asInt()).isZero();
+        assertThat(byId.get(copy.toString()).path("duplicates").asInt()).isEqualTo(1);
+        assertThat(byId.get(empty.toString()).path("total").asInt()).isZero();
+        assertThat(byId.get(empty.toString()).path("chapters").asInt()).isZero();
+        assertThat(value.path("sources").size()).isEqualTo(2);
+        value.path("sources").forEach(s->assertThat(s.path("sameFileDecks").asInt()).isEqualTo(1));
+        assertThat(cards.list(user,copy,null,null,"","DUPLICATE",0,20).get("total")).isEqualTo(1L);
+        assertThat(cards.list(user,null,null,null,"","DUPLICATE",0,1).get("total")).isEqualTo(2L);
+        var page=mapper.valueToTree(cards.list(user,copy,null,null,"","UNLEARNED",0,20));
+        assertThat(page.at("/items/0/deckId").asText()).isEqualTo(copy.toString());
+        assertThat(page.at("/items/0/deckName").asText()).isEqualTo("面试");
+        assertThat(jdbc.queryForObject("select revision from app_user where id=?",Long.class,user)).isEqualTo(revision);
+        var data=app.getBean(DeckDataService.class);
+        data.confirm(user,copy,new DeckDataController.Confirm(UUID.randomUUID(),epoch,revision,"DELETE",true));
+        assertThat(cards.list(user,null,null,null,"","DUPLICATE",0,20).get("total")).isEqualTo(0L);
+        assertThat(list("","LEARNED",0).get("total")).isEqualTo(1L);
+        var remaining=mapper.valueToTree(app.getBean(DeckManagementService.class).overview(user));
+        assertThat(remaining.path("sources").size()).isEqualTo(1);
+        assertThat(remaining.at("/sources/0/sameFileDecks").asInt()).isZero();
+    }
+    @Test void duplicateHintsAndOverviewNeverIncludeOtherAccountsOrDrafts() throws Exception {
+        UUID other=UUID.randomUUID();
+        jdbc.update("insert into app_user(id,username,password_hash) values(?,?,'unused')",other,"other-"+other);
+        copyDeck(other,"HashMap 100%_!");
+        assertThat(list("","DUPLICATE",0).get("total")).isEqualTo(0L);
+        jdbc.update("update draft_card set question='问题1' where user_id=?",user);
+        assertThat(list("","DUPLICATE",0).get("total")).isEqualTo(0L);
+        var owner=user(new AccountPrincipal(user,"test",""));
+        mvc.perform(get("/api/cards/decks")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/cards/decks").with(owner)).andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.decks.length()").value(1)).andExpect(jsonPath("$.data.sources[0].sameFileDecks").value(0));
+        mvc.perform(get("/api/cards?filter=DUPLICATE").with(owner)).andExpect(status().isOk()).andExpect(jsonPath("$.data.total").value(0));
+        jdbc.update("update card set question='  问题 1  ' where id=?",ids.getFirst());
+        assertThat(list("","DUPLICATE",0).get("total")).isEqualTo(2L);
+        assertThat(list("问题","DUPLICATE",0).get("total")).isEqualTo(2L);
+    }
     @Test void literalSearchScopesStablePaginationAndDraftsExcluded() {
         var first=list("","ALL",0);var last=list("","ALL",20);
         assertThat(first.get("total")).isEqualTo(25L);assertThat((List<?>)first.get("items")).hasSize(20);assertThat((List<?>)last.get("items")).hasSize(5);

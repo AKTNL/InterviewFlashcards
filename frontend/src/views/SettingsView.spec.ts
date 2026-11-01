@@ -5,11 +5,13 @@ import { learningApi, type TodayLearning } from '../api/learning'
 import { useSyncStore } from '../stores/sync'
 import SettingsView from './SettingsView.vue'
 vi.mock('../api/learning', () => ({ learningApi: { today: vi.fn() } }))
+const route = vi.hoisted(() => ({ query: {} as Record<string, string> }))
+vi.mock('vue-router', async original => ({ ...await original<typeof import('vue-router')>(), useRoute: () => route }))
 const sample: TodayLearning = { learningDate: '2026-10-31', learningTimezone: 'Asia/Shanghai', dueTotal: 0, remainingNew: 5, availableNew: 2,
   preferences: { saved: false, version: 0, dailyNewCount: 5, reviewBatchSize: 20, referenceMinutes: null, chapterIds: [] }, summary: { learned: 0, todayNew: 0, todayReview: 0 },
-  chapters: [{ id: 'ch', name: '集合', moduleName: 'Java', deckName: '面试', selected: false, total: 2, learned: 0, due: 0, weak: 0 }], continuing: [] }
+  chapters: [{ id: 'ch', name: '集合', moduleName: 'Java', deckId: 'deck', deckName: '面试', selected: false, total: 2, learned: 0, due: 0, weak: 0 }], continuing: [] }
 const wrappers: { unmount(): void }[] = []
-beforeEach(() => { vi.clearAllMocks(); vi.mocked(learningApi.today).mockResolvedValue(structuredClone(sample)) })
+beforeEach(() => { vi.clearAllMocks(); route.query = {}; vi.mocked(learningApi.today).mockResolvedValue(structuredClone(sample)) })
 afterEach(() => wrappers.splice(0).forEach(w => w.unmount()))
 async function view() {
   const pinia = createPinia();setActivePinia(pinia);const sync = useSyncStore(), enqueue = vi.spyOn(sync, 'enqueue').mockResolvedValue(undefined)
@@ -24,6 +26,21 @@ it('lets the user change defaults before first save and persists zero goal, chap
   await wrapper.get('form').trigger('submit');expect(enqueue).toHaveBeenCalledWith({ kind: 'preferences.save', name: '每日目标与学习范围', expectedVersion: 0,
     payload: { dailyNewCount: 0, reviewBatchSize: 3, referenceMinutes: 15, chapterIds: ['ch'] } })
   expect(wrapper.text()).toContain('等待服务端确认');expect(wrapper.text()).not.toContain('学习设置已同步')
+})
+it('filters by stable deck ID and changes only visible chapters while preserving hidden selections', async () => {
+  route.query = { deckId: 'deck' }
+  vi.mocked(learningApi.today).mockResolvedValue({ ...structuredClone(sample),
+    preferences: { ...sample.preferences, chapterIds: ['other'] },
+    chapters: [...sample.chapters, { ...sample.chapters[0]!, id: 'other', deckId: 'copy', selected: true }] })
+  const { wrapper, enqueue } = await view()
+  expect(wrapper.findAll('input[type=checkbox]')).toHaveLength(1)
+  await wrapper.findAll('button').find(b => b.text() === '选中当前显示章节')!.trigger('click')
+  await wrapper.get('form').trigger('submit')
+  expect(enqueue).toHaveBeenLastCalledWith(expect.objectContaining({ payload: expect.objectContaining({ chapterIds: ['other', 'ch'] }) }))
+  await wrapper.get('select').setValue('copy')
+  await wrapper.findAll('button').find(b => b.text() === '暂停当前显示章节')!.trigger('click')
+  await wrapper.get('form').trigger('submit')
+  expect(enqueue).toHaveBeenLastCalledWith(expect.objectContaining({ payload: expect.objectContaining({ chapterIds: ['ch'] }) }))
 })
 it('blocks invalid batches and retains edits if local persistence fails', async () => {
   const { wrapper, enqueue } = await view();const inputs = wrapper.findAll('input[type="number"]')

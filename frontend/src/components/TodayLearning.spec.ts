@@ -9,7 +9,7 @@ vi.mock('vue-router', () => ({ useRouter: () => ({ push }) }))
 vi.mock('../api/learning', async original => ({ ...await original<typeof import('../api/learning')>(), learningApi: { today: vi.fn() } }))
 const sample: Today = { learningDate: '2026-10-31', learningTimezone: 'Asia/Shanghai', dueTotal: 43, remainingNew: 0, availableNew: 8,
   preferences: { saved: true, version: 1, dailyNewCount: 0, reviewBatchSize: 20, referenceMinutes: null, chapterIds: ['ch'] },
-  summary: { learned: 50, todayNew: 2, todayReview: 3 }, chapters: [{ id: 'ch', name: '集合', moduleName: 'Java', deckName: '面试', selected: true, total: 60, learned: 50, due: 43, weak: 5 }],
+  summary: { learned: 50, todayNew: 2, todayReview: 3 }, chapters: [{ id: 'ch', name: '集合', moduleName: 'Java', deckId: 'deck', deckName: '面试', selected: true, total: 60, learned: 50, due: 43, weak: 5 }],
   continuing: [{ id: 'session', mode: 'REVIEW', remaining: 7 }] }
 const wrappers: { unmount(): void }[] = []
 beforeEach(() => { vi.clearAllMocks(); vi.mocked(learningApi.today).mockResolvedValue(structuredClone(sample)) })

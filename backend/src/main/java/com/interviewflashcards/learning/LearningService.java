@@ -389,7 +389,7 @@ public class LearningService {
     public Map<String,Object> today(UUID user) {
         var p=preferences(user);var counts=summary(user);
         var chapters=jdbc.queryForList("""
-            select ch.id,ch.name,m.name as "moduleName",d.name as "deckName",
+            select ch.id,ch.name,m.name as "moduleName",d.id as "deckId",d.name as "deckName",
             exists(select 1 from learning_preference_chapter pc where pc.user_id=ch.user_id and pc.chapter_id=ch.id) as selected,
             count(c.id) as total,count(r.card_id) as learned,
             count(r.card_id) filter(where r.due_date<=?) as due,

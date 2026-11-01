@@ -5,6 +5,8 @@ import { deckDataApi } from '../api/deckData'
 import { useSyncStore } from '../stores/sync'
 import DataView from './DataView.vue'
 vi.mock('../api/deckData', () => ({ deckDataApi: { decks: vi.fn(), preview: vi.fn() } }))
+const route = vi.hoisted(() => ({ query: {} as Record<string, string> }))
+vi.mock('vue-router', async original => ({ ...await original<typeof import('vue-router')>(), useRoute: () => route }))
 const impact = { deckId: 'deck', name: 'Java', dataEpoch: 'epoch', revision: 2, counts: { cards: 17, drafts: 158, annotations: 1, learned: 1, events: 3, sessions: 2 } }
 const wrappers: { unmount(): void }[] = []
 beforeEach(() => { vi.clearAllMocks(); vi.mocked(deckDataApi.decks).mockResolvedValue([{ id: 'deck', name: 'Java' }]); vi.mocked(deckDataApi.preview).mockResolvedValue(structuredClone(impact)) })
