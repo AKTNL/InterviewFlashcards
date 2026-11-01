@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily InterviewFlashcards backup (Shanghai time)
+
+[Timer]
+OnCalendar=*-*-* 04:00:00 Asia/Shanghai
+Persistent=true
+RandomizedDelaySec=300
+Unit=interview-flashcards-backup.service
+
+[Install]
+WantedBy=timers.target

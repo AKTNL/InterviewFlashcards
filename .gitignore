@@ -14,6 +14,7 @@ frontend/coverage/
 !**/.env.example
 !deploy/.env.production.example
 deploy/tls/
+deploy/backup-policy.json
 *.log
 .playwright-cli/
 playwright-report/

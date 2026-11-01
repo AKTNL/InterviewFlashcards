@@ -1,0 +1,10 @@
+{
+  "app_dir": "/srv/interview-flashcards",
+  "backup_dir": "/srv/interview-flashcards-backups",
+  "keep_count": 7,
+  "max_bytes": 21474836480,
+  "min_free_bytes": 2147483648,
+  "staging_reserve_bytes": 1073741824,
+  "backup_max_age_hours": 36,
+  "verify_max_age_hours": 192
+}

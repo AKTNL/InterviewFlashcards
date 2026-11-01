@@ -15,6 +15,11 @@ DOCKER_STUB = r'''#!/usr/bin/env bash
 set -eu
 # Reproduce the problematic CLI behavior: read all available standard input.
 cat >/dev/null
+if [[ "$1" == inspect ]]; then
+    test "${FC_FAIL_STAGE:-}" != image || exit 53
+    printf 'sha256:%064d\n' 1
+    exit
+fi
 test "$1" = compose
 FC_ACTION="${8}"
 shift 8
@@ -53,6 +58,7 @@ case "$FC_ACTION" in
     : > "$FC_BACKUP/temporary-files.sha256"
     ;;
   images) echo 'test-backend image-id' ;;
+  ps) echo 'test-container-id' ;;
   *) exit 91 ;;
 esac
 '''
@@ -106,6 +112,8 @@ class SnapshotTest(unittest.TestCase):
         snapshot = self.app / 'output/test-snapshot'
         self.assertTrue((snapshot / 'SHA256SUMS').is_file())
         self.assertTrue((snapshot / '.env.production').is_file())
+        self.assertTrue((snapshot / 'SNAPSHOT_COMPLETE').is_file())
+        self.assertTrue((snapshot / 'compose.images.json').is_file())
         self.assertEqual(self.calls().count('up'), 1)
         self.assertEqual(self.calls()[-1], 'up')
 
@@ -114,6 +122,7 @@ class SnapshotTest(unittest.TestCase):
         self.assertEqual(result.returncode, 51, result.stdout + result.stderr)
         self.assertEqual(self.calls()[-1], 'up')
         self.assertNotIn('SNAPSHOT_CREATED:', result.stdout)
+        self.assertFalse((self.app / 'output/test-snapshot/SNAPSHOT_COMPLETE').exists())
 
     def test_file_archive_failure_restarts_services_and_reports_failure(self):
         result = self.run_snapshot('files')
@@ -136,6 +145,23 @@ class SnapshotTest(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('Service restart failed', result.stderr)
         self.assertNotIn('SNAPSHOT_CREATED:', result.stdout)
+
+    def test_image_capture_failure_restarts_services_without_completion_marker(self):
+        result = self.run_snapshot('image')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(self.calls()[-1], 'up')
+        self.assertFalse((self.app / 'output/test-snapshot/SNAPSHOT_COMPLETE').exists())
+
+    @unittest.skipUnless(os.name == 'posix', 'Debian flock test')
+    def test_manual_maintenance_lock_rejects_snapshot_before_stopping_services(self):
+        import fcntl
+        (self.app / 'output').mkdir()
+        with (self.app / 'output/server-maintenance.lock').open('a') as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            result = self.run_snapshot()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('maintenance is already running', result.stderr)
+        self.assertEqual(self.calls(), [])
 
 
 if __name__ == '__main__':

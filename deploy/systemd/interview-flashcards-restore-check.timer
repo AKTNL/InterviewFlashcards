@@ -1,0 +1,11 @@
+[Unit]
+Description=Weekly InterviewFlashcards recovery drill (Shanghai time)
+
+[Timer]
+OnCalendar=Sun *-*-* 05:00:00 Asia/Shanghai
+Persistent=true
+RandomizedDelaySec=300
+Unit=interview-flashcards-restore-check.service
+
+[Install]
+WantedBy=timers.target

@@ -69,6 +69,8 @@ P1-12 已完成仓库实现与本地验收：独立管理员维护入口、管�
 
 P1-06 多题库管理已完成仓库实现与本地验收，尚未发布公网：[验收记录](docs/fixtures/p1-06/README.md) · [API](docs/api/deck-management.md) · [ADR 0026](docs/decisions/0026-p1-06-independent-deck-management.md)。
 
+P1-07 服务端自动备份、数量/空间保留策略及定期隔离恢复演练已完成仓库实现与本地验收，线上定时器尚未启用：[验收记录](docs/fixtures/p1-07/README.md) · [安装与故障处理](docs/runbooks/automatic-backups.md) · [ADR 0027](docs/decisions/0027-p1-07-automatic-server-backups.md)。
+
 快速启动（Docker Compose v2，在仓库根目录）：
 
 ```powershell

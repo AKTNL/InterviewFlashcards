@@ -7,7 +7,13 @@ FC_APP_DIR="${FC_APP_DIR:-/srv/interview-flashcards}"
 FC_APP_DIR="$(cd "$FC_APP_DIR" && pwd -P)"
 FC_LABEL="${1:?Usage: bash tools/check-server-snapshot.sh SNAPSHOT_LABEL}"
 [[ "$FC_LABEL" =~ ^[a-zA-Z0-9][a-zA-Z0-9_-]{0,100}$ ]] || { echo 'Invalid snapshot label.' >&2; exit 1; }
-FC_SNAPSHOT_DIR="$FC_APP_DIR/output/$FC_LABEL"
+FC_SNAPSHOT_ROOT="${FC_SNAPSHOT_ROOT:-$FC_APP_DIR/output}"
+FC_SNAPSHOT_ROOT="$(cd "$FC_SNAPSHOT_ROOT" && pwd -P)"
+FC_SNAPSHOT_DIR="$FC_SNAPSHOT_ROOT/$FC_LABEL"
+test ! -L "$FC_SNAPSHOT_DIR" || { echo 'Snapshot symlinks are not allowed.' >&2; exit 1; }
+mkdir -p "$FC_APP_DIR/output"
+exec 9>"$FC_APP_DIR/output/server-maintenance.lock"
+flock -n 9 || { echo 'Server maintenance is already running.' >&2; exit 1; }
 FC_PROJECT=interview-flashcards-recovery-check
 
 for FC_REQUIRED in SHA256SUMS database.dump files.tgz temporary-files.tgz \
@@ -53,8 +59,13 @@ chmod 600 "$FC_RECOVERY_ENV"
 
 fcrecovery() {
     fc_docker compose -p "$FC_PROJECT" --env-file "$FC_RECOVERY_ENV" \
-        -f "$FC_SNAPSHOT_DIR/compose.production.yml" "$@"
+        -f "$FC_SNAPSHOT_DIR/compose.production.yml" "${FC_IMAGE_ARGS[@]}" "$@"
 }
+FC_IMAGE_ARGS=()
+# Older P0-13 snapshots remain usable; new automatic snapshots require pins.
+if [[ -f "$FC_SNAPSHOT_DIR/compose.images.json" ]]; then
+    FC_IMAGE_ARGS=(-f "$FC_SNAPSHOT_DIR/compose.images.json")
+fi
 fcrecovery config --format json \
     | python3 "$FC_APP_DIR/tools/recovery-check-config.py" "$FC_PROJECT" "$FC_SNAPSHOT_DIR" "$FC_APP_DIR" \
     > "$FC_RUN_DIR/isolation.json"
@@ -89,6 +100,10 @@ fcrecovery run --rm --no-deps --pull never --interactive=false \
         test "$(find /data/tmp -mindepth 1 | wc -l)" -eq 0
         tar xzf /backup/files.tgz -C /data/files
         tar xzf /backup/temporary-files.tgz -C /data/tmp
+        (cd /data/files; find . -type f -exec sha256sum {} \; | LC_ALL=C sort) > /tmp/restored-files.sha256
+        (cd /data/tmp; find . -type f -exec sha256sum {} \; | LC_ALL=C sort) > /tmp/restored-temporary.sha256
+        cmp /backup/files.sha256 /tmp/restored-files.sha256
+        cmp /backup/temporary-files.sha256 /tmp/restored-temporary.sha256
         cd /data/files
         if [ -s /backup/files.sha256 ]; then
             sha256sum -c /backup/files.sha256 >/dev/null
@@ -107,7 +122,10 @@ echo 'FILES_MATCH: PASS'
 
 fcrecovery up -d --no-build --pull never --wait --wait-timeout 240
 FC_DOMAIN="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["domain"])' "$FC_RUN_DIR/isolation.json")"
+FC_CA_ARGS=()
+if [[ -n "${FC_RECOVERY_CA_FILE:-}" ]]; then FC_CA_ARGS=(--cacert "$FC_RECOVERY_CA_FILE"); fi
 curl --noproxy '*' --fail --silent --show-error \
+    --connect-timeout 10 --max-time 30 "${FC_CA_ARGS[@]}" \
     --resolve "$FC_DOMAIN:18445:127.0.0.1" \
     "https://$FC_DOMAIN:18445/api/health" > "$FC_RUN_DIR/health.json"
 python3 - "$FC_RUN_DIR/health.json" <<'PY'

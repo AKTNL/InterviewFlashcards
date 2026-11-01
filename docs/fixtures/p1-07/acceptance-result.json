@@ -1,0 +1,41 @@
+{
+  "backup": {
+    "status": "ok",
+    "started_at": "2026-11-01T14:17:07.441898+00:00",
+    "log": "20261101T141707Z-fbd2abfa.log",
+    "label": "auto-20261101T141707Z-fbd2abfa",
+    "finished_at": "2026-11-01T14:17:27.050276+00:00"
+  },
+  "last_backup": {
+    "label": "auto-20261101T141707Z-fbd2abfa",
+    "at": "2026-11-01T14:17:26.827087+00:00"
+  },
+  "last_verified": {
+    "label": "auto-20261101T141707Z-fbd2abfa",
+    "at": "2026-11-01T14:17:53.146770+00:00"
+  },
+  "storage": {
+    "count": 2,
+    "bytes": 6212619,
+    "free_bytes": 249664233472,
+    "unmanaged_or_incomplete": [],
+    "removed": [
+      "auto-20261101T141647Z-8a693009"
+    ]
+  },
+  "verify": {
+    "status": "ok",
+    "started_at": "2026-11-01T14:17:27.124849+00:00",
+    "log": "20261101T141727Z-0d9b33db.log",
+    "label": "auto-20261101T141707Z-fbd2abfa",
+    "finished_at": "2026-11-01T14:17:53.151490+00:00"
+  },
+  "healthy": true,
+  "problems": [],
+  "current_storage": {
+    "count": 2,
+    "bytes": 6212619,
+    "free_bytes": 249664212992,
+    "unmanaged_or_incomplete": []
+  }
+}

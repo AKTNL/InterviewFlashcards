@@ -8,13 +8,21 @@ FC_APP_DIR="${FC_APP_DIR:-/srv/interview-flashcards}"
 FC_APP_DIR="$(cd "$FC_APP_DIR" && pwd -P)"
 FC_LABEL="${1:-server-snapshot-$(date -u +%Y%m%d-%H%M%S)}"
 FC_HOST_NGINX_CONFIG="${FC_HOST_NGINX_CONFIG:-/etc/nginx/sites-available/interview-flashcards}"
+FC_COMPOSE_PROJECT="${FC_COMPOSE_PROJECT:-interview-flashcards}"
+[[ "$FC_COMPOSE_PROJECT" =~ ^[a-z0-9][a-z0-9_-]*$ ]] || { echo 'Invalid Compose project.' >&2; exit 1; }
 
 if [[ ! "$FC_LABEL" =~ ^[a-zA-Z0-9][a-zA-Z0-9_-]{0,100}$ ]]; then
     echo "Invalid snapshot label." >&2
     exit 1
 fi
 
-FC_SNAPSHOT_DIR="$FC_APP_DIR/output/$FC_LABEL"
+FC_SNAPSHOT_ROOT="${FC_SNAPSHOT_ROOT:-$FC_APP_DIR/output}"
+mkdir -p "$FC_APP_DIR/output" "$FC_SNAPSHOT_ROOT"
+FC_SNAPSHOT_ROOT="$(cd "$FC_SNAPSHOT_ROOT" && pwd -P)"
+FC_SNAPSHOT_DIR="$FC_SNAPSHOT_ROOT/$FC_LABEL"
+# Share the lock with manual/automatic snapshots and recovery drills.
+exec 9>"$FC_APP_DIR/output/server-maintenance.lock"
+flock -n 9 || { echo 'Server maintenance is already running.' >&2; exit 1; }
 for FC_REQUIRED in deploy/.env.production deploy/compose.production.yml \
     deploy/nginx.production.conf.template deploy/nginx-application.conf \
     tools/snapshot-fingerprints.sql; do
@@ -25,7 +33,7 @@ command -v docker >/dev/null
 
 mkdir -p "$FC_APP_DIR/output"
 if [[ -e "$FC_SNAPSHOT_DIR" ]]; then
-    test -d "$FC_SNAPSHOT_DIR" || { echo "Snapshot destination is not a directory." >&2; exit 1; }
+    test -d "$FC_SNAPSHOT_DIR" && test ! -L "$FC_SNAPSHOT_DIR" || { echo "Snapshot destination is not a real directory." >&2; exit 1; }
     if [[ -n "$(find "$FC_SNAPSHOT_DIR" -mindepth 1 -maxdepth 1 -print -quit)" ]]; then
         echo "Snapshot directory is not empty; choose a new label." >&2
         exit 1
@@ -36,7 +44,7 @@ fi
 chmod 700 "$FC_SNAPSHOT_DIR"
 
 fcprod() {
-    docker compose -p interview-flashcards \
+    docker compose -p "$FC_COMPOSE_PROJECT" \
         --env-file "$FC_APP_DIR/deploy/.env.production" \
         -f "$FC_APP_DIR/deploy/compose.production.yml" "$@" </dev/null
 }
@@ -52,6 +60,7 @@ fc_finish() {
         fi
     fi
     if [[ "$FC_RESULT" == 0 ]]; then
+        touch "$FC_SNAPSHOT_DIR/SNAPSHOT_COMPLETE"
         printf 'SNAPSHOT_CREATED: %s\n' "$FC_SNAPSHOT_DIR"
     else
         echo "Snapshot was not completed successfully; preserve partial files for inspection." >&2
@@ -97,6 +106,25 @@ if [[ -r "$FC_APP_DIR/release-manifest.json" ]]; then
     cp "$FC_APP_DIR/release-manifest.json" "$FC_SNAPSHOT_DIR/"
 fi
 fcprod images > "$FC_SNAPSHOT_DIR/images.txt"
+# Resolve the running containers, so a later retag cannot silently change the drill.
+for FC_SERVICE in db backend web; do
+    FC_CONTAINER="$(fcprod ps -aq "$FC_SERVICE")"
+    docker inspect --format '{{.Image}}' "$FC_CONTAINER" </dev/null > "$FC_SNAPSHOT_DIR/image-$FC_SERVICE.txt"
+done
+python3 - "$FC_SNAPSHOT_DIR" <<'PY'
+import json
+from pathlib import Path
+import re
+import sys
+root = Path(sys.argv[1])
+pins = {}
+for service in ('db', 'backend', 'web'):
+    image = (root / ('image-' + service + '.txt')).read_text().strip()
+    if not re.fullmatch(r'sha256:[a-f0-9]{64}', image):
+        raise ValueError('Cannot pin running image: ' + service)
+    pins[service] = {'image': image}
+(root / 'compose.images.json').write_text(json.dumps({'services': pins}) + '\n')
+PY
 
 cd "$FC_SNAPSHOT_DIR"
 tar tzf files.tgz >/dev/null

@@ -5,6 +5,12 @@ on:
 permissions:
   contents: read
 jobs:
+  backup-tools:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 -m unittest discover -s tools -p 'test_*.py' -v
+      - run: bash -n tools/server-snapshot.sh tools/check-server-snapshot.sh docs/fixtures/p1-07/rehearse.sh
   frontend:
     runs-on: ubuntu-latest
     defaults:
@@ -126,6 +132,8 @@ jobs:
         run: |
           node docs/fixtures/p0-13/run-browser.cjs persistence
           node docs/fixtures/p0-13/run-browser.cjs destructive
+      - name: Automatic server backup, retention and isolated recovery drill
+        run: bash docs/fixtures/p1-07/rehearse.sh
       - name: Collect redacted diagnostics
         if: always()
         run: docker compose -p flashcards-p013-acceptance --env-file output/p0-13/.env -f deploy/compose.production.yml logs --no-color --tail=200 > output/p0-13/compose.log

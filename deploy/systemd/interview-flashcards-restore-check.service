@@ -1,0 +1,14 @@
+[Unit]
+Description=InterviewFlashcards isolated recovery drill
+After=docker.service interview-flashcards-backup.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=kevin
+UMask=0077
+WorkingDirectory=/srv/interview-flashcards
+ExecStart=/usr/bin/python3 /srv/interview-flashcards/tools/automatic-backup.py verify --config /srv/interview-flashcards/deploy/backup-policy.json
+KillMode=control-group
+TimeoutStartSec=infinity
+TimeoutStopSec=300
