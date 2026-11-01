@@ -78,6 +78,11 @@ class DeckDataIT {
         var cmd=command("RESET");var result=data.confirm(user,deck,cmd);
         assertThat(data.confirm(user,deck,cmd)).isEqualTo(mapper.readTree(result.toString()));
         assertThat(count("review_state",card)).isZero();assertThat(count("review_event",card)).isZero();assertThat(count("review_replay_allowance",card)).isZero();
+        var trends=mapper.valueToTree(app.getBean(com.interviewflashcards.learning.LearningTrendsService.class).trends(user,8,0,20));
+        assertThat(trends.at("/forgotten/total").asInt()).isZero();
+        var resetChapter=java.util.stream.StreamSupport.stream(trends.path("chapters").spliterator(),false)
+            .filter(ch->ch.path("id").asText().equals(chapter.toString())).findFirst().orElseThrow();
+        assertThat(resetChapter.path("learned").asInt()).isZero();
         assertThat(jdbc.queryForMap("select * from review_state where user_id=? and card_id=?",user,otherCard)).isEqualTo(before);
         assertThat(count("personal_annotation",card)).isOne();assertThat(jdbc.queryForObject("select favorite from personal_annotation where user_id=? and card_id=?",Boolean.class,user,card)).isTrue();
         assertThat(data.preview(user,deck).get("counts").toString()).contains("learned=0");
@@ -94,6 +99,9 @@ class DeckDataIT {
         assertThat(jdbc.queryForObject("select count(*) from source_document where user_id=? and id=?",Long.class,user,source)).isOne();
         assertThat(jdbc.queryForObject("select error_code from import_job where user_id=? and source_id=?",String.class,user,source)).isEqualTo("DECK_DELETED");
         assertThat(count("review_state",otherCard)).isOne();assertThat(count("review_event",otherCard)).isOne();
+        var trends=mapper.valueToTree(app.getBean(com.interviewflashcards.learning.LearningTrendsService.class).trends(user,8,0,20));
+        assertThat(trends.path("chapters").size()).isEqualTo(1);
+        assertThat(trends.at("/forgotten/total").asInt()).isZero();
         var snapshot=app.getBean(SyncService.class).snapshot(user,true);assertThat(snapshot.get("revision")).isEqualTo(result.at("/mutation/revision").asLong());
         assertThatThrownBy(()->data.preview(user,deck)).isInstanceOf(ApiFailure.class);
     }

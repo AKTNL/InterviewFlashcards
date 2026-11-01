@@ -1,0 +1,32 @@
+{
+  "date": "2026-11-01",
+  "mode": "local Vite + isolated mocked API; database semantics covered separately by PostgreSQL integration tests",
+  "desktop": {
+    "width": 1440,
+    "scrollWidth": 1440,
+    "tableWidth": 1080
+  },
+  "phone": {
+    "width": 360,
+    "scrollWidth": 360,
+    "tableScrollWidth": 796,
+    "tableClientWidth": 320
+  },
+  "queries": [
+    "?weeks=8&offset=0&limit=20",
+    "?weeks=8&offset=20&limit=20",
+    "?weeks=4&offset=0&limit=20",
+    "?weeks=4&offset=0&limit=20",
+    "?weeks=4&offset=0&limit=20"
+  ],
+  "checks": [
+    "weekly bars and distinct self assessment labels",
+    "chapter before/current deltas including paused chapter",
+    "lifetime lapse links and pagination",
+    "range change resets pagination",
+    "360px local table scrolling without page overflow",
+    "network failure clears stale data and can retry",
+    "empty learning/chapters/lapses states"
+  ],
+  "pageErrors": []
+}

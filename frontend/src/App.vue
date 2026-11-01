@@ -85,6 +85,7 @@ onUnmounted(() => {
       <template v-if="auth.user">
         <RouterLink v-if="auth.user.capabilities?.includes('users.manage') && !auth.user.mustChangePassword" to="/admin">管理后台</RouterLink>
         <RouterLink to="/">今日学习</RouterLink>
+        <RouterLink to="/trends">学习趋势</RouterLink>
         <RouterLink to="/cards">题库</RouterLink>
         <RouterLink to="/shares">题库分享</RouterLink>
         <RouterLink to="/groups">学习小组</RouterLink>

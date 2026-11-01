@@ -381,4 +381,101 @@ class LearningIT {
         assertThatThrownBy(()->learning.start(user,new LearningController.Start(UUID.randomUUID(),UUID.randomUUID(),List.of(cards.getFirst())))).isInstanceOf(ApiFailure.class);
         assertThatThrownBy(()->learning.start(user,new LearningController.Start(UUID.randomUUID(),epoch,List.of(UUID.randomUUID())))).isInstanceOf(ApiFailure.class);
     }
+
+    private JsonNode trends(int weeks,int offset,int limit) {
+        return mapper.valueToTree(app.getBean(LearningTrendsService.class).trends(user,weeks,offset,limit));
+    }
+    @Test void weeklyTrendsDeduplicateDailyLearningAndSeparateAssessmentsAcrossShanghaiMonday() throws Exception {
+        clock.value=Instant.parse("2026-10-25T15:59:00Z"); // Sunday in Shanghai.
+        write(session(0),"RATE","FORGOT");
+        write(session(0),"RATE","REMEMBERED"); // same-day practice, not another new card or review.
+        clock.value=Instant.parse("2026-10-25T16:00:00Z"); // Monday, still Sunday in UTC.
+        write(session(0),"RATE","FORGOT");
+        write(session(0),"RATE","REMEMBERED");
+        write(session(1),"RATE","VAGUE");
+        var t=trends(2,0,20);
+        assertThat(t.path("from").asText()).isEqualTo("2026-10-19");
+        assertThat(t.path("to").asText()).isEqualTo("2026-10-26");
+        assertThat(t.path("learningTimezone").asText()).isEqualTo("Asia/Shanghai");
+        assertThat(t.at("/weeks/0/newCount").asInt()).isEqualTo(1);
+        assertThat(t.at("/weeks/0/reviewCount").asInt()).isZero();
+        assertThat(t.at("/weeks/0/assessments").asInt()).isEqualTo(2);
+        assertThat(t.at("/weeks/1/weekStart").asText()).isEqualTo("2026-10-26");
+        assertThat(t.at("/weeks/1/weekEnd").asText()).isEqualTo("2026-10-26");
+        assertThat(t.at("/weeks/1/newCount").asInt()).isEqualTo(1);
+        assertThat(t.at("/weeks/1/reviewCount").asInt()).isEqualTo(1);
+        assertThat(t.at("/weeks/1/learningDays").asInt()).isEqualTo(1);
+        assertThat(t.at("/weeks/1/assessments").asInt()).isEqualTo(3);
+        assertThat(t.at("/weeks/1/forgot").asInt()).isEqualTo(1);
+        assertThat(t.at("/weeks/1/vague").asInt()).isEqualTo(1);
+        assertThat(t.at("/weeks/1/remembered").asInt()).isEqualTo(1);
+        assertThat(t.at("/forgotten/items/0/lapseCount").asInt()).isEqualTo(2);
+        assertThat(learning.summary(user)).containsEntry("todayNew",1L).containsEntry("todayReview",1L);
+        clock.value=clock.value.plus(Duration.ofDays(1));write(session(0),"RATE","REMEMBERED");
+        assertThat(trends(2,0,20).at("/weeks/1/reviewCount").asInt()).isEqualTo(2);
+    }
+    @Test void trendsRecomputeUndoCorrectionsAndUseAllHistoryForFirstLearning() throws Exception {
+        clock.value=Instant.parse("2026-09-01T04:00:00Z");
+        write(session(0),"RATE","FORGOT");
+        clock.value=Instant.parse("2026-10-31T04:00:00Z");
+        var a=session(0);var b=session(0);
+        var c=command(a,"RATE","REMEMBERED");
+        learning.write(user,UUID.fromString(a.path("id").asText()),c);
+        learning.write(user,UUID.fromString(a.path("id").asText()),c); // exact retry.
+        var conflict=write(b,"RATE","FORGOT").path("conflict");
+        learning.resolve(user,UUID.fromString(conflict.path("id").asText()),resolution(conflict,"CANDIDATE",2));
+        var t=trends(1,0,20);
+        assertThat(t.at("/weeks/0/newCount").asInt()).isZero();
+        assertThat(t.at("/weeks/0/reviewCount").asInt()).isEqualTo(1);
+        assertThat(t.at("/weeks/0/assessments").asInt()).isEqualTo(1);
+        assertThat(t.at("/weeks/0/remembered").asInt()).isZero();
+        assertThat(t.at("/weeks/0/forgot").asInt()).isEqualTo(1);
+        assertThat(t.at("/chapters/0/learnedBefore").asInt()).isEqualTo(1);
+        assertThat(t.at("/forgotten/items/0/lapseCount").asInt()).isEqualTo(2);
+        var scored=write(session(1),"RATE","FORGOT").path("session");
+        write(scored,"UNDO",null);
+        t=trends(1,0,20);
+        assertThat(t.at("/weeks/0/newCount").asInt()).isZero();
+        assertThat(t.at("/forgotten/total").asInt()).isEqualTo(1);
+        assertThat(t.at("/chapters/0/learned").asInt()).isEqualTo(1);
+    }
+    @Test void chapterChangesCompareBaselineAndIncludePausedChaptersAndStableForgottenPagination() throws Exception {
+        clock.value=Instant.parse("2026-10-25T04:00:00Z");
+        write(session(0),"RATE","FORGOT");write(session(1),"RATE","REMEMBERED");
+        clock.value=Instant.parse("2026-10-31T04:00:00Z");
+        write(session(0),"RATE","FORGOT");write(session(0),"RATE","REMEMBERED");
+        write(session(1),"RATE","FORGOT");write(session(2),"RATE","REMEMBERED");
+        prefer(5,20,List.of());
+        var t=trends(1,0,1);var ch=t.at("/chapters/0");
+        assertThat(ch.path("selected").asBoolean()).isFalse();
+        assertThat(ch.path("learnedBefore").asInt()).isEqualTo(2);
+        assertThat(ch.path("learned").asInt()).isEqualTo(3);
+        assertThat(ch.path("weakBefore").asInt()).isEqualTo(1);
+        assertThat(ch.path("weak").asInt()).isEqualTo(1);
+        assertThat(ch.path("remembered").asInt()).isEqualTo(2);
+        assertThat(t.at("/forgotten/total").asInt()).isEqualTo(2);
+        assertThat(t.at("/forgotten/items/0/id").asText()).isEqualTo(cards.get(0).toString());
+        assertThat(trends(1,1,1).at("/forgotten/items/0/id").asText()).isEqualTo(cards.get(1).toString());
+        assertThat(trends(1,2,1).at("/forgotten/items").isEmpty()).isTrue();
+    }
+    @Test void trendsAreReadOnlyPrivateValidatedAndZeroFillEmptyWeeks() throws Exception {
+        var owner=user(new AccountPrincipal(user,"test",""));
+        long revision=jdbc.queryForObject("select revision from app_user where id=?",Long.class,user);
+        var t=trends(8,0,20);
+        assertThat(t.path("weeks").size()).isEqualTo(8);
+        for(var w:t.path("weeks")) assertThat(w.path("assessments").asInt()).isZero();
+        assertThat(t.at("/forgotten/total").asInt()).isZero();
+        assertThat(t.at("/chapters/0/total").asInt()).isEqualTo(3);
+        mvc.perform(get("/api/learning-trends")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/learning-trends").with(owner)).andExpect(status().isOk()).andExpect(jsonPath("$.data.weeks.length()").value(8));
+        for(String query:List.of("weeks=0","weeks=53","weeks=abc","offset=-1","limit=0","limit=101"))
+            mvc.perform(get("/api/learning-trends?"+query).with(owner)).andExpect(status().isBadRequest());
+        write(session(0),"RATE","FORGOT");
+        UUID other=UUID.randomUUID();jdbc.update("insert into app_user(id,username,password_hash) values(?,?,'unused')",other,"other-"+other);
+        mvc.perform(get("/api/learning-trends").with(user(new AccountPrincipal(other,"other",""))))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.data.forgotten.total").value(0)).andExpect(jsonPath("$.data.chapters.length()").value(0));
+        long scoredRevision=jdbc.queryForObject("select revision from app_user where id=?",Long.class,user);
+        trends(1,0,20);assertThat(scoredRevision).isGreaterThan(revision);
+        assertThat(jdbc.queryForObject("select revision from app_user where id=?",Long.class,user)).isEqualTo(scoredRevision);
+    }
 }

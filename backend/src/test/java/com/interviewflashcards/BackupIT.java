@@ -108,6 +108,8 @@ class BackupIT {
     }
     @Test void completeRoundTripKeepsOverdueDatesResourcesHistoryAndIsIdempotent() throws Exception {
         learning.start(user,new LearningController.Start(UUID.randomUUID(),epoch,List.of(card)));
+        var trends=app.getBean(LearningTrendsService.class);
+        var oldTrends=mapper.valueToTree(trends.trends(user,12,0,20));
         UUID export=export();var oldState=jdbc.queryForMap("select due_date,stage,lapse_count from review_state where user_id=?",user);
         var oldFiles=jdbc.queryForList("select storage_key from source_document where user_id=?",UUID.class,user);
         jdbc.update("update personal_annotation set notes='继续学习后的修改' where user_id=?",user);jdbc.update("update app_user set revision=revision+1 where id=?",user);
@@ -117,6 +119,10 @@ class BackupIT {
         assertThat(oldState.get("due_date").toString()).isEqualTo("2026-09-02");
         assertThat(jdbc.queryForObject("select notes from personal_annotation where user_id=?",String.class,user)).isEqualTo("原笔记");
         assertThat(jdbc.queryForObject("select count(*) from review_event where user_id=?",Long.class,user)).isEqualTo(3);
+        var restoredTrends=mapper.valueToTree(trends.trends(user,12,0,20));
+        assertThat(restoredTrends.path("weeks")).isEqualTo(oldTrends.path("weeks"));
+        assertThat(restoredTrends.at("/chapters/0/learned").asInt()).isEqualTo(1);
+        assertThat(restoredTrends.at("/forgotten/items/0/lapseCount").asInt()).isEqualTo(1);
         assertThat(jdbc.queryForObject("select count(*) from review_replay_allowance where user_id=?",Long.class,user)).isEqualTo(1);
         assertThat(jdbc.queryForObject("select question from draft_card where user_id=? and source_entry='q2'",String.class,user)).isEqualTo("未确认修改");
         assertThat(jdbc.queryForObject("select favorite from personal_annotation where user_id=?",Boolean.class,user)).isTrue();

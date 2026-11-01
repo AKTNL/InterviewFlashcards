@@ -342,11 +342,7 @@ public class LearningService {
     public Map<String,Object> summary(UUID user) {
         // Effective history, never increment-only counters; compensation rows are excluded.
         var today=time.today();
-        var counts=jdbc.queryForMap("""
-            with effective as (
-                select e.* from review_event e where e.user_id=? and e.kind in ('RATE','CORRECT')
-                and not exists(select 1 from review_event u where u.user_id=e.user_id and u.undo_of=e.id)
-            ), firsts as (select card_id,min(learning_date) as first_day from effective group by card_id)
+        var counts=jdbc.queryForMap(EffectiveReviews.CTE+"""
             select (select count(*) from review_state where user_id=?) as learned,
             (select count(distinct learning_date) from effective where learning_date between ? and ?) as "weekLearningDays",
             (select count(*) from firsts where first_day=?) as "todayNew",

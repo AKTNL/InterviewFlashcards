@@ -23,7 +23,14 @@ export interface TodayLearning {
   continuing: { id: string; mode: string; remaining: number }[]
 }
 export const learningModes: Record<string, string> = { MIXED: '混合学习', REVIEW: '只复习', NEW: '只学新题', MANUAL: '自主练习' }
+export interface LearningTrends {
+  learningDate: string; learningTimezone: string; from: string; to: string; generatedAt: string
+  weeks: { weekStart: string; weekEnd: string; learningDays: number; newCount: number; reviewCount: number; assessments: number; forgot: number; vague: number; remembered: number }[]
+  chapters: { id: string; name: string; moduleName: string; deckName: string; selected: boolean; total: number; learnedBefore: number; learned: number; weakBefore: number; weak: number; forgot: number; vague: number; remembered: number; newCount: number; reviewCount: number; assessments: number }[]
+  forgotten: { items: { id: string; question: string; chapterName: string; moduleName: string; deckName: string; lapseCount: number; latestRating: string; dueDate: string }[]; total: number; offset: number; limit: number }
+}
 export const learningApi = {
+  trends: async (weeks = 8, offset = 0) => (await request<LearningTrends>(`/api/learning-trends?weeks=${weeks}&offset=${offset}&limit=20`)).data,
   session: async (id: string) => (await request<LearningSession>(`/api/learning-sessions/${id}`)).data,
   today: async () => (await request<TodayLearning>('/api/today')).data,
 }

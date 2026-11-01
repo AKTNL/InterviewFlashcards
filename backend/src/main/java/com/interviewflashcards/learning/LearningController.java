@@ -12,7 +12,13 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-public record LearningController(LearningService learning, ApiResponses responses) {
+public record LearningController(LearningService learning, LearningTrendsService trends, ApiResponses responses) {
+    @GetMapping("/api/learning-trends")
+    public ApiResponse<?> trends(@AuthenticationPrincipal AccountPrincipal user,
+        @RequestParam(defaultValue="8") int weeks,@RequestParam(defaultValue="0") int offset,
+        @RequestParam(defaultValue="20") int limit,HttpServletRequest request) {
+        return responses.success(trends.trends(user.id(),weeks,offset,limit),request);
+    }
     public record Start(@NotNull UUID operationId,@NotNull UUID dataEpoch,
                         @NotEmpty @Size(max=100) List<@NotNull UUID> cardIds) {}
     public record Write(@NotNull UUID operationId,@NotNull UUID dataEpoch,

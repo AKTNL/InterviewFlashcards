@@ -43,7 +43,7 @@ onSyncRefresh(load)
 </script>
 <template>
   <section class="today-panel" aria-labelledby="today-title">
-    <div class="list-heading"><div><p class="eyebrow">TODAY · 今日学习</p><h1 id="today-title">今天，从一次回忆开始。</h1></div><RouterLink to="/settings">学习设置</RouterLink></div>
+    <div class="list-heading"><div><p class="eyebrow">TODAY · 今日学习</p><h1 id="today-title">今天，从一次回忆开始。</h1></div><div class="sync-actions"><RouterLink to="/trends">学习趋势</RouterLink><RouterLink to="/settings">学习设置</RouterLink></div></div>
     <p v-if="error" role="alert" class="form-error">{{ error }}</p>
     <p v-if="loading" role="status">正在读取今日计划…</p>
     <template v-if="today">
