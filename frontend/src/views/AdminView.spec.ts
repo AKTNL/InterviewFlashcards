@@ -17,13 +17,13 @@ beforeEach(() => {
   vi.mocked(adminWrite).mockResolvedValue({ data: true, meta })
 })
 afterEach(() => { wrappers.splice(0).forEach(w => w.unmount()); vi.restoreAllMocks(); vi.useRealTimers() })
-async function view(selected = false) { const w = mount(AdminView); wrappers.push(w); await flushPromises(); if (selected) { await w.findAll('button').find(b => b.text() === '管理与审计')!.trigger('click'); await flushPromises() } return w }
+async function view(selected = false) { const w = mount(AdminView, { global: { stubs: { AdminDashboard: true } } }); wrappers.push(w); await flushPromises(); if (selected) { await w.findAll('button').find(b => b.text() === '管理与审计')!.trigger('click'); await flushPromises() } return w }
 it('queries by name status and permission and distinguishes uncollected metrics', async () => {
   const w = await view(); await w.get('.admin-filters input').setValue('friend'); await w.get('.admin-filters select').setValue('DISABLED'); await w.get('.admin-filters').trigger('submit'); await flushPromises()
   expect(vi.mocked(getAdminUsers).mock.calls.at(-1)![0].get('search')).toBe('friend')
   expect(vi.mocked(getAdminUsers).mock.calls.at(-1)![0].get('state')).toBe('DISABLED')
   await w.findAll('button').find(b => b.text() === '权限管理')!.trigger('click'); expect(w.text()).toContain('注册：关闭'); expect(w.text()).toContain('页面只读')
-  await w.findAll('button').find(b => b.text() === 'Dashboard')!.trigger('click'); expect(w.text()).toContain('在线时长尚未采集')
+  await w.findAll('button').find(b => b.text() === 'Dashboard')!.trigger('click'); expect(w.find('admin-dashboard-stub').exists()).toBe(true)
 })
 it('requires confirmation and the current version for disabling and permission changes', async () => {
   const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false); const w = await view(true)

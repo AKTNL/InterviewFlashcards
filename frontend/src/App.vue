@@ -5,6 +5,7 @@ import { useAuthStore } from './stores/auth'
 import { ApiError } from './api/client'
 import { useSyncStore } from './stores/sync'
 import SyncPanel from './components/SyncPanel.vue'
+import UsageCollector from './components/UsageCollector.vue'
 
 const auth = useAuthStore()
 const sync = useSyncStore()
@@ -98,10 +99,11 @@ onUnmounted(() => {
     </nav>
   </header>
   <main id="main" tabindex="-1">
+    <UsageCollector />
     <p v-if="logoutError" role="alert" class="form-error">{{ logoutError }}</p>
     <p v-if="epochNotice" role="status" class="notice">{{ epochNotice }}</p>
     <RouterView :key="`${auth.user?.id ?? 'guest'}:${sync.state?.dataEpoch ?? auth.user?.dataEpoch ?? 'initial'}`" />
     <SyncPanel v-if="auth.user && !auth.user.mustChangePassword" />
   </main>
-  <footer class="site-footer">每一次主动回忆，都让知识多留一会儿。</footer>
+  <footer class="site-footer">每一次主动回忆，都让知识多留一会儿。<p v-if="auth.user">使用统计仅采集前台活动时间；管理员可见登录、活跃、去重时长、学习量和存储汇总，不含私人内容。无交互超过 5 分钟停止计时。</p></footer>
 </template>

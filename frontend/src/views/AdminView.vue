@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from 'vue'
 import AdminLibrary from '../components/AdminLibrary.vue'
+import AdminDashboard from '../components/AdminDashboard.vue'
 import { ApiError } from '../api/client'
 import { useAuthStore } from '../stores/auth'
 import { adminWrite, getAdminUsers, getAdminDetail, getAdminConfiguration, type AdminUser, type AdminDetail, type Configuration } from '../api/admin'
@@ -124,7 +125,7 @@ onUnmounted(() => { alive = false; ++serial; ++selection; initial.value = ''; re
       </section>
     </template>
     <AdminLibrary v-else-if="tab === 'library'" @dirty="libraryDirty = $event" />
-    <section v-else class="admin-box"><h2>Dashboard 与使用汇总</h2><p>全站与逐用户使用统计将在 P1-14 实现。在线时长尚未采集。</p></section>
+    <AdminDashboard v-else />
   </section>
 </template>
 

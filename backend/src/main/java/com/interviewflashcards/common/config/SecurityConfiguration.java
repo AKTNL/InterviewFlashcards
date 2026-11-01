@@ -19,7 +19,7 @@ public class SecurityConfiguration {
     PasswordEncoder passwordEncoder() { return new BCryptPasswordEncoder(12); }
 
     @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http, ApiResponses responses, AccountService accounts, org.springframework.jdbc.core.JdbcTemplate jdbc) throws Exception {
+    SecurityFilterChain securityFilterChain(HttpSecurity http, ApiResponses responses, AccountService accounts, org.springframework.jdbc.core.JdbcTemplate jdbc, com.interviewflashcards.admin.UsageService usage) throws Exception {
         return http
                 .addFilterBefore(new com.interviewflashcards.auth.AuthGuardFilter(jdbc,responses), org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter.class)
                 .authorizeHttpRequests(auth -> auth
@@ -40,6 +40,7 @@ public class SecurityConfiguration {
                                 responses.writeError(ErrorCode.BAD_CREDENTIALS, request, response))
                         .permitAll())
                 .logout(logout -> logout.logoutUrl("/api/auth/logout")
+                        .addLogoutHandler((request,response,authentication) -> { var session=request.getSession(false);if(session!=null)usage.endSession(session.getId()); })
                         .deleteCookies("JSESSIONID")
                         .logoutSuccessHandler((request, response, authentication) -> {
                             response.setContentType("application/json");

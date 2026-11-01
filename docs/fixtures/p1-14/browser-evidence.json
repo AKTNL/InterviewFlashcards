@@ -1,0 +1,17 @@
+{
+  "date": "2026-11-01",
+  "environment": "local, isolated p114_browser_final schema",
+  "humanAccounts": 3,
+  "foregroundObservationSeconds": 36,
+  "foregroundHeartbeats": 2,
+  "activityFields": ["streamId", "sequence", "active"],
+  "ordinaryUserDashboardHttpStatus": 403,
+  "stopHeartbeatOnLogout": true,
+  "activeUserSecondsAfterLogout": 34.873939,
+  "activeUserLoginEnded": true,
+  "zeroUseUserSeconds": 0,
+  "phoneViewportWidth": 390,
+  "phoneDocumentScrollWidth": 390,
+  "zeroUserDailySummary": true,
+  "usernameSearch": true
+}
