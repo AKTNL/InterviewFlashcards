@@ -1,0 +1,44 @@
+{
+  "date": "2026-11-01",
+  "mode": "local Vite + mocked API + real 222-page PDF; no deployed database",
+  "desktop": {
+    "width": 1280,
+    "theme": "dark",
+    "fontSize": 24,
+    "position": {
+      "before": {
+        "y": 11262,
+        "anchor": 384.859375
+      },
+      "after": {
+        "y": 11296,
+        "anchor": 385.296875
+      }
+    }
+  },
+  "phone": {
+    "viewport": 390,
+    "width": 390,
+    "font": "24px"
+  },
+  "checks": [
+    "default hidden answer",
+    "Space/H shortcuts without writes",
+    "font and theme survive PDF return and reload",
+    "follow-up and source position restore",
+    "editor input does not toggle or score",
+    "390px no page overflow",
+    "shortcut opt-out",
+    "new practice starts hidden",
+    "practice PDF returns to same item",
+    "numeric rating uses existing queue exactly once"
+  ],
+  "writes": [
+    {
+      "action": "RATE",
+      "rating": "VAGUE",
+      "answerRevealed": true
+    }
+  ],
+  "pageErrors": []
+}

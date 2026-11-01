@@ -6,6 +6,7 @@ import { cardsApi, ratings, type CardDetail } from '../api/cards'
 import { importsApi, type Draft } from '../api/imports'
 import { useSyncStore } from '../stores/sync'
 import CardAnswer from '../components/CardAnswer.vue'
+import ReadingPane from '../components/ReadingPane.vue'
 import DraftFields from '../components/DraftFields.vue'
 const route = useRoute(), sync = useSyncStore()
 const card = ref<CardDetail>(), error = ref(''), message = ref(''), loading = ref(false), answer = ref(false), hint = ref(false)
@@ -72,11 +73,12 @@ onSyncRefresh(load)
   <RouterLink to="/cards">← 返回题库</RouterLink>
   <p v-if="error" role="alert" class="form-error">{{ error }} <button class="secondary-button" @click="load">重试读取</button></p>
   <p v-if="loading" role="status">正在读取卡片…</p>
-  <article v-if="card" class="card-detail chapter-review">
+  <ReadingPane v-if="card" :key="card.id" v-model:answer="answer" v-model:hint="hint" :position-key="`card:${card.id}:${card.displayRevision}`" :enabled="!editor && !loading && !saving && !error">
+  <article class="card-detail chapter-review">
     <p class="eyebrow">{{ card.deckName }} / {{ card.moduleName }} / {{ card.chapterName }}</p><h1>{{ card.question }}</h1>
     <RouterLink :to="{ path: '/practice', query: { cards: card.id } }" class="primary-button">主动回忆与评分</RouterLink>
     <p v-if="card.needsCheck" role="note" class="check-reminder">待检查：此卡片仍需对照原文核对。</p>
-    <details v-if="card.needsCheck"><summary>待检查原因（{{ card.flags.length }} 处）</summary><ul><li v-for="(flag, i) in card.flags" :key="i">{{ flag.reason }}</li></ul></details>
+    <details v-if="card.needsCheck" data-reading-detail><summary>待检查原因（{{ card.flags.length }} 处）</summary><ul><li v-for="(flag, i) in card.flags" :key="i">{{ flag.reason }}</li></ul></details>
     <p v-if="card.parentCardId" class="form-note">由关联主问题人工拆分：<RouterLink :to="`/cards/${card.parentCardId}`">查看原卡片</RouterLink></p>
     <p>适用版本：{{ card.applicableVersion || '未知（未填写）' }} <span v-for="tag in card.tags" :key="tag" class="card-tag">{{ tag }}</span></p>
     <p class="form-note">{{ card.review.learned ? '已学' : '未学' }}{{ card.review.latestRating ? ` · 最近${ratings[card.review.latestRating]}` : '' }}{{ card.review.dueDate ? ` · 复习日期 ${card.review.dueDate}` : '' }}{{ card.review.lapseCount !== null ? ` · 遗忘 ${card.review.lapseCount} 次` : '' }} · 仅浏览不计入学习</p>
@@ -85,9 +87,9 @@ onSyncRefresh(load)
     <section v-if="answer" class="draft-preview" aria-label="完整答案">
       <h2>完整答案</h2><CardAnswer :key="card.id" :card="card" />
       <aside v-if="card.technicalCorrection" class="technical-correction"><h3>个人技术纠错（人工补充）</h3><p class="prose-text">{{ card.technicalCorrection }}</p><p class="form-note">此内容由个人整理，请与下方 PDF 原文核对。</p></aside>
-      <details><summary>核对原始提取内容（保留未覆盖）</summary><CardAnswer :card="card" original /></details>
+      <details data-reading-detail><summary>核对原始提取内容（保留未覆盖）</summary><CardAnswer :card="card" original /></details>
     </section>
-    <details v-for="(followup, i) in card.followups" :key="`${card.id}-${i}`" class="followup"><summary>追问 {{ i + 1 }}：{{ followup.title }}</summary><pre class="source-text">{{ followup.text }}</pre><p class="form-note">来源：物理页 {{ followup.page }}</p></details>
+    <details v-for="(followup, i) in card.followups" :key="`${card.id}-${i}`" class="followup" data-reading-detail><summary>追问 {{ i + 1 }}：{{ followup.title }}</summary><pre class="source-text">{{ followup.text }}</pre><p class="form-note">来源：物理页 {{ followup.page }}</p></details>
     <section class="card-sources" aria-label="全部来源范围"><h2>原文核对 · {{ card.sources.length }} 段来源</h2><ol><li v-for="(source, i) in card.sources" :key="i"><RouterLink :to="{ path: `/sources/${source.sourceId}/read`, query: { page: source.page, bbox: source.bbox.join(','), card: card.id } }">{{ source.name }} · 物理页 {{ source.page }} · 范围 {{ i + 1 }}</RouterLink><small class="form-note">（左上角坐标 {{ source.bbox.map(n => n.toFixed(1)).join(', ') }}）</small></li></ol></section>
     <section aria-label="个人笔记"><h2>个人笔记</h2><p class="prose-text">{{ card.annotation.notes || '记下自己的表达、例子和容易遗漏的地方。' }}</p></section>
     <p v-if="message" role="status">{{ message }}</p><p v-if="outstanding" class="notice">此卡片有待同步或待处理的编辑，请先在“保存与同步”核对。</p>
@@ -103,4 +105,5 @@ onSyncRefresh(load)
       <div class="sync-actions"><button class="primary-button" :disabled="saving || outstanding || !dirty">保存编辑</button><button type="button" class="secondary-button" :disabled="saving" @click="cancel">取消编辑</button></div>
     </form>
   </article>
+  </ReadingPane>
 </template>

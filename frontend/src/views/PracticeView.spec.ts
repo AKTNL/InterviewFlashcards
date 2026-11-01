@@ -28,6 +28,16 @@ it('hides ratings and answer until revealed; viewing hints never submits', async
   await button('查看提示与要点').trigger('click');expect(wrapper.text()).toContain('隐藏提示');expect(enqueue).not.toHaveBeenCalled()
   await button('展开完整答案').trigger('click');expect(wrapper.text()).toContain('完整答案尾部');expect(button('不会')).toBeDefined();expect(wrapper.text()).toContain('待检查')
 })
+it('uses keyboard ratings through the existing write guard and refuses rapid or pending duplicate submissions', async () => {
+  const { wrapper, sync, enqueue } = await view()
+  const key = (value: string) => window.dispatchEvent(new KeyboardEvent('keydown', { key: value, cancelable: true }))
+  key('1'); expect(enqueue).not.toHaveBeenCalled()
+  key(' '); await flushPromises(); expect(wrapper.text()).toContain('完整答案尾部')
+  key('2'); key('3'); await flushPromises()
+  expect(enqueue).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ action: 'RATE', payload: expect.objectContaining({ rating: 'VAGUE', answerRevealed: true }) }))
+  sync.items = [{ ...enqueue.mock.calls[0]![0], operationId: 'keyboard-score', userId: 'user', dataEpoch: 'epoch', status: 'pending', attempts: 0, createdAt: 1, nextAttemptAt: 0 }]
+  await flushPromises(); key('1'); expect(enqueue).toHaveBeenCalledTimes(1)
+})
 it('retains the revealed answer while waiting for the initial sync before scoring', async () => {
   const { wrapper, sync, enqueue, button } = await view()
   await button('展开完整答案').trigger('click')

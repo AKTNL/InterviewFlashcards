@@ -6,6 +6,7 @@ import { cardsApi, ratings, type CardDetail } from '../api/cards'
 import { learningApi, type LearningSession } from '../api/learning'
 import { useSyncStore } from '../stores/sync'
 import CardAnswer from '../components/CardAnswer.vue'
+import ReadingPane from '../components/ReadingPane.vue'
 
 const route = useRoute(), router = useRouter(), sync = useSyncStore()
 const session = ref<LearningSession>(), card = ref<CardDetail>(), answer = ref(false), hint = ref(false)
@@ -107,7 +108,8 @@ onSyncRefresh(load)
     <p v-else-if="session.expired" role="alert">会话已跨天，请返回今日学习重新生成计划，按新学习日核算额度和到期题，已保存的记录会保留。</p>
     <p v-if="session.items.some(i => i.unavailable)" class="notice">已跳过暂停章节、已由其他会话处理或超出今日新题额度的条目。</p>
     <p v-if="session.current && session.current.currentVersion !== session.current.expectedVersion" role="alert">此题已有后续学习。请读取最新状态并返回题库重新进入练习。</p>
-    <article v-if="card && session.current" class="card-detail">
+    <ReadingPane v-if="card && session.current" :key="session.current.id" v-model:answer="answer" v-model:hint="hint" :position-key="`practice:${session.id}:${session.current.id}:${session.current.expectedVersion}:${card.displayRevision}`" :enabled="!loading && !error && !session.expired && session.status !== 'INVALIDATED'" :can-rate="!blocked" @rate="write('RATE', $event)">
+    <article class="card-detail">
       <p class="eyebrow">{{ card.moduleName }} / {{ card.chapterName }}{{ session.current.isReplay ? ' · 本轮追加重练（可跳过）' : '' }}</p>
       <h2>{{ card.question }}</h2><p v-if="card.needsCheck" class="check-reminder">待检查：请继续对照来源核对。</p>
       <p v-if="session.review">最近{{ ratings[session.review.latestRating] }} · 下次复习 {{ session.review.dueDate }} · 遗忘 {{ session.review.lapseCount }} 次</p>
@@ -116,13 +118,14 @@ onSyncRefresh(load)
       <aside v-if="hint"><p class="prose-text">{{ card.annotation.hint || '尚未填写提示' }}</p><p class="prose-text">{{ card.annotation.memoryPoints }}</p><p class="form-note">使用提示后请按独立回忆程度评分。</p></aside>
       <section v-if="answer" aria-label="完整答案" class="draft-preview"><CardAnswer :card="card" />
         <aside v-if="card.technicalCorrection" class="technical-correction"><h3>个人技术纠错（人工补充）</h3><p class="prose-text">{{ card.technicalCorrection }}</p></aside>
-        <details v-for="(f, index) in card.followups" :key="`${card.id}-${index}`" class="followup"><summary>追问：{{ f.title }}</summary><pre class="source-text">{{ f.text }}</pre></details>
+        <details v-for="(f, index) in card.followups" :key="`${card.id}-${index}`" class="followup" data-reading-detail><summary>追问：{{ f.title }}</summary><pre class="source-text">{{ f.text }}</pre></details>
       </section>
       <div v-if="answer" class="sync-actions" aria-label="三档自评"><button v-for="(label, rating) in ratings" :key="rating" class="primary-button" :disabled="blocked || !card" @click="write('RATE', String(rating))">{{ label }}</button></div>
       <p v-else class="form-note">回忆完成后展开完整答案，即可进行三档自评。</p>
-      <details><summary>个人笔记与来源核对</summary><p class="prose-text">{{ card.annotation.notes }}</p><ul><li v-for="(source, index) in card.sources" :key="index"><RouterLink :to="{ path: `/sources/${source.sourceId}/read`, query: { page: source.page, bbox: source.bbox.join(','), card: card.id } }">{{ source.name }} · 物理页 {{ source.page }}</RouterLink></li></ul></details>
+      <details data-reading-detail><summary>个人笔记与来源核对</summary><p class="prose-text">{{ card.annotation.notes }}</p><ul><li v-for="(source, index) in card.sources" :key="index"><RouterLink :to="{ path: `/sources/${source.sourceId}/read`, query: { page: source.page, bbox: source.bbox.join(','), card: card.id, session: session.id } }">{{ source.name }} · 物理页 {{ source.page }}</RouterLink></li></ul></details>
       <div class="sync-actions"><button v-if="session.current.isReplay" class="secondary-button" :disabled="blocked" @click="write('SKIP')">跳过重练</button><button v-if="session.review" class="secondary-button" :disabled="blocked" @click="write('RELEARN')">重新学习此题</button></div>
     </article>
+    </ReadingPane>
     <p v-else-if="!session.current && session.status !== 'INVALIDATED'" role="status">本轮练习结束。已保存的评分将用于后续复习安排。</p>
     <section v-if="!session.current && session.round && session.status !== 'INVALIDATED'" aria-label="本轮回顾"><h2>本轮回顾</h2><p>本轮结束表示本批条目已处理，不代表全部题目已经掌握。首页可查看剩余到期题并开始下一轮。</p><ul><li v-for="c in session.round.attention" :key="c.id"><RouterLink :to="`/cards/${c.id}`">{{ c.question }}</RouterLink> · 最近{{ ratings[c.latestRating] }} · 遗忘 {{ c.lapseCount }} 次</li></ul><RouterLink to="/">返回今日学习，查看剩余任务</RouterLink></section>
     <p v-if="session.events.length && !session.canUndo" class="form-note">此记录已有后续操作，当前不能直接撤销。</p>

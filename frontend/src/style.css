@@ -239,3 +239,23 @@ summary { display: list-item; cursor: pointer; padding-block: .6rem; }
   [aria-label="三档自评"] button { min-height: 48px; padding-inline: .5rem; }
 }
 .share-hash { overflow-wrap: anywhere; }
+
+/* P1-01: reading surfaces are independent of navigation and editing layouts. */
+.reading-pane { --surface: #fff; --reading-bg: #fafbf8; --reading-text: #253b36; --reading-muted: #5c7067; --reading-soft: #edf1e7; --border: #d8ded9; color-scheme: light; background: var(--reading-bg); color: var(--reading-text); border: 1px solid var(--border); border-radius: 12px; padding: clamp(12px, 3vw, 28px); margin-block: 24px; min-width: 0; overflow-wrap: anywhere; }
+.reading-pane[data-theme="sepia"] { --surface: #faf1dd; --reading-bg: #f4ead3; --reading-text: #453b2c; --reading-muted: #716049; --reading-soft: #e9dfc7; --border: #cabc9f; }
+.reading-pane[data-theme="dark"] { color-scheme: dark; --surface: #232d29; --reading-bg: #1b2420; --reading-text: #e2ebe4; --reading-muted: #b0c3b5; --reading-soft: #303e35; --border: #607568; }
+.reading-pane .source-text, .reading-pane .prose-text { font-size: var(--reading-font-size); line-height: 1.9; }
+.reading-pane .source-text, .reading-pane .technical-correction, .reading-pane .card-tag { background: var(--reading-soft); color: var(--reading-text); }
+.reading-pane .eyebrow, .reading-pane .form-note, .reading-pane .notice { color: var(--reading-muted); }
+.reading-pane .source-block, .reading-pane .followup { border-color: var(--border); }
+.reading-pane .secondary-button { color: var(--reading-text); border-color: var(--border); }
+.reading-pane .secondary-button:hover { background: var(--reading-soft); }
+.reading-pane .primary-button { color: #fff; background: #35543f; border-color: #789b83; }
+.reading-pane .source-page-image { aspect-ratio: 1 / 1.414; object-fit: contain; background: #fff; }
+.reading-settings { font-size: 14px; border-bottom: 1px solid var(--border); padding-bottom: 12px; }
+.reading-settings summary { cursor: pointer; min-height: 44px; padding-block: 10px; }
+.reading-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 12px 20px; }
+.reading-controls label { display: flex; align-items: center; gap: 8px; min-height: 44px; }
+.reading-controls select { min-height: 44px; max-width: 100%; padding: 6px 10px; font: inherit; background: var(--surface); color: var(--reading-text); border: 1px solid var(--border); border-radius: 6px; }
+.reading-notice { color: var(--reading-muted); font-size: 13px; }
+.reading-pane .review-editor { --surface: #fff; --reading-text: #253b36; --reading-muted: #5c7067; --reading-soft: #edf1e7; --border: #d8ded9; color-scheme: light; color: var(--reading-text); }
